@@ -1,0 +1,42 @@
+<style>
+    /* สกอร์บาร์ที่ดูเรียบหรู (Scrollbar) */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    body { background-color: #f8fafb; }
+    
+    /* สไตล์สำหรับตารางจัดการกะงาน (Grid Calendar Styles) */
+    .grid-schedule { display: grid; grid-template-columns: 220px repeat(7, minmax(200px, 1fr)); overflow-x: auto; }
+    .shift-card { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,0.03); border-radius: 6px; }
+    .shift-card:active { cursor: grabbing; }
+    .shift-card.dragging { opacity: 0.6; transform: scale(0.96); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .drag-over { background-color: #f0f4f8 !important; border: 1.5px dashed #3d5a6c !important; }
+    .shift-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.08); }
+    
+    /* สไตล์สำหรับตารางจัดการข้อมูลหลัก (Table Styles) */
+    .data-table th { @apply px-5 py-3 border-b border-gray-200 bg-zenGray text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider sticky top-0 z-10; }
+    .data-table td { @apply px-5 py-3 border-b border-gray-100 text-[13px] text-gray-700; }
+    .data-table tr:hover td { @apply bg-gray-50 transition-colors; }
+    
+    /* แอนิเมชันสำหรับหน้าโหลดและแจ้งเตือน */
+    #loadingOverlay { backdrop-filter: blur(4px); transition: opacity 0.3s ease; }
+    .toast-enter { transform: translateY(100%); opacity: 0; }
+    .toast-active { transform: translateY(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    
+    /* แถบเมนูและการสลับหน้า */
+    .nav-active { border-bottom: 2px solid #3d5a6c; color: #3d5a6c; font-weight: 500; }
+    .nav-inactive { border-bottom: 2px solid transparent; color: #64748b; }
+    .nav-inactive:hover { color: #3d5a6c; }
+    .view-container { display: none; height: 100%; flex-direction: column; }
+    .view-container.active { display: flex; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* สไตล์สำหรับเมนูด้านซ้ายในหน้าจัดการ Master Data */
+    .manage-tab-active { @apply bg-brandLight text-brand shadow-sm border border-brand/10; }
+    .manage-tab-inactive { @apply text-gray-600 hover:bg-gray-100 border border-transparent; }
+    
+    /* ซ่อนลูกศร drop-down แบบเก่าสำหรับ input ธรรมดา (สำหรับ Datalist ที่อยู่) */
+    input::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
+</style>
