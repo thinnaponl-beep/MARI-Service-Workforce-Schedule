@@ -128,8 +128,8 @@
     <!-- 🌟 2. Main Content Area ฝั่งขวา -->
     <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
         
-        <!-- Global Top Header -->
-        <header class="h-[76px] bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
+        <!-- Global Top Header (แก้ z-index เพื่อให้อยู่บนตาราง) -->
+        <header class="h-[76px] bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0 z-[60] shadow-sm relative">
             <div class="flex items-center gap-4">
                 <button onclick="toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition" title="ซ่อน/แสดง เมนู">
                     <i class="fa-solid fa-bars text-lg"></i>
@@ -153,7 +153,8 @@
                         <img src="https://ui-avatars.com/api/?name=U&background=3d5a6c&color=fff" id="currentUserAvatar" alt="User" class="w-full h-full object-cover">
                     </div>
                     
-                    <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+                    <!-- เมนูดรอปดาวน์ (แก้ z-index ให้อยู่บนสุด) -->
+                    <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[70] overflow-hidden">
                         <button onclick="logout()" class="w-full text-left px-4 py-3 text-[13px] text-red-600 font-bold hover:bg-red-50 transition-colors flex items-center gap-3">
                             <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
                         </button>
@@ -448,8 +449,8 @@
     </script>
 
 
-    <!-- 💡 Modal: Shift (กว้าง 900px เพื่อโชว์ Timeline ฝั่งขวา) -->
-    <div id="shiftModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-50 hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <!-- 💡 Modal: Shift (แก้ z-index ให้อยู่เหนือ Header) -->
+    <div id="shiftModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[900px] overflow-hidden flex flex-col max-h-[90vh] transform transition-transform">
             
             <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
@@ -470,20 +471,23 @@
 
                     <!-- การตั้งค่าวันที่ -->
                     <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">รูปแบบการจัดกะ</label>
-                                <select id="modalDateType" onchange="toggleRecurringUI()" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <div class="flex-1">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5 flex justify-between">
+                                    <span>รูปแบบการจัดกะ</span>
+                                    <span id="modalDateTypeLock" class="text-[10px] text-gray-400 font-normal hidden"><i class="fa-solid fa-lock"></i> ล็อกเมื่อแก้ไข</span>
+                                </label>
+                                <select id="modalDateType" onchange="toggleRecurringUI()" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition disabled:bg-gray-200 disabled:text-gray-500">
                                     <option value="single">วันเดียว (Single Date)</option>
                                     <option value="range">ช่วงวัน (Date Range)</option>
                                     <option value="weekly">ทำซ้ำรายสัปดาห์ (Weekly)</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="flex-1">
                                 <label class="block text-[12px] font-bold text-gray-600 mb-1.5" id="lblModalDate">วันที่ <span class="text-red-500">*</span></label>
                                 <input type="date" id="modalDate" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition">
                             </div>
-                            <div id="containerEndDate" class="hidden">
+                            <div id="containerEndDate" class="flex-1 hidden">
                                 <label class="block text-[12px] font-bold text-gray-600 mb-1.5">ถึงวันที่ <span class="text-red-500">*</span></label>
                                 <input type="date" id="modalEndDate" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition">
                             </div>
@@ -524,14 +528,19 @@
                                 <option value="completed">💚 ทำงานเสร็จสมบูรณ์ (Completed)</option>
                                 <option value="absent">🔴 แม่บ้านขาด/ไม่มา (Absent)</option>
                                 <option value="cancelled">⚪ ยกเลิก Shift (Cancelled)</option>
-                                <option value="substituted">🧡 เปลี่ยนตัวแม่บ้าน (Substituted)</option>
                             </select>
                         </div>
                     </div>
 
                     <!-- พนักงาน -->
                     <div>
-                        <label class="block text-[13px] font-bold text-gray-600 mb-1.5">แม่บ้านที่มอบหมาย <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400">(กรณีเปลี่ยนตัว ให้เอาติ๊กคนเก่าออก แล้วเลือกคนใหม่แทน)</span></label>
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-1.5 gap-2">
+                            <label class="block text-[13px] font-bold text-gray-600">แม่บ้านที่มอบหมาย <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400">(กรณีเปลี่ยนตัว ให้เอาติ๊กคนเก่าออก แล้วเลือกคนใหม่แทน)</span></label>
+                            <div class="relative w-full sm:w-56 shrink-0">
+                                <i class="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-[11px]"></i>
+                                <input type="text" id="hkSearchInput" onkeyup="filterModalHks()" placeholder="ค้นหาชื่อแม่บ้าน..." class="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-md text-[12px] focus:border-brand outline-none transition shadow-sm">
+                            </div>
+                        </div>
                         <div class="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 shadow-inner custom-scrollbar" id="modalHkList"></div>
                     </div>
 
@@ -558,95 +567,104 @@
         </div>
     </div>
 
-    <!-- Modal: Client -->
-    <div id="clientModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-50 hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <!-- 💡 Modal: Client (แก้ z-index ให้อยู่เหนือ Header) -->
+    <div id="clientModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
                 <h3 class="text-lg font-black text-brand" id="modalClientTitle">ข้อมูลไซต์งาน (Client Profile)</h3>
                 <button onclick="closeModal('clientModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="p-7 flex-grow overflow-y-auto grid grid-cols-1 lg:grid-cols-3 gap-8 bg-gray-50/30 custom-scrollbar">
-                <input type="hidden" id="clientId">
+            <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <input type="hidden" id="clientId">
+                    
+                    <!-- คอลัมน์ 1: ข้อมูลทั่วไป -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-regular fa-building mr-1"></i> ข้อมูลทั่วไป</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อไซต์งาน / ลูกค้า <span class="text-red-500">*</span></label>
+                            <input type="text" id="clientName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทลูกค้า</label>
+                            <select id="clientType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="B2B">องค์กร / บริษัท (B2B)</option>
+                                <option value="B2C">ที่พักอาศัย (B2C)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สีบนตาราง (Auto Random)</label>
+                            <input type="color" id="clientColor" value="#3d5a6c" class="w-full h-[40px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                        </div>
+                    </div>
+
+                    <!-- คอลัมน์ 2: ข้อมูลที่ตั้ง -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-map-location-dot mr-1"></i> ข้อมูลที่ตั้ง</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ที่อยู่ (บ้านเลขที่, อาคาร, ซอย, ถนน)</label>
+                            <input type="text" id="clientAddressDetail" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">จังหวัด <span class="text-red-500">*</span></label>
+                            <select id="clientProvince" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">อำเภอ / เขต <span class="text-red-500">*</span></label>
+                            <select id="clientDistrict" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ตำบล / แขวง</label>
+                                <select id="clientTambon" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสไปรษณีย์</label>
+                                <input type="text" id="clientZipcode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand bg-gray-100 shadow-sm" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- คอลัมน์ 3: การติดต่อและสัญญา -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-file-contract mr-1"></i> การติดต่อ & สัญญา</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ติดต่อหลัก / เบอร์โทร</label>
+                            <input type="text" id="clientContact" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะสัญญา</label>
+                            <select id="clientStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="Active">Active (ยังดำเนินงาน)</option>
+                                <option value="Pending">Pending (รอยืนยัน)</option>
+                                <option value="Expired">Expired (หมดสัญญา)</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานที่ตกลงต่อสัปดาห์/เดือน">ชม. ทำงาน(สัญญา)</label>
+                                <input type="number" id="clientContractHours" placeholder="ระบุ ชม." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="จำนวนแม่บ้านที่ต้องการต่อวัน/กะ">จำนวน พนง./กะ</label>
+                                <input type="number" id="clientReqStaff" value="1" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 💡 เพิ่มกล่องประวัติการแก้ไขลูกค้าด้านล่างสุด -->
+                <div id="clientHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                    <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                    <div id="clientHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
+                </div>
                 
-                <!-- คอลัมน์ 1: ข้อมูลทั่วไป -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-regular fa-building mr-1"></i> ข้อมูลทั่วไป</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อไซต์งาน / ลูกค้า <span class="text-red-500">*</span></label>
-                        <input type="text" id="clientName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทลูกค้า</label>
-                        <select id="clientType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                            <option value="B2B">องค์กร / บริษัท (B2B)</option>
-                            <option value="B2C">ที่พักอาศัย (B2C)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สีบนตาราง (Auto Random)</label>
-                        <input type="color" id="clientColor" value="#3d5a6c" class="w-full h-[40px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
-                    </div>
-                </div>
-
-                <!-- คอลัมน์ 2: ข้อมูลที่ตั้ง -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-map-location-dot mr-1"></i> ข้อมูลที่ตั้ง</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ที่อยู่ (บ้านเลขที่, อาคาร, ซอย, ถนน)</label>
-                        <input type="text" id="clientAddressDetail" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">จังหวัด <span class="text-red-500">*</span></label>
-                        <select id="clientProvince" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">อำเภอ / เขต <span class="text-red-500">*</span></label>
-                        <select id="clientDistrict" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ตำบล / แขวง</label>
-                            <select id="clientTambon" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
-                        </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสไปรษณีย์</label>
-                            <input type="text" id="clientZipcode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand bg-gray-100 shadow-sm" readonly>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- คอลัมน์ 3: การติดต่อและสัญญา -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-file-contract mr-1"></i> การติดต่อ & สัญญา</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ติดต่อหลัก / เบอร์โทร</label>
-                        <input type="text" id="clientContact" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะสัญญา</label>
-                        <select id="clientStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                            <option value="Active">Active (ยังดำเนินงาน)</option>
-                            <option value="Pending">Pending (รอยืนยัน)</option>
-                            <option value="Expired">Expired (หมดสัญญา)</option>
-                        </select>
-                    </div>
-                    <div class="flex gap-3 mt-2">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานที่ตกลงต่อสัปดาห์/เดือน">ชม. ทำงาน(สัญญา)</label>
-                            <input type="number" id="clientContractHours" placeholder="ระบุ ชม." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
-                        </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="จำนวนแม่บ้านที่ต้องการต่อวัน/กะ">จำนวน พนง./กะ</label>
-                            <input type="number" id="clientReqStaff" value="1" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
-                        </div>
-                    </div>
-                </div>
             </div>
             
             <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
@@ -656,111 +674,119 @@
         </div>
     </div>
 
-    <!-- Modal: Staff -->
-    <div id="staffModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-50 hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <!-- 💡 Modal: Staff (แก้ z-index ให้อยู่เหนือ Header) -->
+    <div id="staffModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
                 <h3 class="text-lg font-black text-brand" id="modalStaffTitle">ข้อมูลพนักงาน</h3>
                 <button onclick="closeModal('staffModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="p-7 flex-grow overflow-y-auto grid grid-cols-1 lg:grid-cols-3 gap-8 bg-gray-50/30 custom-scrollbar">
-                <input type="hidden" id="staffIdHidden">
-                
-                <!-- คอลัมน์ 1: ข้อมูลส่วนบุคคล -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-user mr-1"></i> ข้อมูลส่วนบุคคล</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสพนักงาน <span class="text-brand">(Auto)</span></label>
-                        <input type="text" id="staffId" class="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-bold text-brand bg-gray-100 outline-none cursor-not-allowed shadow-sm" readonly>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
-                        <input type="text" id="staffName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อเล่น</label>
-                            <input type="text" id="staffNickname" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+            <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <input type="hidden" id="staffIdHidden">
+                    
+                    <!-- คอลัมน์ 1: ข้อมูลส่วนบุคคล -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-user mr-1"></i> ข้อมูลส่วนบุคคล</h4>
                         </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สีประจำตัว</label>
-                            <input type="color" id="staffColor" value="#3b82f6" class="w-full h-[38px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสพนักงาน <span class="text-brand">(Auto)</span></label>
+                            <input type="text" id="staffId" class="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-bold text-brand bg-gray-100 outline-none cursor-not-allowed shadow-sm" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                            <input type="text" id="staffName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อเล่น</label>
+                                <input type="text" id="staffNickname" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">สีประจำตัว</label>
+                                <input type="color" id="staffColor" value="#3b82f6" class="w-full h-[38px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รูปโปรไฟล์พนักงาน</label>
+                            <input type="file" id="staffImageFile" accept="image/*" onchange="uploadStaffImage()" class="w-full text-[12px] font-medium text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none">
+                            <input type="hidden" id="staffImage">
+                            <span id="uploadStatusText" class="text-[11px] text-gray-500 font-bold mt-1 block"></span>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รูปโปรไฟล์พนักงาน</label>
-                        <input type="file" id="staffImageFile" accept="image/*" onchange="uploadStaffImage()" class="w-full text-[12px] font-medium text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none">
-                        <input type="hidden" id="staffImage">
-                        <span id="uploadStatusText" class="text-[11px] text-gray-500 font-bold mt-1 block"></span>
-                    </div>
-                </div>
 
-                <!-- คอลัมน์ 2: การติดต่อและสถานะ -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-address-card mr-1"></i> การติดต่อ & สถานะ</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
-                        <input type="text" id="staffPhone" placeholder="0XXXXXXXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand shadow-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">LINE ID</label>
-                        <input type="text" id="staffLine" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
-                        <select id="staffStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                            <option value="Active">Active (ทำงานปกติ)</option>
-                            <option value="Inactive">Inactive (ลาออก/พักงาน)</option>
-                            <option value="On Leave">On Leave (ลางาน)</option>
-                        </select>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทงาน</label>
-                            <select id="staffJobType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                                <option value="Full-time">Full-time</option>
-                                <option value="Part-time">Part-time</option>
+                    <!-- คอลัมน์ 2: การติดต่อและสถานะ -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-address-card mr-1"></i> การติดต่อ & สถานะ</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                            <input type="text" id="staffPhone" placeholder="0XXXXXXXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">LINE ID</label>
+                            <input type="text" id="staffLine" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                            <select id="staffStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="Active">Active (ทำงานปกติ)</option>
+                                <option value="Inactive">Inactive (ลาออก/พักงาน)</option>
+                                <option value="On Leave">On Leave (ลางาน)</option>
                             </select>
                         </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานสูงสุด/สัปดาห์">ชม.สูงสุด/สัปดาห์</label>
-                            <input type="number" id="staffMaxHours" value="48" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทงาน</label>
+                                <select id="staffJobType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                    <option value="Full-time">Full-time</option>
+                                    <option value="Part-time">Part-time</option>
+                                </select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานสูงสุด/สัปดาห์">ชม.สูงสุด/สัปดาห์</label>
+                                <input type="number" id="staffMaxHours" value="48" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- คอลัมน์ 3: พื้นที่และสัญญา -->
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-briefcase mr-1"></i> พื้นที่ & ทักษะ</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">โซน/พื้นที่ปฏิบัติงาน (เลือกได้หลายพื้นที่)</label>
+                            <select id="staffZones" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm">
+                                <option value="โซนตัวเมือง">โซนตัวเมือง</option>
+                                <option value="โซนหางดง">โซนหางดง</option>
+                                <option value="โซนสันทราย">โซนสันทราย</option>
+                                <option value="โซนแม่ริม">โซนแม่ริม</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ทักษะพิเศษ</label>
+                            <input type="text" id="staffSkills" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มงาน</label>
+                                <input type="date" id="staffStartDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันหมดสัญญา</label>
+                                <input type="date" id="staffEndDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- คอลัมน์ 3: พื้นที่และสัญญา -->
-                <div class="flex flex-col gap-4">
-                    <div class="pb-2 border-b border-gray-200">
-                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-briefcase mr-1"></i> พื้นที่ & ทักษะ</h4>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">โซน/พื้นที่ปฏิบัติงาน (เลือกได้หลายพื้นที่)</label>
-                        <select id="staffZones" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm">
-                            <option value="โซนตัวเมือง">โซนตัวเมือง</option>
-                            <option value="โซนหางดง">โซนหางดง</option>
-                            <option value="โซนสันทราย">โซนสันทราย</option>
-                            <option value="โซนแม่ริม">โซนแม่ริม</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ทักษะพิเศษ</label>
-                        <input type="text" id="staffSkills" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มงาน</label>
-                            <input type="date" id="staffStartDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                        </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันหมดสัญญา</label>
-                            <input type="date" id="staffEndDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                        </div>
-                    </div>
+                <!-- 💡 เพิ่มกล่องประวัติการแก้ไขพนักงานด้านล่างสุด -->
+                <div id="staffHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                    <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                    <div id="staffHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
                 </div>
 
             </div>
@@ -771,8 +797,8 @@
         </div>
     </div>
 
-    <!-- Modal: User -->
-    <div id="userModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-50 hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <!-- 💡 Modal: User (แก้ z-index ให้อยู่เหนือ Header) -->
+    <div id="userModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
             <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
                 <h3 class="text-lg font-black text-brand">สิทธิ์ผู้ใช้งาน</h3>
