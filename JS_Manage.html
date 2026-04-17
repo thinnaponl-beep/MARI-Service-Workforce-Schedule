@@ -23,56 +23,109 @@
         return prefix + String(maxNum + 1).padStart(3, '0');
     }
 
-    function uploadStaffImage() {
+    
+     function uploadStaffImage() {
         var fileInput = document.getElementById('staffImageFile');
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
         var file = fileInput.files[0];
-        var reader = new FileReader();
-        var statusText = document.getElementById('uploadStatusText');
         
-        // 💡 1. เรียกใช้งาน Loading Overlay แบบเต็มหน้าจอมาบังทันที
-        var loadingOverlay = document.getElementById('loadingOverlay');
-        var loadingText = document.getElementById('loadingText');
-        if (loadingOverlay && loadingText) {
-            loadingText.innerText = 'กำลังอัปโหลดรูปภาพโปรไฟล์... กรุณารอสักครู่ (ห้ามปิดหน้าต่าง)';
-            loadingOverlay.style.opacity = '1';
-            loadingOverlay.classList.remove('hidden');
+        // 💡 1. สร้างและแสดง Popload (Loading Popup)
+        var popupId = 'uploadPoploadOverlay';
+        var popup = document.getElementById(popupId);
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = popupId;
+            popup.className = 'fixed inset-0 bg-gray-900/70 z-[99999] flex items-center justify-center backdrop-blur-sm transition-opacity';
+            popup.innerHTML = '<div class="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-xs mx-4 text-center transform scale-100 transition-transform">' + 
+                              '<div class="w-14 h-14 border-4 border-brand/20 border-t-brand rounded-full animate-spin mb-4"></div>' + 
+                              '<h3 class="text-[16px] font-black text-gray-900 mb-1">กำลังดำเนินการ</h3>' + 
+                              '<p class="text-[12px] text-gray-500 font-medium">กำลังบีบอัดและอัปโหลดรูปภาพ...</p>' + 
+                              '</div>';
+            document.body.appendChild(popup);
+        } else {
+            popup.classList.remove('hidden');
         }
+        
+        window.isUploadingStaffImage = true;
 
+        var statusText = document.getElementById('uploadStatusText');
         if(statusText) {
-            statusText.innerText = 'กำลังอัปโหลด... กรุณารอสักครู่';
+            statusText.innerText = 'กำลังบีบอัดและอัปโหลด...';
             statusText.className = 'text-[11px] text-blue-600 font-medium mt-1 block animate-pulse';
         }
 
+        var reader = new FileReader();
         reader.onload = function(e) {
-            var base64Data = e.target.result.split(',')[1]; 
-            var fileName = 'Profile_' + new Date().getTime() + '_' + file.name;
+            // 💡 2. บีบอัดรูปภาพด้วย HTML5 Canvas ก่อนส่ง (ลดจาก 5MB เหลือ ~50KB)
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                var MAX_WIDTH = 400;
+                var MAX_HEIGHT = 400;
+                var width = img.width;
+                var height = img.height;
 
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler(function(url) {
-                        // 💡 2. เอา Loading ออกเมื่ออัปโหลดเสร็จ
-                        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+                // คำนวณอัตราส่วนการย่อภาพ
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
 
-                        if(statusText) { 
-                            statusText.innerText = '✅ อัปโหลดรูปภาพสำเร็จ! กดบันทึกเพื่อยืนยัน'; 
-                            statusText.className = 'text-[11px] text-green-600 font-medium mt-1 block'; 
-                        }
-                        setInputValue('staffImage', url);
-                        if(typeof showToast === 'function') showToast('อัปโหลดรูปภาพสำเร็จ');
-                    })
-                    .withFailureHandler(function(error) {
-                        // 💡 2. เอา Loading ออกเมื่ออัปโหลดล้มเหลว
-                        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+                // แปลงภาพเป็น Base64 (Format: JPEG, Quality: 80%)
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                var base64Data = dataUrl.split(',')[1]; 
+                var fileName = 'Profile_' + new Date().getTime() + '.jpg';
 
-                        if(statusText) { 
-                            statusText.innerText = '❌ เกิดข้อผิดพลาดในการอัปโหลด'; 
-                            statusText.className = 'text-[11px] text-red-600 font-medium mt-1 block'; 
-                        }
-                        if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อผิดพลาด', message: 'ไม่สามารถอัปโหลดรูปได้: ' + error, type: 'warning' });
-                    })
-                    .uploadImageToDrive(base64Data, fileName); 
-            }
+                // 💡 3. ส่งข้อมูลขนาดเล็กไปให้ Code.gs
+                if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    google.script.run
+                        .withSuccessHandler(function(url) {
+                            var p = document.getElementById(popupId);
+                            if (p) p.classList.add('hidden');
+                            window.isUploadingStaffImage = false;
+
+                            if(statusText) { 
+                                statusText.innerText = '✅ อัปโหลดรูปภาพสำเร็จ! กดบันทึกเพื่อยืนยัน'; 
+                                statusText.className = 'text-[11px] text-green-600 font-medium mt-1 block'; 
+                            }
+                            setInputValue('staffImage', url);
+                            if(typeof showToast === 'function') showToast('อัปโหลดรูปภาพสำเร็จ');
+                        })
+                        .withFailureHandler(function(error) {
+                            var p = document.getElementById(popupId);
+                            if (p) p.classList.add('hidden');
+                            window.isUploadingStaffImage = false;
+
+                            if(statusText) { 
+                                statusText.innerText = '❌ เกิดข้อผิดพลาดในการอัปโหลด'; 
+                                statusText.className = 'text-[11px] text-red-600 font-medium mt-1 block'; 
+                            }
+                            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อผิดพลาด', message: 'ไม่สามารถอัปโหลดรูปได้: ' + error, type: 'warning' });
+                        })
+                        .uploadImageToDrive(base64Data, fileName); 
+                } else {
+                    // สำหรับโหมดจำลอง (Mock Local Testing)
+                    setTimeout(function() {
+                        var p = document.getElementById(popupId);
+                        if (p) p.classList.add('hidden');
+                        window.isUploadingStaffImage = false;
+                        if(statusText) { statusText.innerText = '✅ อัปโหลดสำเร็จ (Mock)'; statusText.className = 'text-[11px] text-green-600 font-medium mt-1 block'; }
+                        if(typeof showToast === 'function') showToast('อัปโหลดรูปภาพสำเร็จ (จำลอง)');
+                    }, 1500);
+                }
+            };
+            img.src = e.target.result;
         };
         reader.readAsDataURL(file);
     }
