@@ -12,7 +12,57 @@
         filterGridData(); 
     }
 
+    // 💡 ฟังก์ชันตรวจสอบสิทธิ์การแสดงผลเมนู "ตั้งค่าสิทธิ์"
+    function applyRolePermissions() {
+        if (typeof CURRENT_USER === 'undefined' || !CURRENT_USER) return;
+        var isAdmin = (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin');
+        
+        // ค้นหาและซ่อนเมนู 'ตั้งค่าสิทธิ์' ใน Sidebar สำหรับคนที่ไม่ใช่ Admin
+        var menuItems = document.querySelectorAll('span, p, div');
+        menuItems.forEach(function(el) {
+            if (el.textContent && el.textContent.trim().includes('ตั้งค่าสิทธิ์')) {
+                // หา Container ที่คลิกได้ของเมนูนั้นๆ
+                var parentBtn = el.closest('button') || el.closest('li') || el.closest('a');
+                // ป้องกันไม่ให้ไปเผลอซ่อน Header ด้านบน
+                if (parentBtn && !parentBtn.closest('header')) { 
+                    parentBtn.style.display = isAdmin ? '' : 'none';
+                }
+            }
+        });
+    }
+
+    // 💡 ฟังก์ชันตรวจสอบและอัปเดตสถานะกะงานที่เลยวันให้เป็น "สำเร็จ" (Completed) อัตโนมัติ
+    function autoUpdatePastShifts() {
+        if (typeof formatDateString !== 'function') return;
+        var todayStr = formatDateString(new Date());
+        var changedShifts = [];
+        
+        MOCK_SHIFTS.forEach(function(shift) {
+            // ถ้าวันที่ปฏิบัติงานน้อยกว่าวันปัจจุบัน (เลยวันมาแล้ว)
+            if (shift.date < todayStr) {
+                // และสถานะยังไม่ได้ถูกปรับเป็นอย่างอื่น (ยังเป็นแค่วางแผน หรือ ยืนยันแล้ว)
+                if (shift.status === 'scheduled' || shift.status === 'confirmed') {
+                    shift.status = 'completed'; // ปรับสถานะในหน่วยความจำทันทีเพื่อให้หน้าจอแสดงผลว่าสำเร็จ
+                    
+                    // โคลนข้อมูลเพื่อเตรียมส่งไปอัปเดต Backend
+                    var shiftData = Object.assign({}, shift);
+                    shiftData.actionBy = 'System Auto';
+                    shiftData.actionType = 'COMPLETED';
+                    changedShifts.push(shiftData);
+                }
+            }
+        });
+
+        // ส่งอัปเดตข้อมูลขึ้น Google Sheets แบบเบื้องหลัง (Background update ไม่กวนผู้ใช้)
+        if (changedShifts.length > 0 && typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.saveMultipleShiftsToBackend(changedShifts);
+        }
+    }
+
     function filterGridData() {
+        autoUpdatePastShifts(); // 💡 ดักอัปเดตสถานะงานที่เลยวันก่อนที่จะดึงข้อมูลมาวาดลงตาราง
+        applyRolePermissions(); // 💡 ดักเช็คสิทธิ์การแสดงผลเมนูตั้งค่าสิทธิ์ทุกครั้ง
+        
         var searchInput = document.getElementById('globalSearch');
         var keyword = searchInput ? searchInput.value.toLowerCase() : '';
         renderCalendar(keyword);
@@ -36,8 +86,22 @@
         var activeBtn = document.getElementById('btnView' + activeModeString);
         if(activeBtn) activeBtn.className = "px-5 py-1.5 text-[13px] font-bold rounded-md bg-white text-brand shadow-sm transition";
 
+        // บังคับ Container ให้เป็น Flex เพื่อดันความสูงให้เต็มจอเสมอ
+        var calendarContainer = document.getElementById('calendarContainer');
+        if(calendarContainer) {
+            calendarContainer.classList.add('flex', 'flex-col');
+        }
+
         var gridWeekDay = document.getElementById('gridWeekDay');
         var gridMonth = document.getElementById('gridMonth');
+        
+        if(gridWeekDay) {
+            gridWeekDay.classList.add('flex-1', 'flex', 'flex-col');
+            gridWeekDay.style.minWidth = '';
+            gridWeekDay.style.width = '';
+        }
+        if(gridMonth) gridMonth.classList.add('flex-1', 'flex', 'flex-col');
+
         if(mode === 'month') {
             if(gridWeekDay) gridWeekDay.classList.add('hidden');
             if(gridMonth) gridMonth.classList.remove('hidden');
@@ -45,7 +109,11 @@
             if(gridWeekDay) gridWeekDay.classList.remove('hidden');
             if(gridMonth) gridMonth.classList.add('hidden');
         }
-        filterGridData();
+        
+        // หน่วงเวลา 10ms ให้เบราว์เซอร์สร้างโครงสร้างตารางให้เสร็จก่อนวาดข้อมูล (แก้ตารางเพี้ยนตอนสลับ)
+        setTimeout(function() {
+            filterGridData();
+        }, 10);
     }
 
     function changeDateOffset(offset) { 
@@ -76,15 +144,14 @@
     function formatTimeAMPM(timeStr) { if(!timeStr) return ''; var p = timeStr.split(':'); return p[0] + ':' + p[1]; }
     function hexToRgba(hex, opacity) { opacity = opacity !== undefined ? opacity : 1; var c; if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){ c = hex.substring(1).split(''); if(c.length == 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]]; c = '0x' + c.join(''); return 'rgba(' + [(c>>16)&255, (c>>8)&255, c&255].join(',') + ',' + opacity + ')'; } return 'rgba(0,0,0,' + opacity + ')'; }
 
-    // 💡 ปรับสีสถานะตามสั่งเป๊ะๆ
     function getStatusColorHex(status) {
         switch(status) {
-            case 'scheduled': return '#60a5fa'; // น้ำเงินอ่อน
-            case 'confirmed': return '#1d4ed8'; // น้ำเงินเข้ม
-            case 'completed': return '#22c55e'; // เขียว
-            case 'absent': return '#ef4444';    // แดง
-            case 'cancelled': return '#6b7280'; // เทา
-            case 'substituted': return '#f97316'; // ส้ม
+            case 'scheduled': return '#60a5fa'; 
+            case 'confirmed': return '#1d4ed8'; 
+            case 'completed': return '#22c55e'; 
+            case 'absent': return '#ef4444';    
+            case 'cancelled': return '#6b7280'; 
+            case 'substituted': return '#f97316'; 
             default: return '#d1d5db';
         }
     }
@@ -103,7 +170,7 @@
         return { icon: icon, text: text };
     }
 
-    // 💡 ปรับปรุงการ์ดให้กะทัดรัด (Compact) และเพิ่ม Tooltip กลับมา
+    // จำกัดการ์ดไม่ให้ล้นออกนอกคอลัมน์ (min-w-0) และรักษา Tooltip ไว้
     function createIndividualCardHTML(shift, hkId, client) {
         var hk = MOCK_HOUSEKEEPERS.find(function(h) { return h.id === hkId; });
         if (!hk) return '';
@@ -112,29 +179,41 @@
         var statusColor = getStatusColorHex(shift.status);
 
         var hkColor = hk.color || '#3b82f6';
-        var bgClass = "bg-white hover:bg-gray-50"; 
         
-        var borderStyle = "border: 1px solid #e5e7eb; border-left: 4px solid " + hkColor + ";";
+        // 💡 ปรับความเด่นของการ์ด: 
+        // - เปลี่ยนพื้นหลังให้เป็นสีอ่อนๆ ตามสีประจำตัว (opacity 10%)
+        // - ปรับขอบซ้ายให้หนาขึ้นเป็น 6px
+        // - เปลี่ยนสีกรอบการ์ดให้เข้ากับสีประจำตัว (opacity 30%)
+        var bgClass = "hover:shadow-md hover:-translate-y-[1px] hover:z-[100]"; 
+        var cardBg = hexToRgba(hkColor, 0.10); 
+        var cardBorder = hexToRgba(hkColor, 0.30);
+        
+        var borderStyle = "background-color: " + cardBg + "; border: 1px solid " + cardBorder + "; border-left: 6px solid " + hkColor + ";";
         
         if (shift.status === 'completed' || shift.status === 'cancelled') { 
-            bgClass = "bg-gray-50 opacity-75"; 
-            borderStyle = "background-color: " + hexToRgba(hkColor, 0.05) + "; border: 1px solid #e5e7eb; border-left: 4px solid " + hkColor + ";"; 
+            bgClass = "opacity-60 grayscale-[30%] hover:shadow-md hover:z-[100]"; 
+            borderStyle = "background-color: #f9fafb; border: 1px solid #e5e7eb; border-left: 6px solid " + hkColor + ";"; 
         }
 
         var hkColorBorder = 'border: 2px solid ' + hkColor + '; padding: 1px; background: white;';
         var shortName = hk.nickname || hk.name.split(' ')[0];
-        var imgSrc = hk.avatar || 'https://ui-avatars.com/api/?name=U&background=f0f4f8&color=3d5a6c';
         
-        return '<div id="card-' + shift.id + '-' + hk.id + '" class="shift-card mb-2 p-2 flex items-center gap-2 rounded-lg cursor-pointer relative shadow-sm hover:shadow-md hover:z-[100] transition-all ' + bgClass + '" draggable="true" ondragstart="handleDragStart(event, \'' + shift.id + '\', \'' + hk.id + '\')" ondragend="handleDragEnd(event)" style="' + borderStyle + '" onclick="editShift(\'' + shift.id + '\')">' +
-                   '<img src="' + imgSrc + '" onerror="this.src=\'https://ui-avatars.com/api/?name=U&background=f0f4f8&color=3d5a6c\'" class="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm" style="' + hkColorBorder + '">' +
-                   '<div class="flex flex-col overflow-hidden w-full">' +
-                       '<div class="flex justify-between items-center w-full">' +
-                           '<span class="text-[12px] font-bold text-gray-800 leading-tight truncate pr-1">' + shortName + '</span>' +
+        // ระบบ Fallback (ถ้ารูปพังให้เอาชื่อมาทำเป็นรูปแทน)
+        var fallbackName = encodeURIComponent(shortName || 'U');
+        var fallbackImg = 'https://ui-avatars.com/api/?name=' + fallbackName + '&background=f0f4f8&color=3d5a6c';
+        var imgSrc = (hk.avatar && hk.avatar.trim() !== '') ? hk.avatar : fallbackImg;
+        
+        // 💡 หมายเหตุ: ไม่ใส่ overflow-hidden ที่การ์ดหลัก เพื่อให้ Tooltip ลอยออกมาได้ แต่ใส่ในส่วนของข้อความแทน
+        return '<div id="card-' + shift.id + '-' + hk.id + '" class="shift-card mb-2 p-2 flex items-center gap-2 rounded-lg cursor-pointer relative shadow-sm transition-all ' + bgClass + ' w-full max-w-full box-border min-w-0" draggable="true" ondragstart="handleDragStart(event, \'' + shift.id + '\', \'' + hk.id + '\')" ondragend="handleDragEnd(event)" style="' + borderStyle + '" onclick="editShift(\'' + shift.id + '\')">' +
+                   '<img src="' + imgSrc + '" onerror="this.onerror=null; this.src=\'' + fallbackImg + '\';" class="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm" style="' + hkColorBorder + '">' +
+                   '<div class="flex flex-col w-full min-w-0 overflow-hidden">' + 
+                       '<div class="flex justify-between items-center w-full min-w-0 gap-1">' +
+                           '<span class="text-[12px] font-bold text-gray-900 leading-tight truncate flex-1 min-w-0">' + shortName + '</span>' +
                            '<div class="shrink-0" title="' + statusUI.text + '">' + statusUI.icon + '</div>' +
                        '</div>' +
-                       '<span class="text-[10px] font-semibold text-gray-500 leading-none mt-0.5"><i class="fa-regular fa-clock mr-1"></i>' + timeStr + '</span>' +
+                       '<span class="text-[10px] font-semibold text-gray-700 leading-none mt-0.5 truncate"><i class="fa-regular fa-clock mr-1"></i>' + timeStr + '</span>' +
                    '</div>' +
-                   '<div class="custom-tooltip">' +
+                   '<div class="custom-tooltip z-[9999]">' +
                        '<p class="font-bold text-[11px] mb-1 border-b border-gray-600 pb-1 text-white">' + client.name + '</p>' +
                        '<p class="text-white text-[10px]"><i class="fa-regular fa-clock w-3"></i> ' + timeStr + '</p>' +
                        '<p class="text-white text-[10px]"><i class="fa-regular fa-user w-3" style="color:' + hkColor + '"></i> ' + hk.name + '</p>' +
@@ -153,9 +232,10 @@
         var headerContainer = document.getElementById('calendarHeader'); 
         var bodyContainer = document.getElementById('calendarBody');
         if(!headerContainer || !bodyContainer) return;
-        
-        headerContainer.className = "grid-schedule grid-week border-b border-gray-200 bg-zenGray sticky top-0 z-10";
-        bodyContainer.className = "grid-schedule grid-week bg-white relative z-0";
+
+        // บังคับคลาส Grid และความกว้างขั้นต่ำ (1620px) ลงไปตรงๆ ป้องกันตารางบีบอัดจนเละ
+        headerContainer.className = "grid grid-cols-[220px_repeat(7,minmax(200px,1fr))] border-b border-gray-200 bg-zenGray sticky top-0 z-40 min-w-[1620px] w-full";
+        bodyContainer.className = "grid grid-cols-[220px_repeat(7,minmax(200px,1fr))] bg-white relative z-0 min-w-[1620px] w-full";
 
         var dayNamesShort = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสฯ', 'ศุกร์', 'เสาร์', 'อาทิตย์']; 
         var currentDay = new Date(currentWeekStart); 
@@ -189,13 +269,14 @@
         var elSumShifts = document.getElementById('sumShifts'); if(elSumShifts) elSumShifts.innerText = globalTotalShifts;
         var elSumStaff = document.getElementById('sumStaff'); if(elSumStaff) elSumStaff.innerText = globalActiveStaff.size;
 
-        var headerHTML = '<div class="p-4 border-r border-gray-200 flex flex-col justify-end bg-zenGray"><span class="text-[13px] font-bold text-gray-400 uppercase tracking-wider">รายชื่อลูกค้า / สถานที่</span></div>';
+        // ล็อกหัวคอลัมน์ชื่อลูกค้า (Sticky + Centered)
+        var headerHTML = '<div class="p-4 border-r border-gray-200 flex flex-col justify-center items-center text-center bg-zenGray sticky left-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] min-w-0"><span class="text-[13px] font-bold text-gray-400 uppercase tracking-wider">ลูกค้า / สถานที่</span></div>';
         currentDay = new Date(currentWeekStart); var todayDateStr = formatDateString(new Date());
 
         for (var j = 0; j < 7; j++) {
             var isToday = weekDays[j] === todayDateStr; var stats = dayStats[j];
             var pillClass = isToday ? 'bg-brand text-white px-3 py-1 rounded shadow-sm' : 'text-gray-600 px-2 py-1';
-            headerHTML += '<div class="p-3 border-r border-gray-200 text-center bg-zenGray flex flex-col items-center justify-center">' +
+            headerHTML += '<div class="p-3 border-r border-gray-200 text-center bg-zenGray flex flex-col items-center justify-center min-w-0">' +
                             '<div class="text-[13px] font-semibold ' + pillClass + ' mb-2">' + dayNamesShort[j] + ' ' + currentDay.getDate() + '</div>' +
                             '<div class="flex items-center gap-3 text-[10.5px] font-medium text-gray-400">' +
                                 '<span title="ชั่วโมงรวม"><i class="fa-regular fa-clock"></i> ' + stats.hours + '</span>' +
@@ -225,19 +306,20 @@
             var colSpanStyle = isCollapsed ? 'grid-column: 1 / -1;' : '';
             var chevronIcon = isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down';
 
+            // ใส่ min-w-0 เพื่อไม่ให้เนื้อหาดันกล่องให้เสียรูปทรง
             if(client.type === 'system') { 
-                bodyHTML += '<div class="px-4 py-3 border-r border-b border-gray-200 bg-gray-50 flex items-center gap-2 relative hover:bg-gray-100 transition cursor-pointer" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
+                bodyHTML += '<div class="px-4 py-3 border-r border-b border-gray-200 bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition cursor-pointer sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] min-w-0" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
                                 '<button class="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-brand transition shrink-0"><i class="fa-solid ' + chevronIcon + ' text-[11px]"></i></button>' +
-                                '<div class="flex items-center gap-3"><i class="fa-solid fa-inbox text-gray-400"></i><span class="text-[13px] font-medium text-gray-500">' + client.name + '</span></div>' +
+                                '<div class="flex items-center gap-3 min-w-0"><i class="fa-solid fa-inbox text-gray-400 shrink-0"></i><span class="text-[13px] font-medium text-gray-500 truncate">' + client.name + '</span></div>' +
                              '</div>';
             } else {
-                bodyHTML += '<div class="px-4 py-3 border-r border-b border-gray-200 bg-white flex flex-col justify-center gap-1.5 relative hover:bg-gray-50 transition cursor-pointer" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
-                                '<div class="flex items-start gap-2">' +
+                bodyHTML += '<div class="px-4 py-3 border-r border-b border-gray-200 bg-white flex flex-col justify-center gap-1.5 hover:bg-gray-50 transition cursor-pointer sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] min-w-0" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
+                                '<div class="flex items-start gap-2 min-w-0">' +
                                     '<button class="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-brand transition shrink-0 -mt-0.5"><i class="fa-solid ' + chevronIcon + ' text-[11px]"></i></button>' +
                                     '<div class="w-3 h-3 rounded-sm shadow-sm shrink-0 mt-1" style="background-color: ' + client.color + '"></div>' +
-                                    '<div class="flex flex-col">' +
-                                        '<span class="text-[13.5px] font-bold text-gray-800 leading-tight">' + client.name + '</span>' +
-                                        '<div class="text-[11px] text-gray-500 mt-1 flex gap-2.5 font-medium">' +
+                                    '<div class="flex flex-col min-w-0 w-full">' +
+                                        '<span class="text-[13.5px] font-bold text-gray-800 leading-tight truncate">' + client.name + '</span>' +
+                                        '<div class="text-[11px] text-gray-500 mt-1 flex gap-2.5 font-medium shrink-0">' +
                                             '<span class="text-brand"><i class="fa-regular fa-clock"></i> ' + Math.round(clientHours) + '</span>' +
                                             '<span class="text-blue-500"><i class="fa-solid fa-layer-group"></i> ' + clientShiftCount + '</span>' +
                                             '<span class="text-green-500"><i class="fa-regular fa-user"></i> ' + clientStaffSet.size + '</span>' +
@@ -250,7 +332,8 @@
             if (!isCollapsed) {
                 weekDays.forEach(function(dateString) {
                     var shiftsInDay = MOCK_SHIFTS.filter(function(s) { return s.clientId === client.id && s.date === dateString; });
-                    bodyHTML += '<div class="border-r border-b border-gray-200 min-h-[120px] relative cell-drop-zone transition-colors" ' +
+                    // ใส่ min-w-0 
+                    bodyHTML += '<div class="border-r border-b border-gray-200 min-h-[120px] relative cell-drop-zone transition-colors min-w-0 w-full box-border" ' +
                                       'ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateString + '\')">' +
                                     '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateString + '\')" class="cell-add-btn absolute top-1 right-1 w-6 h-6 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-[10px]"></i></button>';
                     
@@ -272,8 +355,9 @@
         var headerContainer = document.getElementById('calendarHeader'); 
         var bodyContainer = document.getElementById('calendarBody');
         
-        if(headerContainer) headerContainer.className = "grid-schedule grid-day border-b border-gray-200 bg-zenGray sticky top-0 z-10";
-        if(bodyContainer) bodyContainer.className = "grid-schedule grid-day bg-white";
+        // บังคับคลาส Grid และความกว้างขั้นต่ำ (620px) ลงไปตรงๆ
+        if(headerContainer) headerContainer.className = "grid grid-cols-[220px_minmax(400px,1fr)] border-b border-gray-200 bg-zenGray sticky top-0 z-40 min-w-[620px] w-full";
+        if(bodyContainer) bodyContainer.className = "grid grid-cols-[220px_minmax(400px,1fr)] bg-white w-full relative z-0 min-w-[620px]";
 
         var months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
         var dateStr = formatDateString(currentWeekStart);
@@ -295,8 +379,8 @@
         var elSumShifts = document.getElementById('sumShifts'); if(elSumShifts) elSumShifts.innerText = shiftsToday.length;
         var elSumStaff = document.getElementById('sumStaff'); if(elSumStaff) elSumStaff.innerText = dayStaff.size;
 
-        if(headerContainer) headerContainer.innerHTML = '<div class="p-4 border-r border-gray-200 bg-zenGray"><span class="text-[13px] font-bold text-gray-400 uppercase tracking-wider">ลูกค้า / สถานที่</span></div>' +
-                                     '<div class="p-4 bg-zenGray text-center"><span class="text-[13px] font-bold text-brand uppercase">รายการกะงานประจำวัน (' + currentWeekStart.getDate() + ' ' + months[currentWeekStart.getMonth()] + ')</span></div>';
+        if(headerContainer) headerContainer.innerHTML = '<div class="p-4 border-r border-gray-200 bg-zenGray sticky left-0 z-50 flex items-center justify-center text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] min-w-0"><span class="text-[13px] font-bold text-gray-400 uppercase tracking-wider">ลูกค้า / สถานที่</span></div>' +
+                                     '<div class="p-4 bg-zenGray text-center flex items-center justify-center min-w-0"><span class="text-[13px] font-bold text-brand uppercase">รายการกะงานประจำวัน (' + currentWeekStart.getDate() + ' ' + months[currentWeekStart.getMonth()] + ')</span></div>';
 
         var bodyHTML = '';
         MOCK_CLIENTS.forEach(function(client) {
@@ -306,7 +390,7 @@
             var colSpanStyle = isCollapsed ? 'grid-column: 1 / -1;' : '';
             var chevronIcon = isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down';
 
-            bodyHTML += '<div class="px-4 py-4 border-r border-b border-gray-200 bg-gray-50 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
+            bodyHTML += '<div class="px-4 py-4 border-r border-b border-gray-200 bg-gray-50 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] min-w-0" style="' + colSpanStyle + '" onclick="toggleClientRow(\'' + client.id + '\')">' +
                             '<button class="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-brand transition shrink-0"><i class="fa-solid ' + chevronIcon + ' text-[11px]"></i></button>' +
                             '<div class="w-3 h-3 rounded-sm shadow-sm shrink-0" style="background-color: ' + client.color + '"></div>' +
                             '<span class="text-[13.5px] font-bold text-gray-800 truncate">' + client.name + '</span>' +
@@ -314,13 +398,13 @@
             
             if (!isCollapsed) {
                 var clientShifts = shiftsToday.filter(function(s) { return s.clientId === client.id; });
-                bodyHTML += '<div class="border-b border-gray-200 flex flex-wrap gap-2 cell-drop-zone relative min-h-[80px]" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateStr + '\')">' +
+                bodyHTML += '<div class="border-b border-gray-200 flex flex-wrap gap-2 cell-drop-zone relative min-h-[80px] min-w-0 w-full box-border" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateStr + '\')">' +
                                 '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateStr + '\')" class="cell-add-btn absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-xs"></i></button>';
                 
                 if (clientShifts.length > 0) {
                     clientShifts.forEach(function(shift) {
                         if(shift.hks) {
-                            shift.hks.forEach(function(hkId) { bodyHTML += '<div class="w-56">' + createIndividualCardHTML(shift, hkId, client) + '</div>'; });
+                            shift.hks.forEach(function(hkId) { bodyHTML += '<div class="w-56 max-w-full shrink-0">' + createIndividualCardHTML(shift, hkId, client) + '</div>'; });
                         }
                     });
                 } else {
@@ -334,7 +418,17 @@
 
     function renderMonthView(keyword) {
         var monthBody = document.getElementById('monthBody');
+        var gridMonth = document.getElementById('gridMonth');
+        var calendarContainer = document.getElementById('calendarContainer');
+
         if(!monthBody) return;
+
+        if(calendarContainer) calendarContainer.classList.add('flex', 'flex-col');
+        if(gridMonth) {
+            gridMonth.classList.add('flex-1', 'flex', 'flex-col');
+            gridMonth.style.height = "100%";
+        }
+        monthBody.classList.add('flex-1');
         
         var date = new Date(currentWeekStart);
         date.setDate(1); 
@@ -348,6 +442,12 @@
         
         var daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
         
+        var totalCells = firstDayIndex + daysInMonth;
+        var numRows = totalCells > 35 ? 6 : 5;
+        var totalSlots = numRows * 7;
+
+        monthBody.style.gridTemplateRows = "repeat(" + numRows + ", minmax(0, 1fr))";
+        
         var html = '';
         var dayCount = 1;
         var todayStr = formatDateString(new Date());
@@ -356,9 +456,9 @@
         var monthTotalShifts = 0;
         var monthActiveStaff = new Set();
 
-        for (var i = 0; i < 35; i++) {
+        for (var i = 0; i < totalSlots; i++) {
             if (i < firstDayIndex || dayCount > daysInMonth) {
-                html += '<div class="bg-gray-50/50 p-2 border-r border-b border-gray-200 min-h-[100px]"></div>';
+                html += '<div class="bg-gray-50/50 p-2 border-r border-b border-gray-200"></div>';
             } else {
                 var cellDate = new Date(date.getFullYear(), date.getMonth(), dayCount);
                 var cellDateStr = formatDateString(cellDate);
@@ -366,25 +466,39 @@
                 var dayNumClass = isToday ? 'bg-brand text-white w-6 h-6 flex items-center justify-center rounded-full text-[12px] font-bold shadow-sm' : 'text-[12px] font-bold text-gray-500';
                 
                 var shiftsInDay = MOCK_SHIFTS.filter(function(s) { return s.date === cellDateStr; });
-                var dotsHtml = '';
+                var eventHtml = '';
                 
                 if(shiftsInDay.length > 0) {
+                    var clientCounts = {};
                     shiftsInDay.forEach(function(s) {
                         if (s.hks && s.hks.length > 0) {
                             monthTotalHours += getHoursDiff(s.start, s.end) * s.hks.length;
                             monthTotalShifts++;
                             s.hks.forEach(function(hk) { monthActiveStaff.add(hk); });
-                        }
 
-                        var c = MOCK_CLIENTS.find(function(cl) { return cl.id === s.clientId; });
-                        if(c) dotsHtml += '<div class="w-1.5 h-1.5 rounded-full mb-0.5 mx-0.5 inline-block" style="background-color:' + c.color + '" title="' + c.name + '"></div>';
+                            if (s.status !== 'cancelled') {
+                                var c = MOCK_CLIENTS.find(function(cl) { return cl.id === s.clientId; });
+                                if(c) {
+                                    if(!clientCounts[c.id]) {
+                                        clientCounts[c.id] = { name: c.name, color: c.color, count: 0 };
+                                    }
+                                    clientCounts[c.id].count += s.hks.length;
+                                }
+                            }
+                        }
+                    });
+
+                    Object.values(clientCounts).forEach(function(info) {
+                        eventHtml += '<div class="text-[10px] text-white px-1.5 py-1 rounded mb-1 shadow-sm flex justify-between items-center cursor-pointer hover:opacity-90 w-full min-w-0" style="background-color:' + info.color + '" title="' + info.name + ' จำนวน ' + info.count + ' คน">' +
+                                     '<span class="truncate font-medium flex-1">' + info.name + '</span>' +
+                                     '<span class="font-bold bg-black/10 px-1 py-0.5 rounded text-[9px] shrink-0 ml-1">' + info.count + ' คน</span>' +
+                                     '</div>';
                     });
                 }
 
-                html += '<div class="bg-white p-2 border-r border-b border-gray-200 min-h-[100px] cursor-pointer hover:bg-brandLight transition group relative" onclick="currentWeekStart = new Date(\'' + cellDateStr + '\'); changeCalendarView(\'day\');">' +
-                            '<div class="flex justify-end mb-1"><span class="' + dayNumClass + '">' + dayCount + '</span></div>' +
-                            '<div class="mt-2 text-center leading-none">' + dotsHtml + '</div>' +
-                            (shiftsInDay.length > 0 ? '<div class="absolute bottom-2 left-0 right-0 text-center text-[10px] font-medium text-gray-400 group-hover:text-brand">' + shiftsInDay.length + ' งาน</div>' : '') +
+                html += '<div class="bg-white p-1.5 border-r border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition group relative overflow-hidden flex flex-col min-h-[80px]" onclick="currentWeekStart = new Date(\'' + cellDateStr + '\'); changeCalendarView(\'day\');">' +
+                            '<div class="flex justify-end mb-1 shrink-0"><span class="' + dayNumClass + '">' + dayCount + '</span></div>' +
+                            '<div class="flex flex-col gap-[1px] flex-grow overflow-y-auto custom-scrollbar">' + eventHtml + '</div>' +
                          '</div>';
                 dayCount++;
             }
@@ -408,7 +522,8 @@
             var shift = MOCK_SHIFTS[shiftIndex];
             if (shift.clientId !== tClient || shift.date !== tDate) {
                 shift.clientId = tClient; shift.date = tDate; filterGridData();
-                if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.updateShiftDragAndDrop(shift.id, tClient, tDate); }
+                var currentUserEmail = CURRENT_USER ? CURRENT_USER.email : 'Unknown';
+                if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.updateShiftDragAndDrop(shift.id, tClient, tDate, currentUserEmail); }
                 showToast("ย้ายตำแหน่งสำเร็จ");
             }
         }
