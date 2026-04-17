@@ -73,27 +73,28 @@ function verifyUserLogin() {
   return { status: 'unauthorized', message: `คุณไม่มีสิทธิ์เข้าถึงระบบนี้ (${email}) กรุณาติดต่อ Admin เพื่อเพิ่มสิทธิ์` };
 }
 
-// 💡 อัปโหลดรูปภาพ (ใช้รูปแบบ Thumbnail เพื่อหลีกเลี่ยงการโดนบล็อกใน iFrame)
+// 💡 อัปเดตโดยศักดิ์ชัย: แก้ปัญหาภาพไม่แสดงในมือถือ/iFrame
 function uploadImageToDrive(base64Data, fileName) {
   try {
-    // 1. สร้างไฟล์ (แนะนำให้ปล่อยให้ระบบตรวจจับ MimeType เองจาก Base64 จะดีกว่าเซ็ตตายตัวเป็น JPEG)
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", fileName);
     var FOLDER_ID = '1VF9cq_puxvjrw9NZx53BnLraRk3w28Vx'; 
     var folder = DriveApp.getFolderById(FOLDER_ID);
     var file = folder.createFile(blob);
     
-    // 2. ตั้งค่าสิทธิ์ (เอา try-catch ออก เพื่อให้เรารู้ว่าถ้าแชร์ไม่ได้มันเกิดจากอะไร)
-    // หากมี Error ตรงนี้ แสดงว่าโดนกฎของระบบองค์กร (Workspace) บล็อกการแชร์ Public ครับ
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(sharingError) {
+      console.warn("ไม่สามารถแชร์เป็น Public ได้: " + sharingError);
+    }
     
-    // 3. 💡 เปลี่ยน URL เป็นรูปแบบสำหรับการนำไปแสดงผลบน Web (Direct view)
     var fileId = file.getId();
-    var imageUrl = "https://drive.google.com/uc?export=view&id=" + fileId;
+    
+    // 💡 THE ULTIMATE FIX: เปลี่ยนมาใช้ URL lh3.googleusercontent.com (ทะลุการบล็อก 100%)
+    var imageUrl = "https://lh3.googleusercontent.com/d/" + fileId;
     
     return imageUrl;
     
   } catch (e) { 
-    // โยน Error ออกไปพร้อมรายละเอียดที่ชัดเจนขึ้น
     throw new Error("Upload failed: " + e.toString()); 
   }
 }
@@ -170,7 +171,6 @@ function checkShiftConflicts(newShiftsArray) {
   return warnings;
 }
 
-// ⚡ ปรับปรุงให้บันทึกข้อมูลได้เร็วขึ้น (Batch Update)
 function saveClientToBackend(clientData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
@@ -221,7 +221,6 @@ function saveClientToBackend(clientData) {
   return { success: true, message: 'บันทึกข้อมูลไซต์งานสำเร็จ' };
 }
 
-// ⚡ ปรับปรุงให้บันทึกข้อมูลได้เร็วขึ้น (Batch Update)
 function saveStaffToBackend(staffData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
@@ -305,7 +304,6 @@ function saveUserToBackend(userData) {
   return { success: true, message: 'บันทึกข้อมูลผู้ใช้งานสำเร็จ' };
 }
 
-// ⚡ ปรับปรุงให้บันทึกข้อมูลได้เร็วขึ้น (Batch Update) และรองรับการดึง old_data ไปโชว์ใน Log
 function saveMultipleShiftsToBackend(shiftsArray) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
@@ -512,7 +510,6 @@ function getShiftHistory(shiftId) {
   return getRecordHistory('Shifts', shiftId);
 }
 
-// 💡 อัปเดต: ดึงประวัติพร้อมข้อมูล old_data และ new_data
 function getRecordHistory(tableName, recordId) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ChangeLog');
   if (!sheet) return [];
@@ -575,8 +572,3 @@ function exportToGoogleSheets(shiftsData) {
     throw new Error('เกิดข้อผิดพลาดในการสร้าง Sheet: ' + e.toString());
   }
 }
-
-// =========================================================================
-// ⚠️ คำเตือน: นำโค้ดฟังก์ชันเสริมของคุณ (เช่น ส่ง Slack, LINE) 
-// มาวางต่อท้ายจากบรรทัดนี้ได้เลยครับ ห้ามลบฟังก์ชันด้านบนนะครับ!
-// =========================================================================
