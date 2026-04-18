@@ -1,0 +1,233 @@
+<script>
+    // ==========================================
+    // NEW MODULE: SITE INSPECTION & ACTIVITIES
+    // ==========================================
+    
+    var MOCK_SITE_ACTIVITIES = []; 
+    var currentInspectionDate = new Date();
+
+    function initInspectionView() {
+        var monthPicker = document.getElementById('inspectionMonthPicker');
+        if(monthPicker) {
+            var yyyy = currentInspectionDate.getFullYear();
+            var mm = String(currentInspectionDate.getMonth() + 1).padStart(2, '0');
+            monthPicker.value = yyyy + '-' + mm;
+        }
+        renderInspectionMatrix();
+    }
+
+    function changeInspectionMonth(offset) {
+        currentInspectionDate.setMonth(currentInspectionDate.getMonth() + offset);
+        initInspectionView();
+    }
+
+    function setInspectionMonthFromPicker(val) {
+        if(!val) return;
+        var parts = val.split('-');
+        currentInspectionDate = new Date(parts[0], parseInt(parts[1]) - 1, 1);
+        renderInspectionMatrix();
+    }
+
+    // 💡 ฟังก์ชันแปลงวันที่เป็นรูปแบบไทยสั้นๆ (เช่น "1 ม.ค. 25")
+    function formatThaiDateShort(dateStr) {
+        if(!dateStr) return '-';
+        var d = new Date(dateStr);
+        if(isNaN(d.getTime())) return '-';
+        var months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+        var year = (d.getFullYear() + 543).toString().slice(-2);
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + year;
+    }
+
+    // 💡 วาดตาราง Matrix (อัปเดตเลย์เอาต์ตามภาพ Excel)
+    function renderInspectionMatrix() {
+        var container = document.getElementById('inspectionTableContainer');
+        if(!container) return;
+
+        var yyyy = currentInspectionDate.getFullYear();
+        var mm = currentInspectionDate.getMonth();
+        var daysInMonth = new Date(yyyy, mm + 1, 0).getDate();
+        
+        var monthNamesFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        var headerMonthText = monthNamesFull[mm] + ' ' + (yyyy + 543); // เช่น มกราคม 2569
+
+        // เพิ่ม min-w ให้ตารางสามารถ Scroll แนวนอนได้เมื่อข้อมูลเยอะ
+        var html = '<table class="w-full border-collapse text-center text-[11px] min-w-[1800px] border border-gray-300">';
+
+        // --- ส่วนหัวตาราง (THEAD) แบบ 2 ชั้น ---
+        html += '<thead>';
+        
+        // ชั้นที่ 1: หัวข้อหลัก (Group Headers)
+        html += '<tr class="bg-gray-100 text-gray-800">';
+        html += '<th rowspan="2" class="border border-gray-300 p-2 sticky left-0 z-20 bg-gray-100 w-48 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-black text-[13px]">ไซต์งาน</th>';
+        html += '<th rowspan="2" class="border border-gray-300 p-2 bg-blue-50 text-blue-800 w-28 font-bold">วันเข้าให้บริการ</th>';
+        html += '<th rowspan="2" class="border border-gray-300 p-2 bg-blue-50 text-blue-800 w-28 font-bold">ความถี่ / เดือน</th>';
+        html += '<th rowspan="2" class="border border-gray-300 p-2 bg-blue-50 text-blue-800 w-24 font-bold">วันที่เริ่มสัญญา</th>';
+        html += '<th rowspan="2" class="border border-gray-300 p-2 bg-blue-50 text-blue-800 w-24 font-bold">วันที่สิ้นสุด</th>';
+        html += '<th colspan="' + daysInMonth + '" class="border border-gray-300 p-2 bg-gray-100 text-gray-800 text-[14px] font-black">' + headerMonthText + '</th>';
+        html += '</tr>';
+
+        // ชั้นที่ 2: วันที่ 1-31
+        html += '<tr class="bg-gray-100">';
+        for(var d=1; d<=daysInMonth; d++) {
+            var dateObj = new Date(yyyy, mm, d);
+            var dayNames = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+            var dayName = dayNames[dateObj.getDay()];
+            var isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
+            var bgHead = isWeekend ? 'bg-gray-200 text-gray-500' : 'bg-gray-50 text-gray-700';
+            html += '<th class="border border-gray-300 p-1 w-8 ' + bgHead + '"><div class="font-normal text-[9px]">' + dayName + '</div><div class="font-bold">' + String(d).padStart(2,'0') + '</div></th>';
+        }
+        html += '</tr></thead>';
+
+        // --- ส่วนเนื้อหาตาราง (TBODY) ---
+        html += '<tbody>';
+        MOCK_CLIENTS.forEach(function(client) {
+            if(client.type === 'system') return; // ข้ามงานรอจัดสรร
+
+            var cStart = client.startDate ? new Date(client.startDate) : null;
+            var cEnd = client.endDate ? new Date(client.endDate) : null;
+            
+            // ดึงข้อมูล 4 คอลัมน์ (ถ้าไม่มีให้แสดง -)
+            var cServiceDays = client.serviceDays || '-'; 
+            var cFreq = client.frequency || '-';
+            var startTxt = client.startDate ? formatThaiDateShort(client.startDate) : '-';
+            var endTxt = client.endDate ? formatThaiDateShort(client.endDate) : '-';
+
+            // สีพื้นหลังช่องชื่อลูกค้า (ใช้ hexToRgba เพื่อให้สีอ่อนลง 40% จะได้อ่านตัวหนังสือสีดำชัดขึ้น)
+            var clientBgColor = (typeof hexToRgba === 'function') ? hexToRgba(client.color, 0.4) : (client.color || '#f3f4f6');
+
+            html += '<tr class="hover:bg-gray-50 transition-colors">';
+            
+            // คอลัมน์ 1-5 ด้านซ้าย
+            html += '<td class="border border-gray-300 p-2 sticky left-0 z-10 text-left font-bold text-gray-900 truncate max-w-[12rem] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]" style="background-color: ' + clientBgColor + ';" title="' + client.name + '">' + client.name + '</td>';
+            html += '<td class="border border-gray-300 p-2 text-gray-700 bg-white font-medium">' + cServiceDays + '</td>';
+            html += '<td class="border border-gray-300 p-2 text-gray-700 bg-white font-medium">' + cFreq + '</td>';
+            html += '<td class="border border-gray-300 p-2 text-gray-700 bg-white">' + startTxt + '</td>';
+            html += '<td class="border border-gray-300 p-2 text-gray-700 bg-white">' + endTxt + '</td>';
+
+            // วนลูปสร้างเซลล์แต่ละวัน 1-31
+            for(var d=1; d<=daysInMonth; d++) {
+                var cellDateStr = yyyy + '-' + String(mm+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                
+                var bgColorClass = 'bg-white cursor-pointer hover:bg-gray-100 transition-colors';
+                var textHtml = '';
+
+                // กฎข้อ 1. เช็ควันเริ่ม-สิ้นสุดสัญญา (สีส้ม / สีแดง)
+                if(cStart && formatDateString(cStart) === cellDateStr) { bgColorClass = 'bg-orange-400 cursor-pointer'; }
+                if(cEnd && formatDateString(cEnd) === cellDateStr) { bgColorClass = 'bg-red-500 cursor-pointer'; }
+
+                // กฎข้อ 2. เช็คกิจกรรมของ AE/Supervisor
+                var activities = MOCK_SITE_ACTIVITIES.filter(function(a) { return a.clientId === client.id && a.date === cellDateStr; });
+                if(activities.length > 0) {
+                    var act = activities[0]; 
+                    if(act.type === 'Inspection') bgColorClass = 'bg-green-500 cursor-pointer shadow-inner';
+                    else if(act.type === 'Report') bgColorClass = 'bg-blue-500 cursor-pointer shadow-inner';
+                    else if(act.type === 'OJT') bgColorClass = 'bg-purple-400 cursor-pointer shadow-inner';
+                    else if(act.type === 'Payment') bgColorClass = 'bg-pink-300 cursor-pointer shadow-inner';
+                }
+
+                // กฎข้อ 3. เช็คจำนวนพนักงานแม่บ้านในวันนั้น
+                var shifts = MOCK_SHIFTS.filter(function(s) { return s.clientId === client.id && s.date === cellDateStr && s.status !== 'cancelled' && s.status !== 'absent'; });
+                var totalWorkers = 0;
+                shifts.forEach(function(s) { if(s.hks) totalWorkers += s.hks.length; });
+
+                if(totalWorkers > 0) {
+                    var textColorClass = (bgColorClass.includes('bg-white') || bgColorClass.includes('bg-gray')) ? 'text-gray-800' : 'text-white drop-shadow-md';
+                    textHtml = '<span class="font-black text-[12px] ' + textColorClass + '">' + totalWorkers + '</span>';
+                }
+
+                // สรุปเป็น HTML ของเซลล์
+                html += '<td class="border border-gray-300 relative group p-0" onclick="openInspectionActivityModal(\'' + client.id + '\', \'' + cellDateStr + '\')">';
+                html += '<div class="w-full h-full min-h-[32px] flex items-center justify-center ' + bgColorClass + '">' + textHtml + '</div>';
+                html += '</td>';
+            }
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    // 💡 เปิด Pop-up บันทึกกิจกรรม
+    function openInspectionActivityModal(clientId, dateStr) {
+        var isAdmin = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER && (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin'));
+        if (!isAdmin && typeof CURRENT_USER !== 'undefined' && CURRENT_USER && CURRENT_USER.role === 'Viewer') { return; }
+
+        var existingAct = MOCK_SITE_ACTIVITIES.find(function(a) { return a.clientId === clientId && a.date === dateStr; });
+        var c = MOCK_CLIENTS.find(function(x){ return x.id === clientId;});
+        var clientName = c ? c.name : clientId;
+
+        var modalId = 'inspectionModalOverlay';
+        var modal = document.getElementById(modalId);
+        
+        if(!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = 'fixed inset-0 bg-gray-900/60 z-[99999] flex items-center justify-center backdrop-blur-sm transition-opacity';
+            document.body.appendChild(modal);
+        }
+
+        var typeVal = existingAct ? existingAct.type : '';
+        var remarkVal = existingAct ? (existingAct.remark || '') : '';
+        var actId = existingAct ? existingAct.id : '';
+
+        modal.innerHTML = '<div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform scale-100 transition-transform duration-200 border border-gray-100">' +
+            '<div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-brandLight/30">' +
+                '<h3 class="text-md font-black text-brand"><i class="fa-solid fa-list-check mr-2"></i> บันทึกกิจกรรม AE</h3>' +
+                '<button onclick="document.getElementById(\'' + modalId + '\').classList.add(\'hidden\')" class="text-gray-400 hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>' +
+            '</div>' +
+            '<div class="p-6 flex flex-col gap-4">' +
+                '<input type="hidden" id="inspActId" value="' + actId + '">' +
+                '<input type="hidden" id="inspClientId" value="' + clientId + '">' +
+                '<input type="hidden" id="inspDate" value="' + dateStr + '">' +
+                
+                '<div class="bg-gray-50 p-3 rounded-lg border border-gray-200">' +
+                    '<p class="text-[12px] text-gray-500 font-medium mb-1">ลูกค้า: <span class="font-bold text-gray-800">' + clientName + '</span></p>' +
+                    '<p class="text-[12px] text-gray-500 font-medium">วันที่: <span class="font-bold text-brand">' + dateStr + '</span></p>' +
+                '</div>' +
+                
+                '<div>' +
+                    '<label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทกิจกรรม <span class="text-red-500">*</span></label>' +
+                    '<select id="inspType" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">' +
+                        '<option value="">-- ไม่ระบุ / ลบกิจกรรม --</option>' +
+                        '<option value="Inspection" ' + (typeVal==='Inspection'?'selected':'') + '>🟢 เข้าตรวจสอบคุณภาพงาน</option>' +
+                        '<option value="Report" ' + (typeVal==='Report'?'selected':'') + '>🔵 วันส่งรายงาน</option>' +
+                        '<option value="OJT" ' + (typeVal==='OJT'?'selected':'') + '>🟣 วัน OJT (On-the-Job Training)</option>' +
+                        '<option value="Payment" ' + (typeVal==='Payment'?'selected':'') + '>🌸 ทำเรื่องเบิกค่าจ้าง</option>' +
+                    '</select>' +
+                '</div>' +
+                '<div>' +
+                    '<label class="block text-[12px] font-bold text-gray-600 mb-1">หมายเหตุ (Remark)</label>' +
+                    '<textarea id="inspRemark" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand" placeholder="ระบุรายละเอียดเพิ่มเติม...">' + remarkVal + '</textarea>' +
+                '</div>' +
+            '</div>' +
+            '<div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">' +
+                '<button onclick="document.getElementById(\'' + modalId + '\').classList.add(\'hidden\')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>' +
+                '<button onclick="saveInspectionActivity()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-sm transition">บันทึกข้อมูล</button>' +
+            '</div>' +
+        '</div>';
+
+        modal.classList.remove('hidden');
+    }
+
+    function saveInspectionActivity() {
+        var actId = document.getElementById('inspActId').value;
+        var clientId = document.getElementById('inspClientId').value;
+        var dateStr = document.getElementById('inspDate').value;
+        var type = document.getElementById('inspType').value;
+        var remark = document.getElementById('inspRemark').value;
+        var currentUserEmail = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.email : 'Unknown';
+
+        if(type === '') {
+            MOCK_SITE_ACTIVITIES = MOCK_SITE_ACTIVITIES.filter(function(a) { return !(a.clientId === clientId && a.date === dateStr); });
+        } else {
+            var data = { id: actId || 'ACT-' + new Date().getTime(), clientId: clientId, date: dateStr, type: type, remark: remark, actionBy: currentUserEmail };
+            var idx = MOCK_SITE_ACTIVITIES.findIndex(function(a) { return a.id === data.id; });
+            if(idx > -1) MOCK_SITE_ACTIVITIES[idx] = data;
+            else MOCK_SITE_ACTIVITIES.push(data);
+        }
+
+        document.getElementById('inspectionModalOverlay').classList.add('hidden');
+        renderInspectionMatrix(); 
+        if(typeof showToast === 'function') showToast('บันทึกกิจกรรมเรียบร้อยแล้ว');
+    }
+</script>
