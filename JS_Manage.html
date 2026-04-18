@@ -224,11 +224,25 @@
         if(zip) fullAddress += (fullAddress ? ' ' : '') + zip;
 
         var clientData = {
-            id: id || 'CL-' + new Date().getTime(), name: name, address: fullAddress, district: dist, province: prov,         
-            type: document.getElementById('clientType').value, status: document.getElementById('clientStatus').value,
-            contact: document.getElementById('clientContact').value, reqStaff: parseInt(document.getElementById('clientReqStaff').value) || 1,
-            color: document.getElementById('clientColor').value, contractHours: document.getElementById('clientContractHours').value,
-            actionBy: CURRENT_USER ? CURRENT_USER.email : 'Unknown'
+            id: id || 'CL-' + new Date().getTime(), 
+            name: name, 
+            address: fullAddress, 
+            district: dist, 
+            province: prov,         
+            type: document.getElementById('clientType').value, 
+            status: document.getElementById('clientStatus').value,
+            contact: document.getElementById('clientContact').value, 
+            reqStaff: parseInt(document.getElementById('clientReqStaff').value) || 1,
+            color: document.getElementById('clientColor').value, 
+            contractHours: document.getElementById('clientContractHours').value,
+            
+            // 💡 [ส่วนที่เพิ่มใหม่] ดึงค่าจาก 4 ช่องใหม่ที่เราสร้างไว้
+            serviceDays: document.getElementById('clientServiceDays') ? document.getElementById('clientServiceDays').value : '',
+            frequency: document.getElementById('clientFrequency') ? document.getElementById('clientFrequency').value : '',
+            startDate: document.getElementById('clientStartDate') ? document.getElementById('clientStartDate').value : '',
+            endDate: document.getElementById('clientEndDate') ? document.getElementById('clientEndDate').value : '',
+            
+            actionBy: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.email : 'Unknown'
         };
         
         var idx = MOCK_CLIENTS.findIndex(function(c) { return c.id === clientData.id; }); 
@@ -1176,6 +1190,8 @@
         setInputValue('clientName', ''); 
         setInputValue('clientAddressDetail', '');
         setInputValue('clientProvince', ''); 
+        setInputValue('clientServiceDays', ''); 
+        setInputValue('clientFrequency', '');
         if (window.jQuery && $.fn.select2) $('#clientProvince').trigger('change.select2');
         
         var elDist = document.getElementById('clientDistrict'); 
@@ -1212,7 +1228,9 @@
         setInputValue('clientName', c.name); 
         setInputValue('clientAddressDetail', c.address || '');
         setInputValue('clientProvince', c.province || ''); 
-        
+        setInputValue('clientServiceDays', c.serviceDays || ''); 
+        setInputValue('clientFrequency', c.frequency || '');
+
         var provEl = document.getElementById('clientProvince'); 
         if(provEl) provEl.dispatchEvent(new Event('change'));
         if (window.jQuery && $.fn.select2) $('#clientProvince').trigger('change.select2');
