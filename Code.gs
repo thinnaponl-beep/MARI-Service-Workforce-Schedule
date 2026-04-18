@@ -104,7 +104,9 @@ function getAppData() {
     clients: getSheetDataAsObjects('Clients'),
     housekeepers: getSheetDataAsObjects('Housekeepers'),
     shifts: getSheetDataAsObjects('Shifts'),
-    users: getSheetDataAsObjects('Users')
+    users: getSheetDataAsObjects('Users'),
+    // 💡 เพิ่มบรรทัดนี้ลงไปครับ
+    siteActivities: getSheetDataAsObjects('Site_Activities') 
   };
 }
 
@@ -189,17 +191,24 @@ function saveClientToBackend(clientData) {
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
       let updatedRow = [...data[i]];
-      updatedRow[headers.indexOf('client_name')] = clientData.name || '';
-      updatedRow[headers.indexOf('address')] = clientData.address || '';
-      updatedRow[headers.indexOf('district')] = clientData.district || '';
-      updatedRow[headers.indexOf('province')] = clientData.province || '';
-      updatedRow[headers.indexOf('type')] = clientData.type || 'B2B';
-      updatedRow[headers.indexOf('contact_person')] = clientData.contact || '';
-      updatedRow[headers.indexOf('phone')] = clientData.phone || '';
-      updatedRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
-      updatedRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
-      updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
-      updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
+      // อัปเดตข้อมูลเดิม
+      if(headers.indexOf('client_name') > -1) updatedRow[headers.indexOf('client_name')] = clientData.name || '';
+      if(headers.indexOf('address') > -1) updatedRow[headers.indexOf('address')] = clientData.address || '';
+      if(headers.indexOf('district') > -1) updatedRow[headers.indexOf('district')] = clientData.district || '';
+      if(headers.indexOf('province') > -1) updatedRow[headers.indexOf('province')] = clientData.province || '';
+      if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = clientData.type || 'B2B';
+      if(headers.indexOf('contact_person') > -1) updatedRow[headers.indexOf('contact_person')] = clientData.contact || '';
+      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = clientData.phone || '';
+      if(headers.indexOf('contract_hours') > -1) updatedRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
+      if(headers.indexOf('required_hk_per_day') > -1) updatedRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
+      if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
+      if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
+      
+      // 💡 [ส่วนที่เพิ่มใหม่] อัปเดต 4 ฟิลด์ใหม่
+      if(headers.indexOf('service_days') > -1) updatedRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
+      if(headers.indexOf('frequency') > -1) updatedRow[headers.indexOf('frequency')] = clientData.frequency || '';
+      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate || '';
+      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate || '';
 
       sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
       isFound = true;
@@ -209,18 +218,36 @@ function saveClientToBackend(clientData) {
     }
   }
 
+  // กรณีสร้างข้อมูลลูกค้าใหม่
   if (!isFound) {
-    sheet.appendRow([
-      clientData.id || 'CL-' + new Date().getTime(),
-      clientData.name || '', clientData.address || '', clientData.district || '', clientData.province || '',
-      clientData.type || 'B2B', clientData.contact || '', clientData.phone || '', clientData.contractHours || '',
-      clientData.reqStaff || 1, clientData.color || '#e2e8f0', clientData.status || 'Active', new Date()
-    ]);
+    let newRow = new Array(headers.length).fill('');
+    
+    // ใส่ข้อมูลตามตำแหน่งคอลัมน์
+    if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = clientData.id || 'CL-' + new Date().getTime();
+    if(headers.indexOf('client_name') > -1) newRow[headers.indexOf('client_name')] = clientData.name || '';
+    if(headers.indexOf('address') > -1) newRow[headers.indexOf('address')] = clientData.address || '';
+    if(headers.indexOf('district') > -1) newRow[headers.indexOf('district')] = clientData.district || '';
+    if(headers.indexOf('province') > -1) newRow[headers.indexOf('province')] = clientData.province || '';
+    if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = clientData.type || 'B2B';
+    if(headers.indexOf('contact_person') > -1) newRow[headers.indexOf('contact_person')] = clientData.contact || '';
+    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = clientData.phone || '';
+    if(headers.indexOf('contract_hours') > -1) newRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
+    if(headers.indexOf('required_hk_per_day') > -1) newRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
+    if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
+    if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = clientData.status || 'Active';
+    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+    
+    // 💡 [ส่วนที่เพิ่มใหม่] ข้อมูล 4 ฟิลด์ใหม่สำหรับลูกค้าใหม่
+    if(headers.indexOf('service_days') > -1) newRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
+    if(headers.indexOf('frequency') > -1) newRow[headers.indexOf('frequency')] = clientData.frequency || '';
+    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate || '';
+    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate || '';
+
+    sheet.appendRow(newRow);
     logChange('CREATE', 'Clients', clientData.id, null, clientData, clientData.actionBy);
   }
   return { success: true, message: 'บันทึกข้อมูลไซต์งานสำเร็จ' };
 }
-
 function saveStaffToBackend(staffData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
@@ -571,4 +598,71 @@ function exportToGoogleSheets(shiftsData) {
   } catch (e) {
     throw new Error('เกิดข้อผิดพลาดในการสร้าง Sheet: ' + e.toString());
   }
+}
+
+// 💡 บันทึกและลบข้อมูลกิจกรรมการเข้าตรวจงาน (AE Activities)
+function saveSiteActivityToBackend(actData, isDelete) {
+  const sheetName = 'Site_Activities';
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  
+  // สร้าง Sheet อัตโนมัติถ้ายังไม่มี
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+    const headers = ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#3d5a6c').setFontColor('white');
+    sheet.setFrozenRows(1);
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('act_id');
+  
+  // กรณีเลือกลบข้อมูล (เมื่อ User เลือก "-- ไม่ระบุ / ลบกิจกรรม --")
+  if (isDelete) {
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (data[i][idIdx] === actData.id || 
+         (data[i][headers.indexOf('client_id')] === actData.clientId && data[i][headers.indexOf('date')] === actData.date)) {
+        sheet.deleteRow(i + 1);
+        return { success: true, message: 'ลบกิจกรรมสำเร็จ' };
+      }
+    }
+    return { success: true, message: 'ทำรายการสำเร็จ (ไม่พบข้อมูลเดิมที่ต้องลบ)' };
+  }
+
+  // กรณีเพิ่มหรือแก้ไขกิจกรรม
+  let isFound = false;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idIdx] === actData.id || 
+       (data[i][headers.indexOf('client_id')] === actData.clientId && data[i][headers.indexOf('date')] === actData.date)) {
+      const rowNum = i + 1;
+      let updatedRow = [...data[i]];
+      
+      if(headers.indexOf('act_id') > -1) updatedRow[headers.indexOf('act_id')] = actData.id;
+      if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = actData.clientId;
+      if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = actData.date;
+      if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = actData.type;
+      if(headers.indexOf('remark') > -1) updatedRow[headers.indexOf('remark')] = actData.remark;
+      if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = actData.actionBy;
+      if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
+
+      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+      isFound = true;
+      break;
+    }
+  }
+
+  if (!isFound) {
+    let newRow = new Array(headers.length).fill('');
+    if(headers.indexOf('act_id') > -1) newRow[headers.indexOf('act_id')] = actData.id;
+    if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = actData.clientId;
+    if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = actData.date;
+    if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = actData.type;
+    if(headers.indexOf('remark') > -1) newRow[headers.indexOf('remark')] = actData.remark;
+    if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = actData.actionBy;
+    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+    if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = new Date();
+    sheet.appendRow(newRow);
+  }
+  
+  return { success: true, message: 'บันทึกกิจกรรมสำเร็จ' };
 }
