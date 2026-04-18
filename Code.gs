@@ -7,11 +7,13 @@
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  // 💡 อัปเดตโครงสร้างล่าสุด: เพิ่ม 4 คอลัมน์ใหม่ใน Clients และเพิ่มตาราง Site_Activities
   const sheetsConfig = {
     'Housekeepers': ['hk_id', 'name', 'nickname', 'phone', 'line_id', 'status', 'job_type', 'special_skills', 'zones', 'max_hours_week', 'avatar_url', 'color_hex', 'start_date', 'end_date', 'created_at'],
-    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'created_at'],
+    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at'],
     'Shifts': ['shift_id', 'client_id', 'date', 'start_time', 'end_time', 'assigned_hk_ids', 'status', 'recurring_group_id', 'notes', 'created_by', 'updated_at'],
     'Users': ['email', 'name', 'role', 'is_active'],
+    'Site_Activities': ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'],
     'ChangeLog': ['log_id', 'timestamp', 'user_email', 'action', 'table_name', 'record_id', 'old_data', 'new_data']
   };
 
@@ -204,11 +206,11 @@ function saveClientToBackend(clientData) {
       if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
       if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
       
-      // 💡 [ส่วนที่เพิ่มใหม่] อัปเดต 4 ฟิลด์ใหม่
+      // 💡 [ส่วนที่เพิ่มใหม่] บังคับให้วันที่ทั้งหมดบันทึกเป็น Text (' prefix)
       if(headers.indexOf('service_days') > -1) updatedRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
       if(headers.indexOf('frequency') > -1) updatedRow[headers.indexOf('frequency')] = clientData.frequency || '';
-      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate || '';
-      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate || '';
+      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
+      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
 
       sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
       isFound = true;
@@ -237,17 +239,18 @@ function saveClientToBackend(clientData) {
     if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = clientData.status || 'Active';
     if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
     
-    // 💡 [ส่วนที่เพิ่มใหม่] ข้อมูล 4 ฟิลด์ใหม่สำหรับลูกค้าใหม่
+    // 💡 [ส่วนที่เพิ่มใหม่] บังคับเป็น Text เช่นกัน
     if(headers.indexOf('service_days') > -1) newRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
     if(headers.indexOf('frequency') > -1) newRow[headers.indexOf('frequency')] = clientData.frequency || '';
-    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate || '';
-    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate || '';
+    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
+    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
 
     sheet.appendRow(newRow);
     logChange('CREATE', 'Clients', clientData.id, null, clientData, clientData.actionBy);
   }
   return { success: true, message: 'บันทึกข้อมูลไซต์งานสำเร็จ' };
 }
+
 function saveStaffToBackend(staffData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
@@ -275,8 +278,11 @@ function saveStaffToBackend(staffData) {
       updatedRow[headers.indexOf('special_skills')] = staffData.skills || '';
       updatedRow[headers.indexOf('zones')] = staffData.zones || '';
       updatedRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
-      updatedRow[headers.indexOf('start_date')] = staffData.startDate || '';
-      updatedRow[headers.indexOf('end_date')] = staffData.endDate || '';
+      
+      // 💡 บังคับบันทึกวันที่เป็น Text (' prefix)
+      updatedRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
+      updatedRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
+      
       updatedRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
       updatedRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
 
@@ -294,7 +300,10 @@ function saveStaffToBackend(staffData) {
       staffData.name || '', staffData.nickname || '', staffData.phone || '', staffData.lineId || '',
       staffData.status || 'Active', staffData.type || 'Full-time', staffData.skills || '', staffData.zones || '',
       staffData.maxHoursWeek || 48, staffData.avatar || '', staffData.color || '#3b82f6',
-      staffData.startDate || '', staffData.endDate || '', new Date()
+      // 💡 บังคับบันทึกวันที่เป็น Text (' prefix)
+      staffData.startDate ? "'" + staffData.startDate : '', 
+      staffData.endDate ? "'" + staffData.endDate : '', 
+      new Date()
     ]);
     logChange('CREATE', 'Housekeepers', staffData.id, null, staffData, staffData.actionBy);
   }
@@ -356,7 +365,8 @@ function saveMultipleShiftsToBackend(shiftsArray) {
 
         let updatedRow = [...data[i]];
         updatedRow[headers.indexOf('client_id')] = shiftData.clientId;
-        updatedRow[headers.indexOf('date')] = shiftData.date;
+        // 💡 บังคับวันที่เป็น Text (' prefix)
+        updatedRow[headers.indexOf('date')] = "'" + shiftData.date; 
         updatedRow[headers.indexOf('start_time')] = shiftData.start;
         updatedRow[headers.indexOf('end_time')] = shiftData.end;
         updatedRow[headers.indexOf('assigned_hk_ids')] = hkString;
@@ -377,7 +387,8 @@ function saveMultipleShiftsToBackend(shiftsArray) {
        let newRow = new Array(headers.length).fill('');
        newRow[headers.indexOf('shift_id')] = shiftData.id;
        newRow[headers.indexOf('client_id')] = shiftData.clientId;
-       newRow[headers.indexOf('date')] = shiftData.date;
+       // 💡 บังคับวันที่เป็น Text (' prefix)
+       newRow[headers.indexOf('date')] = "'" + shiftData.date;
        newRow[headers.indexOf('start_time')] = shiftData.start;
        newRow[headers.indexOf('end_time')] = shiftData.end;
        newRow[headers.indexOf('assigned_hk_ids')] = hkString;
@@ -414,7 +425,8 @@ function updateShiftDragAndDrop(shiftId, targetClientId, targetDateStr, actionBy
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
       sheet.getRange(rowNum, headers.indexOf('client_id') + 1).setValue(targetClientId);
-      sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue(targetDateStr);
+      // 💡 บังคับเป็น Text (' prefix)
+      sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue("'" + targetDateStr);
       sheet.getRange(rowNum, headers.indexOf('updated_at') + 1).setValue(new Date());
       
       logChange('UPDATE_DRAG', 'Shifts', shiftId, oldDataObj, {clientId: targetClientId, date: targetDateStr}, actionBy);
@@ -616,12 +628,21 @@ function saveSiteActivityToBackend(actData, isDelete) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const idIdx = headers.indexOf('act_id');
+  const clientIdx = headers.indexOf('client_id');
+  const dateIdx = headers.indexOf('date');
   
   // กรณีเลือกลบข้อมูล (เมื่อ User เลือก "-- ไม่ระบุ / ลบกิจกรรม --")
   if (isDelete) {
     for (let i = data.length - 1; i >= 1; i--) {
+      // 💡 ดึงค่าวันที่ออกมาและแปลง format ให้ตรงกับที่เช็ค (ป้องกัน Date Object bug)
+      let sheetDate = data[i][dateIdx];
+      let sheetDateStr = sheetDate;
+      if (sheetDate instanceof Date) {
+        sheetDateStr = `${sheetDate.getFullYear()}-${String(sheetDate.getMonth() + 1).padStart(2, '0')}-${String(sheetDate.getDate()).padStart(2, '0')}`;
+      }
+
       if (data[i][idIdx] === actData.id || 
-         (data[i][headers.indexOf('client_id')] === actData.clientId && data[i][headers.indexOf('date')] === actData.date)) {
+         (data[i][clientIdx] === actData.clientId && sheetDateStr === actData.date)) {
         sheet.deleteRow(i + 1);
         return { success: true, message: 'ลบกิจกรรมสำเร็จ' };
       }
@@ -632,14 +653,21 @@ function saveSiteActivityToBackend(actData, isDelete) {
   // กรณีเพิ่มหรือแก้ไขกิจกรรม
   let isFound = false;
   for (let i = 1; i < data.length; i++) {
+    let sheetDate = data[i][dateIdx];
+    let sheetDateStr = sheetDate;
+    if (sheetDate instanceof Date) {
+      sheetDateStr = `${sheetDate.getFullYear()}-${String(sheetDate.getMonth() + 1).padStart(2, '0')}-${String(sheetDate.getDate()).padStart(2, '0')}`;
+    }
+
     if (data[i][idIdx] === actData.id || 
-       (data[i][headers.indexOf('client_id')] === actData.clientId && data[i][headers.indexOf('date')] === actData.date)) {
+       (data[i][clientIdx] === actData.clientId && sheetDateStr === actData.date)) {
       const rowNum = i + 1;
       let updatedRow = [...data[i]];
       
       if(headers.indexOf('act_id') > -1) updatedRow[headers.indexOf('act_id')] = actData.id;
       if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = actData.clientId;
-      if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = actData.date;
+      // 💡 บังคับจัดเก็บวันที่เป็น Text (มี ' นำหน้า) ป้องกันการขยับของ Timezone
+      if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + actData.date;
       if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = actData.type;
       if(headers.indexOf('remark') > -1) updatedRow[headers.indexOf('remark')] = actData.remark;
       if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = actData.actionBy;
@@ -655,7 +683,7 @@ function saveSiteActivityToBackend(actData, isDelete) {
     let newRow = new Array(headers.length).fill('');
     if(headers.indexOf('act_id') > -1) newRow[headers.indexOf('act_id')] = actData.id;
     if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = actData.clientId;
-    if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = actData.date;
+    if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + actData.date; // 💡 บังคับเป็น Text
     if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = actData.type;
     if(headers.indexOf('remark') > -1) newRow[headers.indexOf('remark')] = actData.remark;
     if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = actData.actionBy;
