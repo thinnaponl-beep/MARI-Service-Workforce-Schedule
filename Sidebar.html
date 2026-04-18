@@ -13,6 +13,10 @@
             <i class="fa-regular fa-calendar-days w-6 text-center text-lg"></i> <span class="sidebar-text whitespace-nowrap">ตารางงาน</span>
         </button>
 
+        <button onclick="switchMainView('view-inspection', 'menu-inspection'); initInspectionView();" id="menu-inspection" class="sidebar-menu flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium text-gray-500 hover:text-brand hover:bg-gray-50 transition-all" title="ตารางการเข้าตรวจงาน">
+            <i class="fa-solid fa-list-check w-6 text-center text-lg"></i> <span class="sidebar-text whitespace-nowrap">ตารางการเข้าตรวจงาน</span>
+        </button>
+        
         <button onclick="switchMainView('view-report', 'menu-report')" id="menu-report" class="sidebar-menu flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium text-gray-500 hover:text-brand hover:bg-gray-50 transition-all" title="รายงาน (Fastreport)">
             <i class="fa-solid fa-chart-pie w-6 text-center text-lg"></i> <span class="sidebar-text whitespace-nowrap">รายงาน (Fastreport)</span>
         </button>
