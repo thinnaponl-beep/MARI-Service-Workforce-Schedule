@@ -292,6 +292,36 @@
             <span class="mt-6 px-4 py-1.5 bg-gray-200 text-gray-600 font-bold text-xs rounded-full uppercase tracking-widest">Coming Soon</span>
         </div>
 
+
+        <!-- ======================================= -->
+        <!-- [NEW] VIEW: INSPECTION (ตารางการเข้าตรวจงาน) -->
+        <!-- ======================================= -->
+        <div id="view-inspection" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
+            <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
+                <div class="flex items-center gap-3">
+                    <button onclick="changeInspectionMonth(-1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                    <!-- 💡 Month Picker แบบ 12 เดือน -->
+                    <input type="month" id="inspectionMonthPicker" onchange="setInspectionMonthFromPicker(this.value)" class="border border-gray-300 rounded px-3 py-1.5 text-sm font-bold text-brand outline-none focus:border-brand">
+                    <button onclick="changeInspectionMonth(1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+            
+            <!-- Legend (คำอธิบายสี) -->
+            <div class="bg-white px-6 py-2 border-b border-gray-200 flex flex-wrap gap-4 text-[11px] font-medium shrink-0">
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-orange-400 rounded-sm"></div> วันเริ่มสัญญา</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-500 rounded-sm"></div> วันสิ้นสุดสัญญา</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 border border-gray-300 bg-white flex items-center justify-center text-[9px] font-bold">1</div> วันที่ปฏิบัติงาน (จำนวนคน)</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-green-500 rounded-sm"></div> เข้าตรวจสอบคุณภาพงาน</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-blue-500 rounded-sm"></div> วันส่งรายงาน</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-purple-400 rounded-sm"></div> วัน OJT</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-pink-300 rounded-sm"></div> ทำเรื่องเบิกค่าจ้าง</div>
+            </div>
+
+            <div class="flex-grow overflow-auto bg-white custom-scrollbar p-4" id="inspectionTableContainer">
+                <!-- ตาราง Matrix จะถูก Render ที่นี่ -->
+            </div>
+        </div>
+
         <!-- ======================================= -->
         <!-- [4] VIEW: USERS (ตั้งค่าสิทธิ์) -->
         <!-- ======================================= -->
@@ -635,6 +665,14 @@
                             <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-file-contract mr-1"></i> การติดต่อ & สัญญา</h4>
                         </div>
                         <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันเข้าให้บริการ <span class="text-gray-400 font-normal">(เช่น 7 วันทำงาน)</span></label>
+                            <input type="text" id="clientServiceDays" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ความถี่ / เดือน <span class="text-gray-400 font-normal">(เช่น 1 ครั้ง ทั้งวัน)</span></label>
+                            <input type="text" id="clientFrequency" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
                             <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ติดต่อหลัก / เบอร์โทร</label>
                             <input type="text" id="clientContact" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
                         </div>
@@ -645,6 +683,16 @@
                                 <option value="Pending">Pending (รอยืนยัน)</option>
                                 <option value="Expired">Expired (หมดสัญญา)</option>
                             </select>
+                        </div>
+                        <div class="flex gap-3 mt-1">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มสัญญา</label>
+                                <input type="date" id="clientStartDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่สิ้นสุดสัญญา</label>
+                                <input type="date" id="clientEndDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
                         </div>
                         <div class="flex gap-3 mt-2">
                             <div class="w-1/2">
@@ -868,6 +916,7 @@
     <?!= include('JS_Manage'); ?>
     <?!= include('JS_Auth'); ?>
     <?!= include('JS_Report'); ?>
+    <?!= include('JS_Inspection'); ?>
     
 </body>
 </html>
