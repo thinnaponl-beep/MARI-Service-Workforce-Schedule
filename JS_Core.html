@@ -319,7 +319,8 @@
             'view-manage': 'จัดการข้อมูลหลัก (Master Data)',
             'view-inventory': 'เบิกนับสต๊อค (Inventory)',
             'view-users': 'ตั้งค่าสิทธิ์ (User Roles)',
-            'view-report': 'Fastreport' 
+            'view-report': 'Fastreport',
+            'view-inspection': 'ตารางแผนการเข้าตรวจสอบ (Site Inspection)'
         };
         var titleEl = document.getElementById('globalPageTitle');
         if(titleEl && titleMap[viewId]) {
@@ -504,7 +505,8 @@
             return {
                 id: c.client_id, name: c.client_name, address: c.address, district: c.district, province: c.province,
                 type: c.type || 'b2b', color: c.color_hex || '#e2e8f0', reqStaff: c.required_hk_per_day || 1,
-                contact: c.contact_person, phone: c.phone, status: c.status || 'Active', contractHours: c.contract_hours || 0
+                contact: c.contact_person, phone: c.phone, status: c.status || 'Active', contractHours: c.contract_hours || 0,
+                serviceDays: c.service_days || '',frequency: c.frequency || '',startDate: c.start_date || '',endDate: c.end_date || ''
             };
         });
         if(MOCK_CLIENTS.length === 0) MOCK_CLIENTS = [{ id: 'CL-001', name: 'งานรอจัดสรร (Unassigned)', type: 'system', color: '#e2e8f0', reqStaff: 1 }];
