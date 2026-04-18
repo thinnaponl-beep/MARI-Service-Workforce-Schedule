@@ -332,8 +332,8 @@
             if (!isCollapsed) {
                 weekDays.forEach(function(dateString) {
                     var shiftsInDay = MOCK_SHIFTS.filter(function(s) { return s.clientId === client.id && s.date === dateString; });
-                    // ใส่ min-w-0 
-                    bodyHTML += '<div class="border-r border-b border-gray-200 min-h-[120px] relative cell-drop-zone transition-colors min-w-0 w-full box-border" ' +
+                    // 💡 แก้ไข min-h-[120px] เป็น min-h-[60px] แล้วครับ
+                    bodyHTML += '<div class="border-r border-b border-gray-200 min-h-[60px] relative cell-drop-zone transition-colors min-w-0 w-full box-border" ' +
                                       'ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateString + '\')">' +
                                     '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateString + '\')" class="cell-add-btn absolute top-1 right-1 w-6 h-6 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-[10px]"></i></button>';
                     
@@ -398,7 +398,8 @@
             
             if (!isCollapsed) {
                 var clientShifts = shiftsToday.filter(function(s) { return s.clientId === client.id; });
-                bodyHTML += '<div class="border-b border-gray-200 flex flex-wrap gap-2 cell-drop-zone relative min-h-[80px] min-w-0 w-full box-border" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateStr + '\')">' +
+                // 💡 แก้ไข min-h-[80px] เป็น min-h-[60px] เรียบร้อยครับ
+                bodyHTML += '<div class="border-b border-gray-200 flex flex-wrap gap-2 cell-drop-zone relative min-h-[60px] min-w-0 w-full box-border" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateStr + '\')">' +
                                 '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateStr + '\')" class="cell-add-btn absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-xs"></i></button>';
                 
                 if (clientShifts.length > 0) {
