@@ -42,6 +42,7 @@
     var MOCK_HOUSEKEEPERS = [];
     var MOCK_SHIFTS = [];
     var MOCK_USERS = []; 
+    var MOCK_ISSUES = []; // 💡 เพิ่ม State สำหรับรับข้อมูลแจ้งปัญหา
 
     var currentDate = new Date(); 
     var currentWeekStart = getStartOfWeek(currentDate);
@@ -303,24 +304,28 @@
         }
         
         document.querySelectorAll('.sidebar-menu').forEach(function(el) {
-            el.classList.remove('bg-brandLight', 'text-brand', 'font-bold');
+            el.classList.remove('bg-brandLight', 'text-brand', 'font-bold', 'bg-red-50', 'text-red-600');
             el.classList.add('text-gray-500', 'font-medium');
         });
         
         var targetMenu = document.getElementById(menuId);
         if(targetMenu) {
             targetMenu.classList.remove('text-gray-500', 'font-medium');
-            targetMenu.classList.add('bg-brandLight', 'text-brand', 'font-bold');
+            if (menuId === 'menu-issues') {
+                targetMenu.classList.add('bg-red-50', 'text-red-600', 'font-bold');
+            } else {
+                targetMenu.classList.add('bg-brandLight', 'text-brand', 'font-bold');
+            }
         }
 
-        // 💡 1. อัปเดตเปลี่ยนชื่อเป็น Fastreport อย่างเดียว
         var titleMap = {
             'view-schedule': 'ตารางงาน (Schedule)',
             'view-manage': 'จัดการข้อมูลหลัก (Master Data)',
             'view-inventory': 'เบิกนับสต๊อค (Inventory)',
             'view-users': 'ตั้งค่าสิทธิ์ (User Roles)',
             'view-report': 'Fastreport',
-            'view-inspection': 'ตารางแผนการเข้าตรวจสอบ (Site Inspection)'
+            'view-inspection': 'ตารางแผนการเข้าตรวจสอบ (Site Inspection)',
+            'view-issues': 'แจ้งปัญหาคุณภาพ (Incident Management)'
         };
         var titleEl = document.getElementById('globalPageTitle');
         if(titleEl && titleMap[viewId]) {
@@ -337,7 +342,10 @@
         }
 
         if(viewId === 'view-schedule') {
-            filterGridData();
+            if(typeof filterGridData === 'function') filterGridData();
+        }
+        if(viewId === 'view-issues' && typeof renderIssuesTable === 'function') {
+            renderIssuesTable();
         }
     }
 
@@ -531,6 +539,17 @@
             return { id: u.email, name: u.name || 'ไม่มีชื่อ', email: u.email, role: u.role || 'Viewer', status: u.is_active ? 'Active' : 'Inactive' };
         }) : [ { id: 'U1', name: 'Admin User', email: 'admin@mariservices.com', role: 'Admin', status: 'Active' } ];
 
+        // 💡 แปลงข้อมูลแจ้งปัญหาคุณภาพ
+        if(data.issues) {
+            MOCK_ISSUES = data.issues.map(function(i) {
+                return {
+                    id: i.issue_id, clientId: i.client_id, dateReported: i.date_reported,
+                    category: i.category, description: i.description, status: i.status || 'Pending',
+                    assignedTo: i.assigned_to || '', dueDate: i.due_date || '', resolutionNote: i.resolution_note || ''
+                };
+            });
+        }
+
         refreshAllViews();
     }
 
@@ -539,6 +558,7 @@
         MOCK_HOUSEKEEPERS = [ { id: 'HK-001', name: 'สมใจ รักสะอาด', nickname: 'ใจ', type: 'Full-time', status: 'Active', phone: '089-123-4567', avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent('สมใจ') + '&background=e2e8f0&color=3d5a6c', color: '#ec4899' } ];
         MOCK_SHIFTS = [];
         MOCK_USERS = [ { id: 'U1', name: 'Admin User', email: 'admin@mariservices.com', role: 'Admin', status: 'Active' } ];
+        MOCK_ISSUES = []; // 💡 Fallback สำหรับ Issues
         refreshAllViews();
     }
 
@@ -548,6 +568,7 @@
         if(typeof renderStaffTable === 'function') renderStaffTable();
         if(typeof renderClientTable === 'function') renderClientTable();
         if(typeof renderUserTable === 'function') renderUserTable();
+        if(typeof renderIssuesTable === 'function') renderIssuesTable(); // 💡 สั่ง Render ตารางปัญหาเมื่อข้อมูลพร้อม
     }
 
     function closeModal(id) { 
@@ -593,7 +614,6 @@
         if (contentStaff && contentStaff.parentElement && !document.getElementById('content-rep-coverage')) {
             var contentContainer = contentStaff.parentElement;
 
-            // 💡 2. แก้ไขตารางให้ปรับขยายพื้นที่อัตโนมัติ (ไม่แคบติดกัน)
             var contentCoverage = document.createElement('div');
             contentCoverage.id = 'content-rep-coverage';
             contentCoverage.className = 'absolute inset-0 hidden bg-white';
@@ -732,7 +752,6 @@
         document.getElementById('repMissedShifts').innerText = tMissed;
         document.getElementById('repTotalHours').innerText = Math.round(tHours);
 
-        // 💡 2. จัดโครงสร้าง HTML ให้ตารางกางออกพอดี
         var staffHtml = '';
         var activeStaff = Object.values(staffMap).filter(function(st) { return st.total > 0; }).sort(function(a,b) { return b.hours - a.hours; });
         
@@ -867,7 +886,6 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // 💡 3. ฟังก์ชันสร้าง Sheets ถูกเขียนดักให้ทำงานเฉพาะมี Backend เท่านั้น ถ้าทดสอบอยู่จะแจ้งเตือน
     function exportScheduleToSheets() {
         var sDateStr = document.getElementById('reportStartDate').value;
         var eDateStr = document.getElementById('reportEndDate').value;
@@ -887,7 +905,6 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังส่งออก...';
         btn.disabled = true;
 
-        // เช็คว่ามีเซิร์ฟเวอร์ และมีฟังก์ชัน exportToGoogleSheets ในเซิร์ฟเวอร์หรือไม่
         if (typeof google !== 'undefined' && google.script && google.script.run && google.script.run.exportToGoogleSheets) {
             google.script.run
                 .withSuccessHandler(function(url) {
@@ -908,7 +925,6 @@
                 })
                 .exportToGoogleSheets(repShifts); 
         } else {
-            // ถ้ารันในระบบทดสอบ (Canvas) หรือยังไม่ได้ฝังฟังก์ชันใน Code.gs
             setTimeout(function() {
                 btn.innerHTML = oldText; btn.disabled = false;
                 if(typeof showCustomDialog === 'function') {
@@ -922,7 +938,6 @@
         }
     }
 
-    // 💡 4. แก้ไขป๊อปอัป Print PDF: จัดโครงสร้างให้สวยงาม มีปุ่มพิมพ์บนหน้า Preview
     function printWeeklySchedule() {
         if (!currentWeekStart) return;
         var sDateStr = document.getElementById('reportStartDate').value;
