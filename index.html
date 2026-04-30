@@ -3,39 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MARI Services - Workforce Management</title>
+    <title>Mari Services - Workforce Schedule</title>
     
-    <!-- 1. Fonts & Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- 2. Tailwind CSS (CDN) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { brand: '#3d5a6c', brandLight: '#eef2f6', brandDark: '#2b404d', zenGray: '#f8fafb' },
-                    fontFamily: { sans: ['Prompt', 'sans-serif'] }
+                    fontFamily: { sans: ['Prompt', 'sans-serif'] },
+                    colors: { brand: '#3d5a6c', brandDark: '#2b404d', brandLight: '#f0f4f8', zenGray: '#fafafa', zenBorder: '#f1f5f9' }
                 }
             }
         }
     </script>
 
-    <!-- 3. Stylesheet (ดึงจากไฟล์ Stylesheet.html) -->
+    <style>
+        .hidden { display: none !important; }
+        body { margin: 0; background-color: #f8fafb; font-family: 'Prompt', sans-serif; }
+        
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #f8fafb; z-index: 99999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease-out;
+        }
+        .loader-logo { height: 4.5rem; margin-bottom: 2rem; animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; object-fit: contain; }
+        .loader-text-container { display: flex; align-items: center; gap: 0.75rem; color: #3d5a6c; }
+        .loader-text { font-weight: 500; letter-spacing: 0.025em; font-size: 1.05rem; margin: 0; }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.98); } }
+
+        /* การจัดรูปแบบตาราง Data Table */
+        .data-table { border-collapse: collapse; width: 100%; text-align: left; }
+        .data-table th { padding: 1.25rem 1.5rem; border-bottom: 1px solid #e5e7eb; background-color: #f9fafb; text-align: left; font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 10; }
+        .data-table td { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; font-size: 0.8125rem; color: #374151; }
+        .data-table th.text-center, .data-table td.text-center { text-align: center; }
+        .data-table th.text-right, .data-table td.text-right { text-align: right; }
+        .data-table tbody tr { transition: background-color 0.15s ease; }
+        .data-table tbody tr:hover td { background-color: #f8fafb; }
+
+        /* ระบบ Grid สำหรับปฏิทิน */
+        .grid-schedule { display: grid; overflow-x: auto; }
+        .grid-week { grid-template-columns: 220px repeat(7, minmax(200px, 1fr)); }
+        .grid-day { grid-template-columns: 220px minmax(400px, 1fr); }
+
+        /* CSS สำหรับหุบ Sidebar */
+        #mainSidebar { transition: width 0.3s ease; width: 256px; } 
+        #mainSidebar.collapsed { width: 80px; }
+        #mainSidebar.collapsed .sidebar-text, 
+        #mainSidebar.collapsed .sidebar-badge { display: none; overflow: hidden; }
+        #mainSidebar.collapsed .logo-large { display: none; }
+        #mainSidebar.collapsed .logo-small { display: flex; }
+        #mainSidebar.collapsed .sidebar-menu { justify-content: center; padding-left: 0; padding-right: 0; }
+        #mainSidebar.collapsed .sidebar-menu i { margin: 0; font-size: 1.25rem; }
+        #mainSidebar.collapsed .user-info { display: none; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #94a3b8; }
+
+        .cell-drop-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px;
+            align-items: stretch;
+        }
+        .cell-drop-zone:hover { background-color: #f8fafb; }
+        
+        .cell-add-btn { opacity: 0; transition: opacity 0.2s ease; }
+        .cell-drop-zone:hover .cell-add-btn { opacity: 1; }
+
+        /* Tooltip สำหรับการ์ด */
+        .custom-tooltip { display: none; position: absolute; z-index: 9999; width: max-content; max-width: 250px; background: #1f2937; color: white; padding: 10px 14px; border-radius: 8px; font-size: 11px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); pointer-events: none; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 8px; }
+        .custom-tooltip::before { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border-width: 6px; border-style: solid; border-color: transparent transparent #1f2937 transparent; }
+        .shift-card:hover .custom-tooltip { display: block; animation: fadeInTooltip 0.2s ease-in-out; }
+        @keyframes fadeInTooltip { from { opacity: 0; transform: translate(-50%, -5px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+        /* Day View Vertical Timeline */
+        .timeline-container { display: flex; flex-direction: column; height: 100%; min-height: 600px; background: white; }
+        .timeline-header-row { display: flex; background: #f8fafb; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 30; }
+        .timeline-time-col-header { width: 60px; flex-shrink: 0; border-right: 1px solid #e5e7eb; background: #f8fafb; position: sticky; left: 0; z-index: 40; }
+        .timeline-hk-headers { display: flex; flex: 1; }
+        .timeline-hk-head { flex: 1; min-width: 140px; text-align: center; padding: 0.75rem 0.25rem; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; align-items: center; gap: 6px;}
+        .timeline-body-wrap { display: flex; flex: 1; overflow-y: auto; overflow-x: auto; position: relative; }
+        .timeline-time-labels { width: 60px; flex-shrink: 0; border-right: 1px solid #e5e7eb; background: #f8fafb; position: sticky; left: 0; z-index: 20; }
+        .time-label-slot { height: 60px; position: relative; }
+        .time-label-slot span { position: absolute; top: -8px; right: 8px; font-size: 0.65rem; font-weight: 600; color: #9ca3af; background: #f8fafb; padding: 0 4px; }
+        .timeline-grid-area { display: flex; flex: 1; position: relative; background-image: linear-gradient(to bottom, #f3f4f6 1px, transparent 1px); background-size: 100% 60px; }
+        .timeline-hk-col { flex: 1; min-width: 140px; border-right: 1px solid #f3f4f6; position: relative; }
+        .timeline-event { position: absolute; left: 4px; right: 4px; z-index: 10; }
+    </style>
+    
     <?!= include('Stylesheet'); ?>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans selection:bg-brand selection:text-white flex overflow-hidden h-screen text-[13px]">
+<body class="text-gray-800 h-screen flex overflow-hidden relative bg-[#f8fafb]">
 
-    <!-- ======================================= -->
-    <!-- [A] SIDEBAR (แถบเมนูด้านซ้าย) -->
-    <!-- ======================================= -->
+    <!-- 🔌 ดึงหน้า Login มาแสดง -->
+    <?!= include('Login'); ?>
+
+    <div id="loadingOverlay">
+        <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" alt="Mari Services Logo" class="loader-logo">
+        <div class="loader-text-container">
+            <i class="fa-solid fa-circle-notch fa-spin text-xl"></i>
+            <p class="loader-text" id="loadingText">กำลังเตรียมข้อมูลระบบ...</p>
+        </div>
+    </div>
+
+    <div id="toastNotification" class="fixed bottom-6 right-6 bg-gray-900 text-white px-6 py-3 rounded shadow-xl z-[150] transition-all transform translate-x-full opacity-0 flex items-center gap-3">
+        <i class="fa-solid fa-check-circle text-green-400"></i>
+        <span id="toastMessage" class="text-sm font-medium">บันทึกข้อมูลเรียบร้อย</span>
+    </div>
+
+    <!-- 🌟 1. ดึง Sidebar มาแสดงผลด้านซ้าย -->
     <?!= include('Sidebar'); ?>
 
-    <!-- ======================================= -->
-    <!-- [B] MAIN CONTENT (พื้นที่แสดงผลหลัก) -->
-    <!-- ======================================= -->
-    <main class="flex-1 flex flex-col h-screen min-w-0 bg-white relative transition-all duration-300">
+    <!-- 🌟 2. Main Content Area ฝั่งขวา -->
+    <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
         
         <!-- Global Top Header -->
         <header class="h-[76px] bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0 z-[60] shadow-sm relative">
@@ -43,249 +134,781 @@
                 <button onclick="toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition" title="ซ่อน/แสดง เมนู">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
-                <h2 class="text-xl font-bold text-brand leading-tight" id="mainTitle">ตารางงาน<br><span class="text-[14px] font-medium text-gray-500">(Schedule)</span></h2>
+                <h2 class="text-xl font-bold text-brand" id="globalPageTitle">ตารางงาน (Schedule)</h2>
             </div>
             
-            <div class="flex items-center gap-5">
-                <!-- Notifications -->
-                <div class="relative">
-                    <button onclick="toggleNotificationDropdown(event)" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-brand transition relative shadow-sm border border-gray-100">
-                        <i class="fa-regular fa-bell text-lg"></i>
-                        <span id="notiBadge" class="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white hidden"></span>
-                    </button>
-                    <!-- Notification Dropdown -->
-                    <div id="notiDropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 invisible opacity-0 transition-all duration-200 z-[100] flex flex-col max-h-[400px] overflow-hidden">
-                        <div class="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                            <h4 class="text-[13px] font-black text-gray-800"><i class="fa-regular fa-bell mr-1"></i> การแจ้งเตือน</h4>
-                            <button onclick="markAllNotificationsRead(event)" class="text-[11px] text-brand hover:underline font-bold">อ่านทั้งหมด</button>
-                        </div>
-                        <div id="notiListContainer" class="flex-1 overflow-y-auto custom-scrollbar">
-                            <!-- JS จะแทรกรายการแจ้งเตือนที่นี่ -->
+            <div class="flex items-center gap-4">
+                <button onclick="openShiftModal()" class="h-[42px] px-6 bg-brand text-white rounded-full text-[13px] font-bold hover:bg-brandDark transition flex items-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-plus"></i> สร้างตารางงานใหม่
+                </button>
+
+                <div class="w-px h-8 bg-gray-200 mx-2"></div>
+
+                 <!-- 💡 กระดิ่งแจ้งเตือน -->
+                    <div class="relative group cursor-pointer" onclick="toggleNotificationDropdown(event)">
+                        <button class="w-10 h-10 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-brand transition flex items-center justify-center relative">
+                            <i class="fa-solid fa-bell"></i>
+                            <span id="notiBadge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white hidden">0</span>
+                        </button>
+                        <div id="notiDropdown" class="absolute right-0 top-full mt-3 w-80 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible transition-all duration-200 z-[80] overflow-hidden flex flex-col cursor-default">
+                            <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                <h4 class="text-[13px] font-black text-gray-800">การแจ้งเตือน</h4>
+                                <button onclick="markAllNotificationsRead(event)" class="text-[11px] text-brand hover:underline font-bold cursor-pointer">อ่านทั้งหมด</button>
+                            </div>
+                            <div id="notiListContainer" class="max-h-80 overflow-y-auto custom-scrollbar flex flex-col bg-white">
+                                <!-- แจ้งเตือนจะถูกแทรกที่นี่ -->
+                            </div>
+                            <div class="px-4 py-2 border-t border-gray-100 text-center bg-gray-50 cursor-pointer hover:bg-gray-100 transition">
+                                <span class="text-[11px] text-gray-500 font-bold">ดูการแจ้งเตือนทั้งหมด</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="w-px h-8 bg-gray-200"></div>
-
-                <!-- User Profile Dropdown -->
-                <div class="relative group cursor-pointer">
-                    <div class="flex items-center gap-3 hover:bg-gray-50 p-1.5 rounded-lg transition">
-                        <div class="flex flex-col items-end">
-                            <span class="text-[13px] font-bold text-gray-800" id="currentUserName">Loading...</span>
-                            <span class="text-[11px] font-medium text-gray-500" id="currentUserRole">-</span>
-                        </div>
-                        <img id="currentUserAvatar" src="https://ui-avatars.com/api/?name=User&background=f0f4f8&color=3d5a6c" class="w-10 h-10 rounded-full border-2 border-gray-100 shadow-sm object-cover">
-                        <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                    
+                <div class="flex items-center gap-3 relative group cursor-pointer">
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-800" id="currentUserName">Loading...</p>
+                        <p class="text-[11px] font-medium text-brand" id="currentUserRole">-</p>
                     </div>
-                    <!-- Dropdown Menu -->
-                    <div class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-[100] py-2">
-                        <button onclick="logout()" class="w-full text-left px-4 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50 transition flex items-center gap-2">
-                            <i class="fa-solid fa-right-from-bracket w-4 text-center"></i> ออกจากระบบ
+                    
+                   
+
+                    <div class="w-11 h-11 rounded-full bg-brandLight text-brand border-2 border-brand/20 flex items-center justify-center overflow-hidden shadow-sm">
+                        <img src="https://ui-avatars.com/api/?name=U&background=3d5a6c&color=fff" id="currentUserAvatar" alt="User" class="w-full h-full object-cover">
+                    </div>
+                    
+                    <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[70] overflow-hidden">
+                        <button onclick="logout()" class="w-full text-left px-4 py-3 text-[13px] text-red-600 font-bold hover:bg-red-50 transition-colors flex items-center gap-3">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
                         </button>
                     </div>
                 </div>
+
             </div>
         </header>
 
         <!-- ======================================= -->
-        <!-- [1] VIEW: SCHEDULE (หน้าตารางงานหลัก) -->
+        <!-- [1] VIEW: SCHEDULE (ตารางงาน) -->
         <!-- ======================================= -->
         <div id="view-schedule" class="view-container flex flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
-            
-            <!-- Toolbar: ค้นหา, ส่งออก, นำทางวันที่ -->
-            <div class="bg-white px-6 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between shrink-0 shadow-sm gap-4 relative z-20">
-                <div class="flex items-center gap-4 w-full md:w-auto">
-                    <div class="relative w-full md:w-64">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-[12px]"></i>
-                        <input type="text" id="globalSearch" onkeyup="filterGridData()" placeholder="ค้นหาสถานที่ หรือชื่อพนักงาน..." class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-full text-[12px] focus:border-brand outline-none transition shadow-sm bg-gray-50 focus:bg-white">
+            <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 z-30 shadow-sm gap-4 relative">
+                <div class="flex items-center gap-6">
+                    <div class="flex flex-col">
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">ชั่วโมงรวม</span>
+                        <div class="flex items-end gap-1"><span class="text-xl font-black text-brand" id="sumHours">0</span> <span class="text-xs font-bold text-gray-500 mb-1">ชม.</span></div>
                     </div>
-                    <button class="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-full hover:bg-gray-50 hover:text-brand transition shadow-sm text-[12px] font-bold flex items-center gap-2" onclick="exportSchedule()">
-                        <i class="fa-solid fa-file-export"></i> ส่งออกข้อมูล
-                    </button>
+                    <div class="w-px h-8 bg-gray-200"></div>
+                    <div class="flex flex-col">
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">กะงานทั้งหมด</span>
+                        <div class="flex items-end gap-1"><span class="text-xl font-black text-blue-600" id="sumShifts">0</span> <span class="text-xs font-bold text-gray-500 mb-1">กะ</span></div>
+                    </div>
+                    <div class="w-px h-8 bg-gray-200"></div>
+                    <div class="flex flex-col">
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">พนักงานปฏิบัติงาน</span>
+                        <div class="flex items-end gap-1"><span class="text-xl font-black text-emerald-600" id="sumStaff">0</span> <span class="text-xs font-bold text-gray-500 mb-1">คน</span></div>
+                    </div>
                 </div>
-
-                <div class="flex items-center gap-3 w-full md:w-auto justify-center">
-                    <button class="px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition font-bold" onclick="changeDateOffset(-1)"><i class="fa-solid fa-chevron-left text-[12px]"></i></button>
-                    <button class="px-4 py-1.5 font-bold text-brand hover:bg-brandLight rounded-md transition min-w-[160px] text-center" onclick="goToToday()" id="currentWeekLabel">Loading...</button>
-                    <button class="px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition font-bold" onclick="changeDateOffset(1)"><i class="fa-solid fa-chevron-right text-[12px]"></i></button>
-                </div>
-
-                <div class="flex items-center bg-gray-100 p-1 rounded-lg w-full md:w-auto justify-center border border-gray-200 shadow-inner">
-                    <button id="btnViewWeek" onclick="changeCalendarView('week')" class="px-5 py-1.5 text-[13px] font-bold rounded-md bg-white text-brand shadow-sm transition">สัปดาห์</button>
-                    <button id="btnViewMonth" onclick="changeCalendarView('month')" class="px-5 py-1.5 text-[13px] font-bold rounded-md text-gray-500 hover:text-brand transition">เดือน</button>
-                    <button id="btnViewDay" onclick="changeCalendarView('day')" class="px-5 py-1.5 text-[13px] font-bold rounded-md text-gray-500 hover:text-brand transition">รายวัน</button>
-                </div>
-            </div>
-
-            <!-- Stats Bar (สรุปข้อมูล) -->
-            <div class="bg-white border-b border-gray-100 px-6 py-2.5 flex gap-6 shrink-0 relative z-10 text-[12px]">
-                <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fa-regular fa-clock"></i></div>
-                    <span class="text-gray-500 font-bold">ชั่วโมงรวม:</span> <span class="font-black text-gray-800" id="sumHours">0</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center"><i class="fa-solid fa-layer-group"></i></div>
-                    <span class="text-gray-500 font-bold">กะงานรวม:</span> <span class="font-black text-gray-800" id="sumShifts">0</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><i class="fa-regular fa-user"></i></div>
-                    <span class="text-gray-500 font-bold">พนักงานเข้างาน:</span> <span class="font-black text-gray-800" id="sumStaff">0</span>
-                </div>
-            </div>
-
-            <!-- Calendar Container -->
-            <div class="flex-grow overflow-auto custom-scrollbar relative z-0 bg-[#f8fafb]" id="calendarContainer">
                 
-                <!-- โหมดสัปดาห์ (Week) และ รายวัน (Day) -->
-                <div id="gridWeekDay" class="flex-1 flex flex-col relative w-full box-border">
-                    <div id="calendarHeader" class="border-b border-gray-200 bg-zenGray sticky top-0 z-40 w-full box-border shadow-sm"></div>
-                    <div id="calendarBody" class="bg-white relative z-0 w-full box-border"></div>
+                <div class="relative flex-grow max-w-md mx-4">
+                    <i class="fa-solid fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input type="text" id="globalSearch" placeholder="ค้นหาข้อมูลตารางงาน, ลูกค้า, แม่บ้าน..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand/10 outline-none transition" onkeyup="filterGridData()">
                 </div>
 
-                <!-- โหมดเดือน (Month) -->
-                <div id="gridMonth" class="hidden flex-1 flex-col h-full bg-white relative w-full box-border">
-                    <div class="grid grid-cols-7 border-b border-gray-200 bg-zenGray sticky top-0 z-40 shrink-0 shadow-sm w-full box-border">
-                        <div class="p-3 text-center text-[12px] font-bold text-red-500 uppercase tracking-wider border-r border-gray-200">อาทิตย์</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">จันทร์</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">อังคาร</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">พุธ</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">พฤหัสบดี</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">ศุกร์</div>
-                        <div class="p-3 text-center text-[12px] font-bold text-red-500 uppercase tracking-wider">เสาร์</div>
+                <div class="flex items-center gap-4">
+                    <div class="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+                        <button id="btnViewWeek" class="px-5 py-1.5 text-[13px] font-bold rounded-md bg-white text-brand shadow-sm transition" onclick="changeCalendarView('week')">Week</button>
+                        <button id="btnViewMonth" class="px-5 py-1.5 text-[13px] font-bold rounded-md text-gray-500 hover:text-brand transition" onclick="changeCalendarView('month')">Month</button>
+                        <button id="btnViewDay" class="px-5 py-1.5 text-[13px] font-bold rounded-md text-gray-500 hover:text-brand transition" onclick="changeCalendarView('day')">Day</button>
                     </div>
-                    <div id="monthBody" class="grid grid-cols-7 flex-1 w-full box-border bg-gray-50"></div>
+
+                    <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden h-[38px] bg-white shadow-sm">
+                        <button class="h-full px-4 border-r border-gray-200 text-gray-600 text-[13px] font-bold hover:text-brand hover:bg-gray-50 transition" onclick="goToToday()">ปัจจุบัน</button>
+                        <div class="flex items-center px-1 h-full bg-white">
+                            <button class="w-8 h-full flex items-center justify-center text-gray-500 hover:text-brand hover:bg-brandLight transition rounded-l-md" onclick="changeDateOffset(-1)"><i class="fa-solid fa-chevron-left text-sm"></i></button>
+                            <span class="px-4 text-[13px] font-bold text-brand min-w-[170px] text-center" id="currentWeekLabel">...</span>
+                            <button class="w-8 h-full flex items-center justify-center text-gray-500 hover:text-brand hover:bg-brandLight transition rounded-r-md" onclick="changeDateOffset(1)"><i class="fa-solid fa-chevron-right text-sm"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-auto relative bg-white custom-scrollbar" id="calendarContainer">
+                <div id="gridWeekDay" class="flex-col flex min-h-full">
+                    <div class="grid-schedule grid-week border-b border-gray-200 bg-zenGray sticky top-0 z-20 shadow-sm" id="calendarHeader"></div>
+                    <div class="grid-schedule grid-week bg-white relative z-0" id="calendarBody"></div>
+                </div>
+
+                <div id="gridDayTimeline" class="hidden timeline-container">
+                    <div class="timeline-header-row" id="dayTimelineHeader"></div>
+                    <div class="timeline-body-wrap custom-scrollbar" id="dayTimelineBodyWrap">
+                        <div class="timeline-time-labels" id="dayTimelineLabels"></div>
+                        <div class="timeline-grid-area" id="dayTimelineGrid"></div>
+                    </div>
+                </div>
+
+                <div id="gridMonth" class="hidden flex-col h-full min-h-[600px]">
+                    <div class="grid grid-cols-7 border-b border-gray-200 bg-zenGray sticky top-0 z-20 shadow-sm">
+                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase">จันทร์</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase">อังคาร</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase">พุธ</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase">พฤหัสฯ</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-gray-500 uppercase">ศุกร์</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-blue-500 uppercase bg-blue-50/50">เสาร์</div>
+                        <div class="p-3 text-center text-[12px] font-bold text-red-500 uppercase bg-red-50/50">อาทิตย์</div>
+                    </div>
+                    <div class="grid grid-cols-7 flex-grow auto-rows-fr bg-gray-100 gap-[1px]" id="monthBody"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- [2] VIEW: MANAGE (ข้อมูลหลัก) -->
+        <!-- ======================================= -->
+        <div id="view-manage" class="view-container hidden flex-grow flex-col overflow-hidden bg-white">
+            <div class="flex items-center gap-2 px-8 pt-6 border-b border-gray-200 shrink-0 bg-[#f8fafb]">
+                <button onclick="switchManageTab('staff')" id="tab-manage-staff" class="px-6 py-3 text-[14px] font-bold border-b-[3px] border-brand text-brand transition-colors">
+                    <i class="fa-solid fa-users mr-2"></i> ข้อมูลพนักงาน (Housekeepers)
+                </button>
+                <button onclick="switchManageTab('clients')" id="tab-manage-clients" class="px-6 py-3 text-[14px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors">
+                    <i class="fa-regular fa-building mr-2"></i> ข้อมูลไซต์งาน (Clients)
+                </button>
+            </div>
+
+            <div class="flex-grow overflow-hidden relative">
+                <div id="content-manage-staff" class="manage-content flex flex-col h-full absolute inset-0 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-sm text-gray-500 font-medium">จัดการข้อมูลและประวัติของพนักงาน</p>
+                        <button onclick="openStaffModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> เพิ่มพนักงาน</button>
+                    </div>
+                    <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar"><table class="w-full data-table"><thead><tr><th class="w-24 text-center whitespace-nowrap">รูป</th><th class="w-1/4 min-w-[200px]">รหัส / ชื่อ-นามสกุล</th><th class="w-32 whitespace-nowrap">ชื่อเล่น</th><th class="w-1/4 min-w-[150px]">เบอร์โทร / LINE</th><th class="w-28 text-center whitespace-nowrap">ประเภทงาน</th><th class="w-24 text-center whitespace-nowrap">สถานะ</th><th class="w-20 text-right whitespace-nowrap">จัดการ</th></tr></thead><tbody id="staffTableBody"></tbody></table></div>
+                </div>
+                
+                <div id="content-manage-clients" class="manage-content hidden flex-col h-full absolute inset-0 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-sm text-gray-500 font-medium">จัดการข้อมูลสถานที่และข้อมูลผู้ติดต่อ</p>
+                        <button onclick="openClientModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> เพิ่มไซต์งาน</button>
+                    </div>
+                    <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar"><table class="w-full data-table"><thead><tr><th class="min-w-[200px]">รหัส / ชื่อไซต์งาน</th><th class="w-24 whitespace-nowrap text-center">ประเภท</th><th class="min-w-[220px]">พื้นที่ / จังหวัด</th><th class="min-w-[150px]">ผู้ติดต่อ / เบอร์โทร</th><th class="w-24 text-center whitespace-nowrap">Req. (คน)</th><th class="w-24 whitespace-nowrap text-center">สถานะ</th><th class="w-20 text-right whitespace-nowrap">จัดการ</th></tr></thead><tbody id="clientTableBody"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- [3] VIEW: INVENTORY (เบิกนับสต๊อค - Coming Soon) -->
+        <!-- ======================================= -->
+        <div id="view-inventory" class="view-container hidden flex-grow flex-col items-center justify-center bg-[#f0f4f8] p-6">
+            <div class="w-24 h-24 bg-brandLight rounded-full flex items-center justify-center mb-6 shadow-sm border-2 border-white">
+                <i class="fa-solid fa-boxes-stacked text-4xl text-brand"></i>
+            </div>
+            <h2 class="text-2xl font-black text-brand mb-2">ระบบเบิก-จ่าย สต๊อคอุปกรณ์</h2>
+            <p class="text-gray-500 font-medium text-center max-w-md">ระบบจัดการคลังสินค้า อุปกรณ์ทำความสะอาด น้ำยาต่างๆ กำลังอยู่ในระหว่างการพัฒนาครับ</p>
+            <span class="mt-6 px-4 py-1.5 bg-gray-200 text-gray-600 font-bold text-xs rounded-full uppercase tracking-widest">Coming Soon</span>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- [4] VIEW: INSPECTION (ตารางการเข้าตรวจงาน) -->
+        <!-- ======================================= -->
+        <div id="view-inspection" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
+            <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
+                <div class="flex items-center gap-3">
+                    <button onclick="changeInspectionMonth(-1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                    <input type="month" id="inspectionMonthPicker" onchange="setInspectionMonthFromPicker(this.value)" class="border border-gray-300 rounded px-3 py-1.5 text-sm font-bold text-brand outline-none focus:border-brand">
+                    <button onclick="changeInspectionMonth(1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
                 </div>
             </div>
             
-        </div> <!-- End view-schedule -->
+            <div class="bg-white px-6 py-2 border-b border-gray-200 flex flex-wrap gap-4 text-[11px] font-medium shrink-0">
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-orange-400 rounded-sm"></div> วันเริ่มสัญญา</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-500 rounded-sm"></div> วันสิ้นสุดสัญญา</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 border border-gray-300 bg-white flex items-center justify-center text-[9px] font-bold">1</div> วันที่ปฏิบัติงาน (จำนวนคน)</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-green-500 rounded-sm"></div> เข้าตรวจสอบคุณภาพงาน</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-blue-500 rounded-sm"></div> วันส่งรายงาน</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-purple-400 rounded-sm"></div> วัน OJT</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-pink-300 rounded-sm"></div> ทำเรื่องเบิกค่าจ้าง</div>
+            </div>
+
+            <div class="flex-grow overflow-auto bg-white custom-scrollbar p-4" id="inspectionTableContainer">
+            </div>
+        </div>
 
         <!-- ======================================= -->
-        <!-- นำเข้าหน้าจออื่นๆ (Views) จากไฟล์ย่อย -->
+        <!-- [5] VIEW: USERS (ตั้งค่าสิทธิ์) -->
         <!-- ======================================= -->
-        <?!= include('Page_Attendance'); ?>
+        <div id="view-users" class="view-container hidden flex-grow flex-col overflow-hidden bg-white p-6">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-sm text-gray-500 font-medium">จัดการสิทธิ์การเข้าถึงระบบของพนักงานออฟฟิศ</p>
+                <button onclick="openUserModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-user-plus text-xs"></i> เพิ่มผู้ใช้งาน</button>
+            </div>
+            <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar"><table class="w-full data-table"><thead><tr><th class="min-w-[180px]">ชื่อผู้ใช้ (Name)</th><th class="min-w-[200px]">อีเมล (Email)</th><th class="w-40 whitespace-nowrap text-center">บทบาท (Role)</th><th class="w-24 whitespace-nowrap text-center">สถานะ</th><th class="w-16 text-right whitespace-nowrap">จัดการ</th></tr></thead><tbody id="userTableBody"></tbody></table></div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- [6] VIEW: REPORT (Fastreport) -->
+        <!-- ======================================= -->
+        <div id="view-report" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
+            <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 z-30 shadow-sm gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shadow-inner">
+                        <input type="date" id="reportStartDate" class="bg-transparent border-none text-[13px] font-bold text-gray-700 outline-none px-2 focus:ring-0 cursor-pointer">
+                        <span class="text-gray-400 font-bold px-1">-</span>
+                        <input type="date" id="reportEndDate" class="bg-transparent border-none text-[13px] font-bold text-gray-700 outline-none px-2 focus:ring-0 cursor-pointer">
+                    </div>
+                    <button onclick="generateReport()" class="px-5 py-2 bg-brand text-white rounded-lg text-[13px] font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-bolt"></i> ดึงรายงาน</button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="exportReportCSV()" class="px-4 py-2 bg-[#10b981] text-white rounded-lg text-[13px] font-bold hover:bg-[#059669] transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                    <button onclick="window.print()" class="px-4 py-2 bg-white border border-gray-300 text-gray-600 hover:text-gray-900 rounded-lg text-[13px] font-bold hover:bg-gray-50 transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-print"></i> พิมพ์</button>
+                </div>
+            </div>
+            
+            <div class="flex-grow overflow-auto p-6 custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition transform">
+                        <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-layer-group"></i></div>
+                        <div><p class="text-[11px] font-bold text-gray-400 uppercase">กะงานทั้งหมด</p><p class="text-2xl font-black text-gray-800 leading-none" id="repTotalShifts">0</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition transform">
+                        <div class="w-12 h-12 rounded-full bg-green-50 text-green-500 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-check-double"></i></div>
+                        <div><p class="text-[11px] font-bold text-gray-400 uppercase">เสร็จสมบูรณ์</p><p class="text-2xl font-black text-gray-800 leading-none" id="repCompletedShifts">0</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition transform">
+                        <div class="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-user-xmark"></i></div>
+                        <div><p class="text-[11px] font-bold text-gray-400 uppercase">ขาดงาน / ยกเลิก</p><p class="text-2xl font-black text-gray-800 leading-none" id="repMissedShifts">0</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition transform">
+                        <div class="w-12 h-12 rounded-full bg-brandLight text-brand flex items-center justify-center text-xl shrink-0"><i class="fa-regular fa-clock"></i></div>
+                        <div><p class="text-[11px] font-bold text-gray-400 uppercase">ชั่วโมงทำงานรวม</p><p class="text-2xl font-black text-gray-800 leading-none" id="repTotalHours">0</p></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px]">
+                    <div class="flex items-center gap-2 px-6 pt-4 border-b border-gray-200 shrink-0 bg-gray-50/50">
+                        <button onclick="switchReportTab('staff')" id="tab-rep-staff" class="px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-brand text-brand transition-colors"><i class="fa-solid fa-users mr-2"></i> สรุปผลงานแม่บ้าน</button>
+                        <button onclick="switchReportTab('client')" id="tab-rep-client" class="px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors"><i class="fa-regular fa-building mr-2"></i> สรุปการใช้บริการลูกค้า</button>
+                    </div>
+                    <div class="flex-grow overflow-auto custom-scrollbar relative">
+                        <div id="content-rep-staff" class="absolute inset-0 block">
+                            <table class="w-full data-table">
+                                <thead><tr><th class="w-16 text-center">รูป</th><th>รหัส / ชื่อพนักงาน</th><th class="text-center">รับมอบหมาย (กะ)</th><th class="text-center text-green-600">สำเร็จ</th><th class="text-center text-red-500">ขาดงาน</th><th class="text-center text-orange-500">เปลี่ยนตัว</th><th class="text-right">ชั่วโมงรวม (ชม.)</th></tr></thead>
+                                <tbody id="repStaffTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div id="content-rep-client" class="absolute inset-0 hidden">
+                            <table class="w-full data-table">
+                                <thead><tr><th>รหัส / ชื่อไซต์งาน</th><th class="text-center">จำนวนกะงานทั้งหมด</th><th class="text-center text-green-600">สำเร็จ</th><th class="text-center text-gray-500">ยกเลิก</th><th class="text-right">ชั่วโมงใช้งาน (ชม.)</th></tr></thead>
+                                <tbody id="repClientTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- [NEW] ดึงหน้า ISSUES (แจ้งปัญหาคุณภาพ) มาวางที่นี่ด้วย Component -->
+        <!-- ======================================= -->
         <?!= include('Page_Issues'); ?>
-        <?!= include('Page_Manage'); ?>
-        <?!= include('JS_Inspection'); ?>
-        
+
     </main>
 
-    <!-- ======================================= -->
-    <!-- [C] MODALS & COMPONENTS (หน้าต่างป๊อปอัป) -->
-    <!-- ======================================= -->
+    <!-- ============================================== -->
+    <!-- MODALS (ป๊อปอัปฟอร์ม) -->
+    <!-- ============================================== -->
 
-    <!-- Modal: จัดการตารางกะงาน (Shift Modal) -->
+    <div id="customDialogOverlay" class="fixed inset-0 bg-gray-900/60 z-[99999] hidden flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div id="customDialogBox" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform scale-95 transition-transform duration-200 border border-gray-100">
+            <div class="p-6 flex flex-col items-center text-center pt-8">
+                <div id="customDialogIcon" class="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner"></div>
+                <h3 id="customDialogTitle" class="text-lg font-black text-gray-900 mb-2 tracking-wide">Title</h3>
+                <p id="customDialogMessage" class="text-sm text-gray-500 font-medium leading-relaxed whitespace-pre-line px-2">Message</p>
+            </div>
+            <div id="customDialogActions" class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-center gap-3 bg-gray-50/50"></div>
+        </div>
+    </div>
+
+    <script>
+        function showCustomDialog(options) {
+            const overlay = document.getElementById('customDialogOverlay');
+            const box = document.getElementById('customDialogBox');
+            const iconEl = document.getElementById('customDialogIcon');
+            const titleEl = document.getElementById('customDialogTitle');
+            const msgEl = document.getElementById('customDialogMessage');
+            const actionsEl = document.getElementById('customDialogActions');
+
+            titleEl.innerText = options.title || 'แจ้งเตือน';
+            msgEl.innerText = options.message || '';
+            
+            if (options.type === 'delete' || options.type === 'warning') {
+                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-50 text-red-500 ring-4 ring-red-50';
+                iconEl.innerHTML = '<i class="fa-solid fa-trash-can text-3xl"></i>';
+                if(options.type === 'warning') iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-3xl"></i>';
+            } else if (options.type === 'success') {
+                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-green-50 text-green-500 ring-4 ring-green-50';
+                iconEl.innerHTML = '<i class="fa-solid fa-check text-3xl"></i>';
+            } else {
+                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-brandLight text-brand ring-4 ring-brand/10';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-info text-3xl"></i>';
+            }
+
+            actionsEl.innerHTML = '';
+            if (options.buttons && options.buttons.length > 0) {
+                options.buttons.forEach(btn => {
+                    const btnEl = document.createElement('button');
+                    btnEl.innerText = btn.text;
+                    let baseClass = 'px-4 py-2.5 rounded-lg text-[13px] font-bold transition w-full shadow-sm flex-1 whitespace-nowrap ';
+                    if (btn.style === 'danger') baseClass += 'bg-red-500 text-white hover:bg-red-600 focus:ring-2 focus:ring-red-500/50';
+                    else if (btn.style === 'primary') baseClass += 'bg-brand text-white hover:bg-brandDark focus:ring-2 focus:ring-brand/50';
+                    else baseClass = 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-gray-200'; 
+                    btnEl.className = baseClass;
+                    btnEl.onclick = () => { closeSystemDialog(); if (btn.action) setTimeout(btn.action, 150); };
+                    actionsEl.appendChild(btnEl);
+                });
+            } else {
+                const btnEl = document.createElement('button');
+                btnEl.innerText = 'ตกลง';
+                btnEl.className = 'px-4 py-2.5 bg-brand text-white rounded-lg text-[13px] font-bold hover:bg-brandDark shadow-sm transition w-full';
+                btnEl.onclick = closeSystemDialog;
+                actionsEl.appendChild(btnEl);
+            }
+
+            overlay.classList.remove('hidden');
+            void overlay.offsetWidth; 
+            overlay.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+            box.classList.add('scale-100');
+        }
+        
+        function closeSystemDialog() {
+            const overlay = document.getElementById('customDialogOverlay');
+            const box = document.getElementById('customDialogBox');
+            overlay.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => { overlay.classList.add('hidden'); }, 200);
+        }
+    </script>
+
+    <!-- Modal: Shift -->
     <div id="shiftModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
-                <h3 class="text-lg font-black text-brand" id="modalShiftTitle">จัดตารางงาน (Assign Shift)</h3>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[900px] overflow-hidden flex flex-col max-h-[90vh] transform transition-transform">
+            
+            <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="text-lg font-black text-brand" id="modalShiftTitle">มอบหมายตารางงาน</h3>
                 <button onclick="closeModal('shiftModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="p-6 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
-                <input type="hidden" id="shiftId">
-                <input type="hidden" id="shiftGroupId">
-                <div class="flex flex-col gap-4">
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ไซต์งาน / สถานที่ <span class="text-red-500">*</span></label>
-                        <select id="shiftClient" class="w-full border border-gray-300 rounded-md px-3 py-2 text-[13px] outline-none focus:border-brand bg-white font-bold text-brand shadow-sm"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่ปฏิบัติงาน <span class="text-red-500">*</span></label>
-                        <input type="date" id="shiftDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm bg-white">
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">เวลาเริ่มงาน <span class="text-red-500">*</span></label>
-                            <input type="time" id="shiftStart" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm bg-white font-bold">
-                        </div>
-                        <div class="w-1/2">
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">เวลาสิ้นสุดงาน <span class="text-red-500">*</span></label>
-                            <input type="time" id="shiftEnd" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm bg-white font-bold">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">พนักงานที่มอบหมาย <span class="text-gray-400 font-normal">(เลือกได้มากกว่า 1 คน)</span></label>
-                        <select id="shiftStaff" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm bg-white"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
-                        <select id="shiftStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-white">
-                            <option value="scheduled">🟢 วางแผนแล้ว (Scheduled)</option>
-                            <option value="confirmed">🔵 ยืนยันแล้ว (Confirmed)</option>
-                            <option value="completed">✅ เสร็จสมบูรณ์ (Completed)</option>
-                            <option value="substituted">🟠 เปลี่ยนตัว (Substituted)</option>
-                            <option value="absent">🔴 ขาดงาน (Absent)</option>
-                            <option value="cancelled">⚫ ยกเลิก (Cancelled)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[12px] font-bold text-gray-600 mb-1">หมายเหตุ</label>
-                        <input type="text" id="shiftNotes" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-white" placeholder="ระบุหมายเหตุถ้ามี...">
-                    </div>
+            
+            <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
+                <div class="p-7 overflow-y-auto flex-1 flex flex-col gap-5 custom-scrollbar relative">
+                    <input type="hidden" id="modalShiftId">
                     
-                    <!-- โหมดทำซ้ำ (Recurring) -->
-                    <div class="mt-2 pt-4 border-t border-gray-200" id="recurringSection">
-                        <label class="flex items-center gap-2 cursor-pointer mb-3 group">
-                            <input type="checkbox" id="shiftRecurring" class="w-4 h-4 text-brand rounded border-gray-300 focus:ring-brand" onchange="toggleRecurringOptions()">
-                            <span class="text-[13px] font-bold text-gray-700 group-hover:text-brand transition"><i class="fa-solid fa-rotate mr-1"></i> ทำซ้ำ (Recurring Shift)</span>
-                        </label>
-                        <div id="recurringOptions" class="hidden flex-col gap-3 pl-6 border-l-2 border-brand/20 ml-2">
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 mb-1">รูปแบบการทำซ้ำ</label>
-                                <select id="recurringPattern" class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-[12px] outline-none focus:border-brand bg-white">
-                                    <option value="daily">ทุกวัน (ทุกวันที่เลือกจนถึงวันสิ้นสุด)</option>
-                                    <option value="weekly">ทุกสัปดาห์ (เฉพาะวันในสัปดาห์ที่ตรงกัน)</option>
+                    <div>
+                        <label class="block text-[13px] font-bold text-gray-600 mb-1.5">ไซต์งาน / ลูกค้า <span class="text-red-500">*</span></label>
+                        <select id="modalClient" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none bg-gray-50 focus:bg-white transition"></select>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-4">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <div class="flex-1">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5 flex justify-between">
+                                    <span>รูปแบบการจัดกะ</span>
+                                    <span id="modalDateTypeLock" class="text-[10px] text-gray-400 font-normal hidden"><i class="fa-solid fa-lock"></i> ล็อกเมื่อแก้ไข</span>
+                                </label>
+                                <select id="modalDateType" onchange="toggleRecurringUI()" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition disabled:bg-gray-200 disabled:text-gray-500">
+                                    <option value="single">วันเดียว (Single Date)</option>
+                                    <option value="range">ช่วงวัน (Date Range)</option>
+                                    <option value="weekly">ทำซ้ำรายสัปดาห์ (Weekly)</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 mb-1">วันที่สิ้นสุดการทำซ้ำ <span class="text-red-500">*</span></label>
-                                <input type="date" id="recurringEndDate" class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-[12px] outline-none focus:border-brand bg-white font-bold text-red-500">
+                            <div class="flex-1">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5" id="lblModalDate">วันที่ <span class="text-red-500">*</span></label>
+                                <input type="date" id="modalDate" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition">
+                            </div>
+                            <div id="containerEndDate" class="flex-1 hidden">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">ถึงวันที่ <span class="text-red-500">*</span></label>
+                                <input type="date" id="modalEndDate" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-white transition">
+                            </div>
+                        </div>
+
+                        <div id="containerWeeklyDays" class="hidden">
+                            <label class="block text-[12px] font-bold text-brand mb-2">เลือกวันในสัปดาห์ที่ต้องการจัดกะ <span class="text-red-500">*</span></label>
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-1.5 bg-white px-3 py-2 border border-gray-200 rounded-md cursor-pointer hover:border-brand transition shadow-sm"><input type="checkbox" value="1" class="modal-day-cb w-4 h-4 text-brand focus:ring-brand rounded"><span class="text-[11px] font-bold text-gray-700">จันทร์</span></label>
+                                <label class="flex items-center gap-1.5 bg-white px-3 py-2 border border-gray-200 rounded-md cursor-pointer hover:border-brand transition shadow-sm"><input type="checkbox" value="2" class="modal-day-cb w-4 h-4 text-brand focus:ring-brand rounded"><span class="text-[11px] font-bold text-gray-700">อังคาร</span></label>
+                                <label class="flex items-center gap-1.5 bg-white px-3 py-2 border border-gray-200 rounded-md cursor-pointer hover:border-brand transition shadow-sm"><input type="checkbox" value="3" class="modal-day-cb w-4 h-4 text-brand focus:ring-brand rounded"><span class="text-[11px] font-bold text-gray-700">พุธ</span></label>
+                                <label class="flex items-center gap-1.5 bg-white px-3 py-2 border border-gray-200 rounded-md cursor-pointer hover:border-brand transition shadow-sm"><input type="checkbox" value="4" class="modal-day-cb w-4 h-4 text-brand focus:ring-brand rounded"><span class="text-[11px] font-bold text-gray-700">พฤหัสฯ</span></label>
+                                <label class="flex items-center gap-1.5 bg-white px-3 py-2 border border-gray-200 rounded-md cursor-pointer hover:border-brand transition shadow-sm"><input type="checkbox" value="5" class="modal-day-cb w-4 h-4 text-brand focus:ring-brand rounded"><span class="text-[11px] font-bold text-gray-700">ศุกร์</span></label>
+                                <label class="flex items-center gap-1.5 bg-blue-50 px-3 py-2 border border-blue-200 rounded-md cursor-pointer hover:border-blue-400 transition shadow-sm"><input type="checkbox" value="6" class="modal-day-cb w-4 h-4 text-blue-500 focus:ring-blue-500 rounded"><span class="text-[11px] font-bold text-blue-600">เสาร์</span></label>
+                                <label class="flex items-center gap-1.5 bg-red-50 px-3 py-2 border border-red-200 rounded-md cursor-pointer hover:border-red-400 transition shadow-sm"><input type="checkbox" value="0" class="modal-day-cb w-4 h-4 text-red-500 focus:ring-red-500 rounded"><span class="text-[11px] font-bold text-red-600">อาทิตย์</span></label>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- ส่วนแสดงประวัติ -->
-                    <div id="shiftHistorySection" class="mt-4 pt-4 border-t border-gray-200 hidden">
-                        <label class="block text-[11px] font-bold text-gray-500 mb-2"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไข (Logs)</label>
-                        <div id="shiftHistoryContainer" class="bg-white rounded-md border border-gray-100 p-2 text-[10px] text-gray-600 max-h-32 overflow-y-auto custom-scrollbar shadow-inner"></div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex items-end gap-2">
+                            <div class="w-full">
+                                <label class="block text-[13px] font-bold text-gray-600 mb-1.5">เวลาเริ่ม</label>
+                                <input type="time" id="modalStart" value="08:00" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-gray-50 focus:bg-white transition">
+                            </div>
+                            <span class="mb-3 text-gray-400 font-bold">-</span>
+                            <div class="w-full">
+                                <label class="block text-[13px] font-bold text-gray-600 mb-1.5">สิ้นสุด</label>
+                                <input type="time" id="modalEnd" value="17:00" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-gray-50 focus:bg-white transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-bold text-gray-600 mb-1.5">สถานะงาน</label>
+                            <select id="modalStatus" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-gray-50 focus:bg-white transition">
+                                <option value="scheduled">🩵 วางแผนแล้ว รอยืนยัน (Scheduled)</option>
+                                <option value="confirmed">💙 ยืนยันแล้ว แม่บ้านรับทราบ (Confirmed)</option>
+                                <option value="completed">💚 ทำงานเสร็จสมบูรณ์ (Completed)</option>
+                                <option value="absent">🔴 แม่บ้านขาด/ไม่มา (Absent)</option>
+                                <option value="cancelled">⚪ ยกเลิก Shift (Cancelled)</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <div>
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-1.5 gap-2">
+                            <label class="block text-[13px] font-bold text-gray-600">แม่บ้านที่มอบหมาย <span class="text-red-500">*</span> <span class="text-[10px] font-normal text-gray-400">(กรณีเปลี่ยนตัว ให้เอาติ๊กคนเก่าออก แล้วเลือกคนใหม่แทน)</span></label>
+                            <div class="relative w-full sm:w-56 shrink-0">
+                                <i class="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-[11px]"></i>
+                                <input type="text" id="hkSearchInput" onkeyup="filterModalHks()" placeholder="ค้นหาชื่อแม่บ้าน..." class="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-md text-[12px] focus:border-brand outline-none transition shadow-sm">
+                            </div>
+                        </div>
+                        <div class="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 shadow-inner custom-scrollbar" id="modalHkList"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[13px] font-bold text-gray-600 mb-1.5">หมายเหตุ / Task ที่ต้องทำ <span class="text-gray-400 font-medium">(Optional)</span></label>
+                        <textarea id="modalNotes" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium focus:border-brand outline-none bg-gray-50 focus:bg-white transition" placeholder="ระบุรายละเอียดงานหรือข้อควรระวังเพิ่มเติม..."></textarea>
+                    </div>
+                </div>
+                
+                <div id="shiftHistorySidebar" class="w-full md:w-[320px] bg-[#f8fafb] border-l border-gray-200 p-6 overflow-y-auto custom-scrollbar hidden shrink-0 shadow-inner">
+                    <div id="shiftHistoryContainer"></div>
                 </div>
             </div>
             
-            <!-- Footer Actions -->
-            <div class="px-6 py-4 border-t border-gray-100 flex justify-between gap-3 bg-white shrink-0 items-center">
-                <button id="btnDeleteShift" onclick="deleteShift()" class="px-4 py-2 border border-red-200 text-red-500 bg-red-50 rounded-md text-sm font-bold hover:bg-red-500 hover:text-white transition hidden"><i class="fa-solid fa-trash-can mr-1"></i> ลบ</button>
-                <div class="flex gap-2 w-full justify-end" id="shiftActionButtons">
+            <div class="px-7 py-4 border-t border-gray-100 flex justify-end gap-3 bg-white shrink-0">
+                <button id="btnDeleteShift" onclick="deleteShift()" class="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-md text-sm font-bold transition flex items-center gap-2 hidden"><i class="fa-regular fa-trash-can"></i> ลบข้อมูล</button>
+                <div class="flex gap-3 ml-auto">
                     <button onclick="closeModal('shiftModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
-                    <button onclick="saveShift()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5" id="btnSaveShift">บันทึกกะงาน</button>
+                    <button onclick="saveShift()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-sm transition">บันทึกข้อมูล</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-300">
-        <div class="w-16 h-16 border-4 border-gray-200 border-t-brand rounded-full animate-spin mb-4"></div>
-        <h2 class="text-xl font-black text-brand tracking-widest mb-1">MARI SERVICES</h2>
-        <p class="text-sm font-bold text-gray-400">กำลังโหลดข้อมูล...</p>
+    <!-- Modal: Client -->
+    <div id="clientModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="text-lg font-black text-brand" id="modalClientTitle">ข้อมูลไซต์งาน (Client Profile)</h3>
+                <button onclick="closeModal('clientModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <input type="hidden" id="clientId">
+                    
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-regular fa-building mr-1"></i> ข้อมูลทั่วไป</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อไซต์งาน / ลูกค้า <span class="text-red-500">*</span></label>
+                            <input type="text" id="clientName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทลูกค้า</label>
+                            <select id="clientType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="B2B">องค์กร / บริษัท (B2B)</option>
+                                <option value="B2C">ที่พักอาศัย (B2C)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สีบนตาราง (Auto Random)</label>
+                            <input type="color" id="clientColor" value="#3d5a6c" class="w-full h-[40px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-map-location-dot mr-1"></i> ข้อมูลที่ตั้ง</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ที่อยู่ (บ้านเลขที่, อาคาร, ซอย, ถนน)</label>
+                            <input type="text" id="clientAddressDetail" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">จังหวัด <span class="text-red-500">*</span></label>
+                            <select id="clientProvince" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">อำเภอ / เขต <span class="text-red-500">*</span></label>
+                            <select id="clientDistrict" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ตำบล / แขวง</label>
+                                <select id="clientTambon" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสไปรษณีย์</label>
+                                <input type="text" id="clientZipcode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand bg-gray-100 shadow-sm" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-file-contract mr-1"></i> การติดต่อ & สัญญา</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันเข้าให้บริการ <span class="text-gray-400 font-normal">(เช่น 7 วันทำงาน)</span></label>
+                            <input type="text" id="clientServiceDays" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ความถี่ / เดือน <span class="text-gray-400 font-normal">(เช่น 1 ครั้ง ทั้งวัน)</span></label>
+                            <input type="text" id="clientFrequency" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ติดต่อหลัก / เบอร์โทร</label>
+                            <input type="text" id="clientContact" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะสัญญา</label>
+                            <select id="clientStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="Active">Active (ยังดำเนินงาน)</option>
+                                <option value="Pending">Pending (รอยืนยัน)</option>
+                                <option value="Expired">Expired (หมดสัญญา)</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-3 mt-1">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มสัญญา</label>
+                                <input type="date" id="clientStartDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่สิ้นสุดสัญญา</label>
+                                <input type="date" id="clientEndDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานที่ตกลงต่อสัปดาห์/เดือน">ชม. ทำงาน(สัญญา)</label>
+                                <input type="number" id="clientContractHours" placeholder="ระบุ ชม." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="จำนวนแม่บ้านที่ต้องการต่อวัน/กะ">จำนวน พนง./กะ</label>
+                                <input type="number" id="clientReqStaff" value="1" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="clientHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                    <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                    <div id="clientHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
+                </div>
+                
+            </div>
+            
+            <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
+                <button onclick="closeModal('clientModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+                <button onclick="saveClient()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5">บันทึกไซต์งาน</button>
+            </div>
+        </div>
     </div>
 
-    <!-- Login Screen (กรณีไม่มีไฟล์ Login.html แยกไว้) -->
-    <?!= include('Login'); ?>
+    <!-- Modal: Staff -->
+    <div id="staffModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="text-lg font-black text-brand" id="modalStaffTitle">ข้อมูลพนักงาน</h3>
+                <button onclick="closeModal('staffModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <input type="hidden" id="staffIdHidden">
+                    
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-user mr-1"></i> ข้อมูลส่วนบุคคล</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสพนักงาน <span class="text-brand">(Auto)</span></label>
+                            <input type="text" id="staffId" class="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-bold text-brand bg-gray-100 outline-none cursor-not-allowed shadow-sm" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                            <input type="text" id="staffName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อเล่น</label>
+                                <input type="text" id="staffNickname" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">สีประจำตัว</label>
+                                <input type="color" id="staffColor" value="#3b82f6" class="w-full h-[38px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รูปโปรไฟล์พนักงาน</label>
+                            <input type="file" id="staffImageFile" accept="image/*" onchange="uploadStaffImage()" class="w-full text-[12px] font-medium text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none">
+                            <input type="hidden" id="staffImage">
+                            <span id="uploadStatusText" class="text-[11px] text-gray-500 font-bold mt-1 block"></span>
+                        </div>
+                    </div>
 
-    <!-- Toast Notification -->
-    <div id="toastNotification" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl z-[9999] flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0">
-        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-check"></i></div>
-        <span id="toastMessage" class="font-bold text-[13px] tracking-wide">ทำรายการสำเร็จ</span>
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-address-card mr-1"></i> การติดต่อ & สถานะ</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                            <input type="text" id="staffPhone" placeholder="0XXXXXXXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">LINE ID</label>
+                            <input type="text" id="staffLine" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                            <select id="staffStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="Active">Active (ทำงานปกติ)</option>
+                                <option value="Inactive">Inactive (ลาออก/พักงาน)</option>
+                                <option value="On Leave">On Leave (ลางาน)</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทงาน</label>
+                                <select id="staffJobType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                    <option value="Full-time">Full-time</option>
+                                    <option value="Part-time">Part-time</option>
+                                </select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานสูงสุด/สัปดาห์">ชม.สูงสุด/สัปดาห์</label>
+                                <input type="number" id="staffMaxHours" value="48" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div class="pb-2 border-b border-gray-200">
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-briefcase mr-1"></i> พื้นที่ & ทักษะ</h4>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">โซน/พื้นที่ปฏิบัติงาน (เลือกได้หลายพื้นที่)</label>
+                            <select id="staffZones" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm">
+                                <option value="โซนตัวเมือง">โซนตัวเมือง</option>
+                                <option value="โซนหางดง">โซนหางดง</option>
+                                <option value="โซนสันทราย">โซนสันทราย</option>
+                                <option value="โซนแม่ริม">โซนแม่ริม</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ทักษะพิเศษ</label>
+                            <input type="text" id="staffSkills" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มงาน</label>
+                                <input type="date" id="staffStartDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันหมดสัญญา</label>
+                                <input type="date" id="staffEndDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="staffHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                    <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                    <div id="staffHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
+                </div>
+
+            </div>
+            <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
+                <button onclick="closeModal('staffModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+                <button onclick="saveStaff()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5">บันทึกพนักงาน</button>
+            </div>
+        </div>
     </div>
 
-    <!-- ======================================= -->
-    <!-- [D] นำเข้าไฟล์ JavaScript ควบคุมการทำงาน -->
-    <!-- ======================================= -->
-    <?!= include('JS_Core'); ?>
-    <?!= include('JS_Auth'); ?> <!-- ถ้ามีไฟล์จัดการเรื่อง Login -->
+    <!-- Modal: User -->
+    <div id="userModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
+                <h3 class="text-lg font-black text-brand">สิทธิ์ผู้ใช้งาน</h3>
+                <button onclick="closeModal('userModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-7 flex flex-col gap-4">
+                <input type="hidden" id="userId">
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อผู้ใช้งาน <span class="text-red-500">*</span></label>
+                    <input type="text" id="userName" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                </div>
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">อีเมล (Google Account) <span class="text-red-500">*</span></label>
+                    <input type="email" id="userEmail" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                </div>
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">ระดับสิทธิ์ (Role)</label>
+                    <select id="userRole" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                        <option value="Admin / Supervisor">Admin / Supervisor (จัดการได้ทุกอย่าง)</option>
+                        <option value="AE/หัวหน้าแม่บ้าน">AE/หัวหน้าแม่บ้าน (ดู/แก้ไขตารางงาน)</option>
+                        <option value="Viewer">Viewer (ดูได้อย่างเดียว)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                    <select id="userStatus" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                        <option value="Active">Active (เปิดใช้งาน)</option>
+                        <option value="Inactive">Inactive (ระงับสิทธิ์)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="px-7 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onclick="closeModal('userModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-100">ยกเลิก</button>
+                <button onclick="saveUser()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow">บันทึกผู้ใช้</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleRecurringUI() {
+            var dateType = document.getElementById('modalDateType');
+            var endContainer = document.getElementById('containerEndDate');
+            var weeklyContainer = document.getElementById('containerWeeklyDays');
+            var lblDate = document.getElementById('lblModalDate');
+            
+            if(!dateType) return;
+            
+            if(dateType.value === 'single') {
+                endContainer.classList.add('hidden');
+                weeklyContainer.classList.add('hidden');
+                lblDate.innerHTML = 'วันที่ <span class="text-red-500">*</span>';
+            } else if (dateType.value === 'range') {
+                endContainer.classList.remove('hidden');
+                weeklyContainer.classList.add('hidden');
+                lblDate.innerHTML = 'เริ่มตั้งแต่วันที่ <span class="text-red-500">*</span>';
+            } else if (dateType.value === 'weekly') {
+                endContainer.classList.remove('hidden');
+                weeklyContainer.classList.remove('hidden');
+                lblDate.innerHTML = 'เริ่มตั้งแต่วันที่ <span class="text-red-500">*</span>';
+            }
+        }
+    </script>
+
+    <!-- 🔌 ดึงไฟล์ JS -->
+        <?!= include('JS_Core'); ?>
     <?!= include('JS_Schedule'); ?>
-    <?!= include('Page_Issues'); ?>
     <?!= include('Page_Manage'); ?>
+    <?!= include('JS_Auth'); ?>
+    <?!= include('JS_Report'); ?>
     <?!= include('JS_Inspection'); ?>
 
 </body>
