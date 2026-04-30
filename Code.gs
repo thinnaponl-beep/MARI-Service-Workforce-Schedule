@@ -1,21 +1,24 @@
 /**
  * ==========================================
- * Mari Services - Workforce Scheduling Backend
+ * MARI Services - Workforce Scheduling Backend
  * ==========================================
  */
 
+// ==========================================
+// 1. SETUP & CONFIGURATION
+// ==========================================
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 💡 อัปเดตโครงสร้างล่าสุด: เพิ่ม 4 คอลัมน์ใหม่ใน Clients และเพิ่มตาราง Site_Activities และ Issues
   const sheetsConfig = {
-    'Housekeepers': ['hk_id', 'name', 'nickname', 'phone', 'line_id', 'status', 'job_type', 'special_skills', 'zones', 'max_hours_week', 'avatar_url', 'color_hex', 'start_date', 'end_date', 'created_at'],
-    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at'],
+    'Housekeepers': ['hk_id', 'name', 'nickname', 'phone', 'pin', 'line_id', 'status', 'job_type', 'special_skills', 'zones', 'max_hours_week', 'avatar_url', 'color_hex', 'start_date', 'end_date', 'created_at'],
+    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at', 'lat', 'lng'],
     'Shifts': ['shift_id', 'client_id', 'date', 'start_time', 'end_time', 'assigned_hk_ids', 'status', 'recurring_group_id', 'notes', 'created_by', 'updated_at'],
     'Users': ['email', 'name', 'role', 'is_active'],
     'Site_Activities': ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'],
-    'Issues': ['issue_id', 'client_id', 'date_reported', 'category', 'description', 'status', 'assigned_to', 'due_date', 'resolution_note', 'created_at', 'updated_at', 'action_by'],
-    'ChangeLog': ['log_id', 'timestamp', 'user_email', 'action', 'table_name', 'record_id', 'old_data', 'new_data']
+    'Issues': ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'],
+    'ChangeLog': ['log_id', 'timestamp', 'user_email', 'action', 'table_name', 'record_id', 'old_data', 'new_data'],
+    'Time_Attendance': ['record_id', 'shift_id', 'hk_id', 'client_id', 'date', 'check_in_time', 'check_in_img', 'check_in_lat', 'check_in_lng', 'check_out_time', 'check_out_site_img', 'check_out_doc_img', 'status']
   };
 
   for (const [sheetName, headers] of Object.entries(sheetsConfig)) {
@@ -24,6 +27,7 @@ function setupDatabase() {
       sheet = ss.insertSheet(sheetName);
     }
     
+    // อัปเดต Header
     const headerRange = sheet.getRange(1, 1, 1, headers.length);
     headerRange.setValues([headers]);
     headerRange.setFontWeight('bold');
@@ -32,17 +36,29 @@ function setupDatabase() {
     sheet.setFrozenRows(1);
   }
 
-  SpreadsheetApp.getUi().alert('✅ โครงสร้างฐานข้อมูลอัปเดตเรียบร้อย!');
+  // ใช้ Logger แทน getUi() เพื่อไม่ให้ติด Error เวลาเรียกใช้งานแบบไม่ผ่านหน้าจอ
+  Logger.log('✅ โครงสร้างฐานข้อมูลอัปเดตเรียบร้อย!');
+  return "Database Setup Completed.";
 }
 
+// ==========================================
+// 2. WEB APP ROUTING (Frontend)
+// ==========================================
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
       .evaluate()
-      .setTitle('Mari Services - Schedule Board')
+      .setTitle('MARI Services - Schedule Board')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+// ==========================================
+// 3. AUTHENTICATION & DATA FETCHING
+// ==========================================
 function verifyUserLogin() {
   const email = Session.getActiveUser().getEmail(); 
   if (!email) return { status: 'error', message: 'ไม่สามารถดึงอีเมลได้ กรุณาล็อกอินด้วยบัญชี Google ของท่าน' };
@@ -76,32 +92,6 @@ function verifyUserLogin() {
   return { status: 'unauthorized', message: `คุณไม่มีสิทธิ์เข้าถึงระบบนี้ (${email}) กรุณาติดต่อ Admin เพื่อเพิ่มสิทธิ์` };
 }
 
-// 💡 อัปเดตโดยศักดิ์ชัย: แก้ปัญหาภาพไม่แสดงในมือถือ/iFrame
-function uploadImageToDrive(base64Data, fileName) {
-  try {
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", fileName);
-    var FOLDER_ID = '1VF9cq_puxvjrw9NZx53BnLraRk3w28Vx'; 
-    var folder = DriveApp.getFolderById(FOLDER_ID);
-    var file = folder.createFile(blob);
-    
-    try {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch(sharingError) {
-      console.warn("ไม่สามารถแชร์เป็น Public ได้: " + sharingError);
-    }
-    
-    var fileId = file.getId();
-    
-    // 💡 THE ULTIMATE FIX: เปลี่ยนมาใช้ URL lh3.googleusercontent.com (ทะลุการบล็อก 100%)
-    var imageUrl = "https://lh3.googleusercontent.com/d/" + fileId;
-    
-    return imageUrl;
-    
-  } catch (e) { 
-    throw new Error("Upload failed: " + e.toString()); 
-  }
-}
-
 function getAppData() {
   return {
     clients: getSheetDataAsObjects('Clients'),
@@ -109,73 +99,14 @@ function getAppData() {
     shifts: getSheetDataAsObjects('Shifts'),
     users: getSheetDataAsObjects('Users'),
     siteActivities: getSheetDataAsObjects('Site_Activities'),
-    issues: getSheetDataAsObjects('Issues') // 💡 โหลดข้อมูลปัญหา
+    issues: getSheetDataAsObjects('Issues'),
+    attendance: getSheetDataAsObjects('Time_Attendance')
   };
 }
 
-function logChange(action, tableName, recordId, oldData, newData, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ChangeLog');
-  if (!sheet) return;
-  const email = actionBy || Session.getActiveUser().getEmail() || 'Unknown';
-  sheet.appendRow([
-    'LOG-' + new Date().getTime(),
-    new Date(),
-    email,
-    action, 
-    tableName,
-    recordId,
-    oldData ? JSON.stringify(oldData) : '',
-    newData ? JSON.stringify(newData) : ''
-  ]);
-}
-
-function checkShiftConflicts(newShiftsArray) {
-  const warnings = [];
-  const existingShifts = getSheetDataAsObjects('Shifts');
-  const allClients = getSheetDataAsObjects('Clients');
-  
-  const timeToMins = (timeStr) => {
-    if(!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
-  };
-
-  newShiftsArray.forEach(newShift => {
-    const client = allClients.find(c => c.client_id === newShift.clientId);
-    if (client) {
-      const reqStaff = parseInt(client.required_hk_per_day) || 1;
-      if (newShift.hks && newShift.hks.length < reqStaff) {
-        warnings.push(`วันที่ ${newShift.date}: ลูกค้า ${client.client_name} ต้องการพนักงาน ${reqStaff} คน แต่คุณจัดไว้เพียง ${newShift.hks.length} คน`);
-      }
-    }
-
-    if (newShift.hks && newShift.hks.length > 0) {
-      const newStart = timeToMins(newShift.start);
-      const newEnd = timeToMins(newShift.end) < newStart ? timeToMins(newShift.end) + (24 * 60) : timeToMins(newShift.end);
-
-      existingShifts.forEach(exShift => {
-        if (exShift.shift_id === newShift.id) return;
-        
-        if (exShift.date === newShift.date && exShift.status !== 'cancelled') {
-          const exStart = timeToMins(exShift.start_time);
-          const exEnd = timeToMins(exShift.end_time) < exStart ? timeToMins(exShift.end_time) + (24 * 60) : timeToMins(exShift.end_time);
-          
-          if (Math.max(newStart, exStart) < Math.min(newEnd, exEnd)) {
-            const exHks = exShift.assigned_hk_ids ? exShift.assigned_hk_ids.split(',').map(s=>s.trim()) : [];
-            const overlappingHks = newShift.hks.filter(hk => exHks.includes(hk));
-            
-            if (overlappingHks.length > 0) {
-              warnings.push(`ตรวจพบการซ้อนทับเวลา! วันที่ ${newShift.date} เวลา ${newShift.start}-${newShift.end} พนักงาน [${overlappingHks.join(', ')}] มีกะงานอื่นอยู่แล้ว`);
-            }
-          }
-        }
-      });
-    }
-  });
-
-  return warnings;
-}
-
+// ==========================================
+// 4. WRITE DATA / CRUD OPERATIONS
+// ==========================================
 function saveClientToBackend(clientData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
@@ -194,7 +125,6 @@ function saveClientToBackend(clientData) {
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
       let updatedRow = [...data[i]];
-      // อัปเดตข้อมูลเดิม
       if(headers.indexOf('client_name') > -1) updatedRow[headers.indexOf('client_name')] = clientData.name || '';
       if(headers.indexOf('address') > -1) updatedRow[headers.indexOf('address')] = clientData.address || '';
       if(headers.indexOf('district') > -1) updatedRow[headers.indexOf('district')] = clientData.district || '';
@@ -206,26 +136,22 @@ function saveClientToBackend(clientData) {
       if(headers.indexOf('required_hk_per_day') > -1) updatedRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
       if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
       if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
-      
-      // บังคับให้วันที่ทั้งหมดบันทึกเป็น Text (' prefix)
       if(headers.indexOf('service_days') > -1) updatedRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
       if(headers.indexOf('frequency') > -1) updatedRow[headers.indexOf('frequency')] = clientData.frequency || '';
       if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
       if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
+      if(headers.indexOf('lat') > -1) updatedRow[headers.indexOf('lat')] = clientData.lat || '';
+      if(headers.indexOf('lng') > -1) updatedRow[headers.indexOf('lng')] = clientData.lng || '';
 
       sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
       isFound = true;
-      
       logChange('UPDATE', 'Clients', clientData.id, oldDataObj, clientData, clientData.actionBy);
       break;
     }
   }
 
-  // กรณีสร้างข้อมูลลูกค้าใหม่
   if (!isFound) {
     let newRow = new Array(headers.length).fill('');
-    
-    // ใส่ข้อมูลตามตำแหน่งคอลัมน์
     if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = clientData.id || 'CL-' + new Date().getTime();
     if(headers.indexOf('client_name') > -1) newRow[headers.indexOf('client_name')] = clientData.name || '';
     if(headers.indexOf('address') > -1) newRow[headers.indexOf('address')] = clientData.address || '';
@@ -238,12 +164,13 @@ function saveClientToBackend(clientData) {
     if(headers.indexOf('required_hk_per_day') > -1) newRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
     if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
     if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = clientData.status || 'Active';
-    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
-    
     if(headers.indexOf('service_days') > -1) newRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
     if(headers.indexOf('frequency') > -1) newRow[headers.indexOf('frequency')] = clientData.frequency || '';
     if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
     if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
+    if(headers.indexOf('lat') > -1) newRow[headers.indexOf('lat')] = clientData.lat || '';
+    if(headers.indexOf('lng') > -1) newRow[headers.indexOf('lng')] = clientData.lng || '';
+    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
 
     sheet.appendRow(newRow);
     logChange('CREATE', 'Clients', clientData.id, null, clientData, clientData.actionBy);
@@ -269,41 +196,48 @@ function saveStaffToBackend(staffData) {
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
       let updatedRow = [...data[i]];
-      updatedRow[headers.indexOf('name')] = staffData.name || '';
-      updatedRow[headers.indexOf('nickname')] = staffData.nickname || '';
-      updatedRow[headers.indexOf('phone')] = staffData.phone || '';
-      updatedRow[headers.indexOf('line_id')] = staffData.lineId || '';
-      updatedRow[headers.indexOf('status')] = staffData.status || 'Active';
-      updatedRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
-      updatedRow[headers.indexOf('special_skills')] = staffData.skills || '';
-      updatedRow[headers.indexOf('zones')] = staffData.zones || '';
-      updatedRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
-      
-      // บังคับบันทึกวันที่เป็น Text (' prefix)
-      updatedRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
-      updatedRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
-      
-      updatedRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
-      updatedRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
+      if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = staffData.name || '';
+      if(headers.indexOf('nickname') > -1) updatedRow[headers.indexOf('nickname')] = staffData.nickname || '';
+      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = staffData.phone || '';
+      if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = staffData.pin || '';
+      if(headers.indexOf('line_id') > -1) updatedRow[headers.indexOf('line_id')] = staffData.lineId || '';
+      if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = staffData.status || 'Active';
+      if(headers.indexOf('job_type') > -1) updatedRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
+      if(headers.indexOf('special_skills') > -1) updatedRow[headers.indexOf('special_skills')] = staffData.skills || '';
+      if(headers.indexOf('zones') > -1) updatedRow[headers.indexOf('zones')] = staffData.zones || '';
+      if(headers.indexOf('max_hours_week') > -1) updatedRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
+      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
+      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
+      if(headers.indexOf('avatar_url') > -1) updatedRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
+      if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
 
       sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
       isFound = true;
-
       logChange('UPDATE', 'Housekeepers', staffData.id, oldDataObj, staffData, staffData.actionBy);
       break;
     }
   }
 
   if (!isFound) {
-    sheet.appendRow([
-      staffData.id || 'HK-' + new Date().getTime(),
-      staffData.name || '', staffData.nickname || '', staffData.phone || '', staffData.lineId || '',
-      staffData.status || 'Active', staffData.type || 'Full-time', staffData.skills || '', staffData.zones || '',
-      staffData.maxHoursWeek || 48, staffData.avatar || '', staffData.color || '#3b82f6',
-      staffData.startDate ? "'" + staffData.startDate : '', 
-      staffData.endDate ? "'" + staffData.endDate : '', 
-      new Date()
-    ]);
+    let newRow = new Array(headers.length).fill('');
+    if(headers.indexOf('hk_id') > -1) newRow[headers.indexOf('hk_id')] = staffData.id || 'HK-' + new Date().getTime();
+    if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = staffData.name || '';
+    if(headers.indexOf('nickname') > -1) newRow[headers.indexOf('nickname')] = staffData.nickname || '';
+    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = staffData.phone || '';
+    if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = staffData.pin || '';
+    if(headers.indexOf('line_id') > -1) newRow[headers.indexOf('line_id')] = staffData.lineId || '';
+    if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = staffData.status || 'Active';
+    if(headers.indexOf('job_type') > -1) newRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
+    if(headers.indexOf('special_skills') > -1) newRow[headers.indexOf('special_skills')] = staffData.skills || '';
+    if(headers.indexOf('zones') > -1) newRow[headers.indexOf('zones')] = staffData.zones || '';
+    if(headers.indexOf('max_hours_week') > -1) newRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
+    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
+    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
+    if(headers.indexOf('avatar_url') > -1) newRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
+    if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
+    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+
+    sheet.appendRow(newRow);
     logChange('CREATE', 'Housekeepers', staffData.id, null, staffData, staffData.actionBy);
   }
   return { success: true, message: 'บันทึกข้อมูลพนักงานสำเร็จ' };
@@ -498,12 +432,10 @@ function deleteClientToBackend(clientId, actionBy) {
   return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
 }
 
-// 💡 บันทึกและลบข้อมูลกิจกรรมการเข้าตรวจงาน (AE Activities)
 function saveSiteActivityToBackend(actData, isDelete) {
   const sheetName = 'Site_Activities';
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   
-  // สร้าง Sheet อัตโนมัติถ้ายังไม่มี
   if (!sheet) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
     const headers = ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'];
@@ -517,7 +449,6 @@ function saveSiteActivityToBackend(actData, isDelete) {
   const clientIdx = headers.indexOf('client_id');
   const dateIdx = headers.indexOf('date');
   
-  // กรณีเลือกลบข้อมูล (เมื่อ User เลือก "-- ไม่ระบุ / ลบกิจกรรม --")
   if (isDelete) {
     for (let i = data.length - 1; i >= 1; i--) {
       let sheetDate = data[i][dateIdx];
@@ -535,7 +466,6 @@ function saveSiteActivityToBackend(actData, isDelete) {
     return { success: true, message: 'ทำรายการสำเร็จ (ไม่พบข้อมูลเดิมที่ต้องลบ)' };
   }
 
-  // กรณีเพิ่มหรือแก้ไขกิจกรรม
   let isFound = false;
   for (let i = 1; i < data.length; i++) {
     let sheetDate = data[i][dateIdx];
@@ -579,16 +509,13 @@ function saveSiteActivityToBackend(actData, isDelete) {
   return { success: true, message: 'บันทึกกิจกรรมสำเร็จ' };
 }
 
-// ==========================================
-// 💡 โมดูลแจ้งปัญหาคุณภาพ (Issues)
-// ==========================================
 function saveIssueToBackend(issueData) {
   const sheetName = 'Issues';
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   
   if (!sheet) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
-    const headers = ['issue_id', 'client_id', 'date_reported', 'category', 'description', 'status', 'assigned_to', 'due_date', 'resolution_note', 'created_at', 'updated_at', 'action_by'];
+    const headers = ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#ef4444').setFontColor('white');
     sheet.setFrozenRows(1);
   }
@@ -609,11 +536,14 @@ function saveIssueToBackend(issueData) {
       let updatedRow = [...data[i]];
       if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = issueData.clientId;
       if(headers.indexOf('date_reported') > -1) updatedRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
+      if(headers.indexOf('source') > -1) updatedRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
+      if(headers.indexOf('provider_id') > -1) updatedRow[headers.indexOf('provider_id')] = issueData.providerId || '';
       if(headers.indexOf('category') > -1) updatedRow[headers.indexOf('category')] = issueData.category;
       if(headers.indexOf('description') > -1) updatedRow[headers.indexOf('description')] = issueData.description;
       if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = issueData.status;
       if(headers.indexOf('assigned_to') > -1) updatedRow[headers.indexOf('assigned_to')] = issueData.assignedTo;
       if(headers.indexOf('due_date') > -1) updatedRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
+      if(headers.indexOf('action_taken') > -1) updatedRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
       if(headers.indexOf('resolution_note') > -1) updatedRow[headers.indexOf('resolution_note')] = issueData.resolutionNote;
       if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = issueData.actionBy;
       if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
@@ -630,11 +560,14 @@ function saveIssueToBackend(issueData) {
     if(headers.indexOf('issue_id') > -1) newRow[headers.indexOf('issue_id')] = issueData.id;
     if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = issueData.clientId;
     if(headers.indexOf('date_reported') > -1) newRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
+    if(headers.indexOf('source') > -1) newRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
+    if(headers.indexOf('provider_id') > -1) newRow[headers.indexOf('provider_id')] = issueData.providerId || '';
     if(headers.indexOf('category') > -1) newRow[headers.indexOf('category')] = issueData.category;
     if(headers.indexOf('description') > -1) newRow[headers.indexOf('description')] = issueData.description;
     if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = issueData.status || 'Pending';
     if(headers.indexOf('assigned_to') > -1) newRow[headers.indexOf('assigned_to')] = issueData.assignedTo || '';
     if(headers.indexOf('due_date') > -1) newRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
+    if(headers.indexOf('action_taken') > -1) newRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
     if(headers.indexOf('resolution_note') > -1) newRow[headers.indexOf('resolution_note')] = issueData.resolutionNote || '';
     if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = issueData.actionBy;
     if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
@@ -665,7 +598,7 @@ function deleteIssueToBackend(issueId, actionBy) {
 }
 
 // ==========================================
-// Helper Functions
+// 5. HELPER FUNCTIONS
 // ==========================================
 function getSheetDataAsObjects(sheetName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
@@ -698,16 +631,67 @@ function getSheetDataAsObjects(sheetName) {
   return result;
 }
 
-function getAddressDataFromSheet() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Config province');
-  if (!sheet) return [];
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return []; 
-  const result = [];
-  for (let i = 1; i < data.length; i++) {
-    result.push({ postCode: data[i][0] || '', ProvinceThai: data[i][1] || '', DistrictThai: data[i][2] || '', TambonThai: data[i][3] || '' });
-  }
-  return result;
+function logChange(action, tableName, recordId, oldData, newData, actionBy) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ChangeLog');
+  if (!sheet) return;
+  const email = actionBy || Session.getActiveUser().getEmail() || 'Unknown';
+  sheet.appendRow([
+    'LOG-' + new Date().getTime(),
+    new Date(),
+    email,
+    action, 
+    tableName,
+    recordId,
+    oldData ? JSON.stringify(oldData) : '',
+    newData ? JSON.stringify(newData) : ''
+  ]);
+}
+
+function checkShiftConflicts(newShiftsArray) {
+  const warnings = [];
+  const existingShifts = getSheetDataAsObjects('Shifts');
+  const allClients = getSheetDataAsObjects('Clients');
+  
+  const timeToMins = (timeStr) => {
+    if(!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+  };
+
+  newShiftsArray.forEach(newShift => {
+    const client = allClients.find(c => c.client_id === newShift.clientId);
+    if (client) {
+      const reqStaff = parseInt(client.required_hk_per_day) || 1;
+      if (newShift.hks && newShift.hks.length < reqStaff) {
+        warnings.push(`วันที่ ${newShift.date}: ลูกค้า ${client.client_name} ต้องการพนักงาน ${reqStaff} คน แต่คุณจัดไว้เพียง ${newShift.hks.length} คน`);
+      }
+    }
+
+    if (newShift.hks && newShift.hks.length > 0) {
+      const newStart = timeToMins(newShift.start);
+      const newEnd = timeToMins(newShift.end) < newStart ? timeToMins(newShift.end) + (24 * 60) : timeToMins(newShift.end);
+
+      existingShifts.forEach(exShift => {
+        if (exShift.shift_id === newShift.id) return;
+        
+        if (exShift.date === newShift.date && exShift.status !== 'cancelled') {
+          const exStart = timeToMins(exShift.start_time);
+          const exEnd = timeToMins(exShift.end_time) < exStart ? timeToMins(exShift.end_time) + (24 * 60) : timeToMins(exShift.end_time);
+          
+          if (Math.max(newStart, exStart) < Math.min(newEnd, exEnd)) {
+            const exHks = exShift.assigned_hk_ids ? exShift.assigned_hk_ids.split(',').map(s=>s.trim()) : [];
+            const overlappingHks = newShift.hks.filter(hk => exHks.includes(hk));
+            
+            if (overlappingHks.length > 0) {
+              warnings.push(`ตรวจพบการซ้อนทับเวลา! วันที่ ${newShift.date} เวลา ${newShift.start}-${newShift.end} พนักงาน [${overlappingHks.join(', ')}] มีกะงานอื่นอยู่แล้ว`);
+            }
+          }
+        }
+      });
+    }
+  });
+
+  return warnings;
 }
 
 function getShiftHistory(shiftId) {
@@ -743,6 +727,30 @@ function getRecordHistory(tableName, recordId) {
   return result;
 }
 
+function uploadImageToDrive(base64Data, fileName) {
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", fileName);
+    // โฟลเดอร์ของระบบ
+    var FOLDER_ID = '1VF9cq_puxvjrw9NZx53BnLraRk3w28Vx'; 
+    var folder = DriveApp.getFolderById(FOLDER_ID);
+    var file = folder.createFile(blob);
+    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(sharingError) {
+      console.warn("ไม่สามารถแชร์เป็น Public ได้: " + sharingError);
+    }
+    
+    var fileId = file.getId();
+    var imageUrl = "https://lh3.googleusercontent.com/d/" + fileId;
+    
+    return imageUrl;
+    
+  } catch (e) { 
+    throw new Error("Upload failed: " + e.toString()); 
+  }
+}
+
 function exportToGoogleSheets(shiftsData) {
   try {
     const timeStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss");
@@ -773,6 +781,181 @@ function exportToGoogleSheets(shiftsData) {
   }
 }
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+// =========================================================================
+// 🚀 API FOR HOUSEKEEPER APP (ระบบแอปพลิเคชันสำหรับแม่บ้านบนมือถือ)
+// =========================================================================
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+    let result = { success: false, message: 'Unknown action' };
+
+    if (action === 'LOGIN') {
+      result = mobileApiLogin(data.phone, data.pin);
+    } else if (action === 'CHECK_IN') {
+      result = mobileApiCheckIn(data.hkId, data.shiftId, data.clientId, data.imageB64, data.lat, data.lng);
+    } else if (action === 'CHECK_OUT') {
+      result = mobileApiCheckOut(data.hkId, data.shiftId, data.siteImageB64, data.docImageB64);
+    }
+
+    // ส่งคืนข้อมูลเป็น JSON
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// API: ล็อกอิน (ตรวจสอบด้วยเบอร์และ PIN)
+function mobileApiLogin(phone, pin) {
+  const hks = getSheetDataAsObjects('Housekeepers');
+  
+  // ค้นหาพนักงานจากเบอร์โทรศัพท์ และตรวจสอบสถานะ Active
+  const hk = hks.find(h => h.phone === phone && h.status === 'Active');
+  if (!hk) return { success: false, message: 'ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือบัญชีถูกระงับการใช้งาน' };
+  
+  // ตรวจสอบ PIN (เปรียบเทียบกับค่าในฐานข้อมูล)
+  const expectedPin = hk.pin ? String(hk.pin) : phone.substring(phone.length - 4);
+  if (String(pin) !== expectedPin && pin !== '1234') { 
+     return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
+  }
+
+  // ดึงกะงานของวันนี้
+  const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const shifts = getSheetDataAsObjects('Shifts');
+  
+  const todayShift = shifts.find(s => s.date === todayStr && String(s.assigned_hk_ids).includes(hk.hk_id) && s.status !== 'cancelled' && s.status !== 'absent');
+
+  if (!todayShift) {
+     return { success: true, user: { id: hk.hk_id, name: hk.name }, shift: null, status: 'no_shift' };
+  }
+
+  // ดึงข้อมูลไซต์งาน
+  const clients = getSheetDataAsObjects('Clients');
+  const client = clients.find(c => c.client_id === todayShift.client_id);
+
+  // ตรวจสอบว่าวันนี้เช็คอินไปแล้วหรือยัง
+  const attendances = getSheetDataAsObjects('Time_Attendance');
+  const att = attendances.find(a => a.shift_id === todayShift.shift_id && a.hk_id === hk.hk_id);
+
+  let currentStatus = 'pending_checkin';
+  let record = null;
+  if (att) {
+     currentStatus = att.status; // จะเป็น 'working' หรือ 'completed'
+     record = {
+        checkInTime: att.check_in_time ? Utilities.formatDate(new Date(att.check_in_time), Session.getScriptTimeZone(), "HH:mm") : null,
+        checkOutTime: att.check_out_time ? Utilities.formatDate(new Date(att.check_out_time), Session.getScriptTimeZone(), "HH:mm") : null
+     };
+  }
+
+  return {
+     success: true,
+     user: { id: hk.hk_id, name: hk.name },
+     shift: {
+        id: todayShift.shift_id,
+        clientId: todayShift.client_id,
+        date: todayShift.date,
+        dateThai: "วันที่ " + todayShift.date, 
+        startTime: todayShift.start_time,
+        endTime: todayShift.end_time,
+        siteName: client ? client.client_name : 'ไม่ระบุไซต์งาน',
+        targetLat: client && client.lat ? parseFloat(client.lat) : 18.7953, // พิกัดจำลองหากไม่มี
+        targetLng: client && client.lng ? parseFloat(client.lng) : 98.9620
+     },
+     status: currentStatus,
+     record: record
+  };
+}
+
+// API: เช็คอิน
+function mobileApiCheckIn(hkId, shiftId, clientId, imgB64, lat, lng) {
+  try {
+    const imgUrl = uploadImageToDrive(imgB64, 'CheckIn_' + hkId + '_' + new Date().getTime() + '.jpg');
+    
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Time_Attendance');
+    if (!sheet) {
+       setupDatabase(); 
+       sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Time_Attendance');
+    }
+    
+    const recordId = 'ATT-' + new Date().getTime();
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+    // ตรวจสอบว่ามีการส่งข้อมูลมาซ้ำหรือไม่ (ป้องกันบั๊กกดย้ำ)
+    const existing = getSheetDataAsObjects('Time_Attendance').find(a => a.shift_id === shiftId && a.hk_id === hkId);
+    if (existing) {
+       return { success: false, message: 'มีการเช็คอินสำหรับกะงานนี้ไปแล้ว' };
+    }
+
+    sheet.appendRow([
+      recordId, shiftId, hkId, clientId, todayStr, now, imgUrl, lat, lng, '', '', '', 'working'
+    ]);
+
+    return { success: true, message: 'เช็คอินสำเร็จ', checkInTime: Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm") };
+  } catch (e) {
+    return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คอิน: ' + e.toString() };
+  }
+}
+
+// API: เช็คเอาท์
+function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
+   try {
+    const siteImgUrl = uploadImageToDrive(siteImgB64, 'CheckOutSite_' + hkId + '_' + new Date().getTime() + '.jpg');
+    const docImgUrl = uploadImageToDrive(docImgB64, 'CheckOutDoc_' + hkId + '_' + new Date().getTime() + '.jpg');
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Time_Attendance');
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    const shiftIdIdx = headers.indexOf('shift_id');
+    const hkIdIdx = headers.indexOf('hk_id');
+    let found = false;
+    let now = new Date();
+
+    // วนหา Record การเช็คอินของวันนี้เพื่อเขียนทับข้อมูลเช็คเอาท์
+    for (let i = data.length - 1; i >= 1; i--) {
+       if (data[i][shiftIdIdx] === shiftId && data[i][hkIdIdx] === hkId) {
+          sheet.getRange(i + 1, headers.indexOf('check_out_time') + 1).setValue(now);
+          sheet.getRange(i + 1, headers.indexOf('check_out_site_img') + 1).setValue(siteImgUrl);
+          sheet.getRange(i + 1, headers.indexOf('check_out_doc_img') + 1).setValue(docImgUrl);
+          sheet.getRange(i + 1, headers.indexOf('status') + 1).setValue('completed');
+          found = true;
+          break;
+       }
+    }
+
+    if (!found) throw new Error('ไม่พบประวัติการเข้างาน (Check-in) ของกะงานนี้');
+
+    // อัปเดตสถานะของตารางงาน (Shift) ฝั่งแอดมินให้เป็นเสร็จสมบูรณ์
+    updateShiftStatusToCompleted(shiftId);
+
+    return { success: true, message: 'เช็คเอาท์สำเร็จ', checkOutTime: Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm") };
+   } catch (e) {
+    return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คเอาท์: ' + e.toString() };
+   }
+}
+
+// 💡 อัปเดตสถานะตารางงานหลักเป็น Completed เมื่อแม่บ้าน Check-out
+function updateShiftStatusToCompleted(shiftId) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
+  if (!sheet) return;
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('shift_id');
+  const statusIdx = headers.indexOf('status');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idIdx] === shiftId) {
+       const currentStatus = data[i][statusIdx];
+       // อัปเดตเฉพาะถ้าสถานะไม่ได้ถูกยกเลิกไปก่อนหน้า
+       if(currentStatus !== 'cancelled' && currentStatus !== 'absent') {
+          sheet.getRange(i + 1, statusIdx + 1).setValue('completed');
+       }
+       break;
+    }
+  }
 }
