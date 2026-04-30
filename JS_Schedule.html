@@ -12,12 +12,12 @@
         filterGridData(); 
     }
 
-    // 💡 ฟังก์ชันตรวจสอบสิทธิ์การแสดงผลเมนู "ตั้งค่าสิทธิ์"
+    // 💡 ฟังก์ชันตรวจสอบสิทธิ์การแสดงผลเมนู "ตั้งค่าสิทธิ์" (รองรับสิทธิ์ DEV)
     function applyRolePermissions() {
         if (typeof CURRENT_USER === 'undefined' || !CURRENT_USER) return;
-        var isAdmin = (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin');
+        var isAdmin = (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin' || CURRENT_USER.role === 'DEV');
         
-        // ค้นหาและซ่อนเมนู 'ตั้งค่าสิทธิ์' ใน Sidebar สำหรับคนที่ไม่ใช่ Admin
+        // ค้นหาและซ่อนเมนู 'ตั้งค่าสิทธิ์' ใน Sidebar สำหรับคนที่ไม่ใช่ Admin หรือ DEV
         var menuItems = document.querySelectorAll('span, p, div');
         menuItems.forEach(function(el) {
             if (el.textContent && el.textContent.trim().includes('ตั้งค่าสิทธิ์')) {
@@ -31,7 +31,7 @@
         });
     }
 
-    // 💡 ฟังก์ชันตรวจสอบและอัปเดตสถานะกะงานที่เลยวันให้เป็น "สำเร็จ" (Completed) อัตโนมัติ
+    // ฟังก์ชันตรวจสอบและอัปเดตสถานะกะงานที่เลยวันให้เป็น "สำเร็จ" (Completed) อัตโนมัติ
     function autoUpdatePastShifts() {
         if (typeof formatDateString !== 'function') return;
         var todayStr = formatDateString(new Date());
@@ -60,8 +60,8 @@
     }
 
     function filterGridData() {
-        autoUpdatePastShifts(); // 💡 ดักอัปเดตสถานะงานที่เลยวันก่อนที่จะดึงข้อมูลมาวาดลงตาราง
-        applyRolePermissions(); // 💡 ดักเช็คสิทธิ์การแสดงผลเมนูตั้งค่าสิทธิ์ทุกครั้ง
+        autoUpdatePastShifts(); 
+        applyRolePermissions(); 
         
         var searchInput = document.getElementById('globalSearch');
         var keyword = searchInput ? searchInput.value.toLowerCase() : '';
@@ -180,10 +180,6 @@
 
         var hkColor = hk.color || '#3b82f6';
         
-        // 💡 ปรับความเด่นของการ์ด: 
-        // - เปลี่ยนพื้นหลังให้เป็นสีอ่อนๆ ตามสีประจำตัว (opacity 10%)
-        // - ปรับขอบซ้ายให้หนาขึ้นเป็น 6px
-        // - เปลี่ยนสีกรอบการ์ดให้เข้ากับสีประจำตัว (opacity 30%)
         var bgClass = "hover:shadow-md hover:-translate-y-[1px] hover:z-[100]"; 
         var cardBg = hexToRgba(hkColor, 0.10); 
         var cardBorder = hexToRgba(hkColor, 0.30);
@@ -203,7 +199,6 @@
         var fallbackImg = 'https://ui-avatars.com/api/?name=' + fallbackName + '&background=f0f4f8&color=3d5a6c';
         var imgSrc = (hk.avatar && hk.avatar.trim() !== '') ? hk.avatar : fallbackImg;
         
-        // 💡 หมายเหตุ: ไม่ใส่ overflow-hidden ที่การ์ดหลัก เพื่อให้ Tooltip ลอยออกมาได้ แต่ใส่ในส่วนของข้อความแทน
         return '<div id="card-' + shift.id + '-' + hk.id + '" class="shift-card mb-2 p-2 flex items-center gap-2 rounded-lg cursor-pointer relative shadow-sm transition-all ' + bgClass + ' w-full max-w-full box-border min-w-0" draggable="true" ondragstart="handleDragStart(event, \'' + shift.id + '\', \'' + hk.id + '\')" ondragend="handleDragEnd(event)" style="' + borderStyle + '" onclick="editShift(\'' + shift.id + '\')">' +
                    '<img src="' + imgSrc + '" onerror="this.onerror=null; this.src=\'' + fallbackImg + '\';" class="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm" style="' + hkColorBorder + '">' +
                    '<div class="flex flex-col w-full min-w-0 overflow-hidden">' + 
@@ -332,7 +327,6 @@
             if (!isCollapsed) {
                 weekDays.forEach(function(dateString) {
                     var shiftsInDay = MOCK_SHIFTS.filter(function(s) { return s.clientId === client.id && s.date === dateString; });
-                    // 💡 แก้ไข min-h-[120px] เป็น min-h-[60px] แล้วครับ
                     bodyHTML += '<div class="border-r border-b border-gray-200 min-h-[60px] relative cell-drop-zone transition-colors min-w-0 w-full box-border" ' +
                                       'ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateString + '\')">' +
                                     '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateString + '\')" class="cell-add-btn absolute top-1 right-1 w-6 h-6 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-[10px]"></i></button>';
@@ -398,7 +392,6 @@
             
             if (!isCollapsed) {
                 var clientShifts = shiftsToday.filter(function(s) { return s.clientId === client.id; });
-                // 💡 แก้ไข min-h-[80px] เป็น min-h-[60px] เรียบร้อยครับ
                 bodyHTML += '<div class="border-b border-gray-200 flex flex-wrap gap-2 cell-drop-zone relative min-h-[60px] min-w-0 w-full box-border" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, \'' + client.id + '\', \'' + dateStr + '\')">' +
                                 '<button onclick="openShiftModal(\'' + client.id + '\', \'' + dateStr + '\')" class="cell-add-btn absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-brand rounded shadow-sm flex items-center justify-center z-20"><i class="fa-solid fa-plus text-xs"></i></button>';
                 
