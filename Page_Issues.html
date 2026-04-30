@@ -1,0 +1,1183 @@
+<!-- ======================================= -->
+<!-- [PAGE COMPONENT]: ISSUES (แจ้งปัญหาคุณภาพ) -->
+<!-- ======================================= -->
+
+<!-- 1. VIEW: หน้าจอหลักของตารางปัญหาคุณภาพ -->
+<div id="view-issues" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
+    
+    <!-- 💡 ส่วนหัวที่ยุบรวมแล้ว (ปุ่มแจ้งปัญหา + แถบ Filter + ช่องค้นหา) -->
+    <div class="bg-white px-6 py-3 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4 shadow-sm z-10">
+        <div class="flex gap-2 min-w-max overflow-x-auto custom-scrollbar pb-1 sm:pb-0 w-full md:w-auto">
+            <button onclick="filterIssues('New')" id="btnFilterIssue-New" class="px-4 py-1.5 rounded-full text-[12px] font-bold bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition">เคสใหม่ <span id="countIssueNew" class="ml-1 px-1.5 bg-gray-100 rounded-full text-[10px]">0</span></button>
+            <button onclick="filterIssues('In Progress')" id="btnFilterIssue-InProgress" class="px-4 py-1.5 rounded-full text-[12px] font-bold bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition">กำลังแก้ไข <span id="countIssueInProgress" class="ml-1 px-1.5 bg-gray-100 rounded-full text-[10px]">0</span></button>
+            <button onclick="filterIssues('Pending Approval')" id="btnFilterIssue-PendingApproval" class="px-4 py-1.5 rounded-full text-[12px] font-bold bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition">รออนุมัติ <span id="countIssuePendingApproval" class="ml-1 px-1.5 bg-gray-100 rounded-full text-[10px]">0</span></button>
+            <button onclick="filterIssues('Resolved')" id="btnFilterIssue-Resolved" class="px-4 py-1.5 rounded-full text-[12px] font-bold bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition">ปิดงานแล้ว <span id="countIssueResolved" class="ml-1 px-1.5 bg-gray-100 rounded-full text-[10px]">0</span></button>
+            <div class="w-px h-6 bg-gray-300 mx-1 self-center hidden md:block"></div>
+            <button onclick="filterIssues('All')" id="btnFilterIssue-All" class="px-4 py-1.5 rounded-full text-[12px] font-bold bg-gray-800 text-white shadow-sm transition">ทั้งหมด <span id="countIssueAll" class="ml-1 px-1.5 bg-white/20 rounded-full text-[10px]">0</span></button>
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="relative w-full md:w-64 shrink-0">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-[12px]"></i>
+                <input type="text" id="issueSearchInput" onkeyup="renderIssuesTable()" placeholder="ค้นหารหัส, ไซต์งาน, ผู้รับผิดชอบ..." class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-full text-[12px] focus:border-brand outline-none transition shadow-sm bg-gray-50 focus:bg-white">
+            </div>
+            <button onclick="openIssueModal()" class="px-5 py-2 bg-red-500 text-white rounded-md text-[13px] font-bold hover:bg-red-600 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-plus"></i> แจ้งปัญหา
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-grow overflow-auto p-6 custom-scrollbar">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full data-table text-[13px]">
+                <thead>
+                    <tr>
+                        <th class="w-[10%] text-center">รหัสปัญหา</th>
+                        <th class="w-[10%] text-center">วันที่แจ้ง</th>
+                        <th class="w-[15%]">ไซต์งาน / แหล่งที่มา</th>
+                        <th class="w-[20%]">หมวดหมู่ & รายละเอียด</th>
+                        <th class="w-[15%] text-center">ผู้รับผิดชอบ</th>
+                        <th class="w-[15%] text-center">สถานะ</th>
+                        <th class="w-[10%] text-center">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="issuesTableBody">
+                    <!-- JS จะเติมข้อมูลตารางที่นี่ -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 2. MODAL: ป๊อปอัปแจ้ง/แก้ไขปัญหา -->
+<div id="issueModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <div class="bg-[#f8fafb] rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div id="issueModalHeader" class="px-6 py-4 flex justify-between items-center bg-[#2b404d] text-white shrink-0 transition-colors">
+            <div class="flex items-center gap-3 flex-1">
+                <h3 class="text-[16px] font-bold tracking-wide" id="modalIssueTitle">รายละเอียดปัญหาคุณภาพ</h3>
+                <span id="modalIssueStatusBadge" class="hidden px-2 py-0.5 rounded text-[10px] font-bold"></span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <button onclick="closeModal('issueModal')" class="text-gray-300 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+        </div>
+
+        <div class="p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar relative" id="issueMainForm">
+            <input type="hidden" id="issueId">
+            <input type="hidden" id="issueCurrentStatus">
+
+            <!-- 💡 Container สำหรับโหมดสรุป (Summary) เมื่อปิดเคสแล้ว -->
+            <div id="issueSummaryModeContainer" class="hidden flex-col gap-5"></div>
+
+            <!-- 💡 Container สำหรับโหมดฟอร์มปกติ -->
+            <div id="issueEditModeContainer" class="flex flex-col gap-5">
+                <!-- 🟩 ส่วนที่ 1: รายละเอียดปัญหา -->
+                <div id="sec-info" class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4 relative transition-opacity">
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                        <h4 class="text-[13px] font-black text-brand"><i class="fa-solid fa-circle-info mr-1"></i> 1. ข้อมูลการแจ้งปัญหา</h4>
+                        <button type="button" onclick="unlockSection('sec-info')" class="section-edit-btn hidden text-gray-500 hover:text-brand text-[11px] font-bold px-2 py-1 bg-gray-50 hover:bg-brandLight rounded transition border border-gray-200"><i class="fa-solid fa-pen mr-1"></i> แก้ไข</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ไซต์งาน <span class="text-red-500">*</span></label>
+                            <select id="issueClient" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-brand outline-none bg-white transition"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่แจ้ง <span class="text-red-500">*</span></label>
+                            <input type="date" id="issueDate" onchange="updateSLAUI()" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">แหล่งที่มา <span class="text-red-500">*</span></label>
+                            <select id="issueSource" onchange="toggleProviderContainer()" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white transition">
+                                <option value="housekeeper">ปัญหาจากแม่บ้าน</option>
+                                <option value="site">ปัญหาจากไซต์งาน</option>
+                            </select>
+                        </div>
+                        <div id="issueProviderContainer">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อผู้ให้บริการ (แม่บ้าน)</label>
+                            <select id="issueProvider" onchange="checkHkIssueHistory()" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white transition"></select>
+                            
+                            <!-- 💡 กล่องแจ้งเตือนประวัติปัญหาของแม่บ้าน -->
+                            <div id="hkIssueHistoryContainer" class="hidden mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md shadow-sm"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">หมวดหมู่ปัญหา <span class="text-red-500">*</span></label>
+                        <select id="issueCategory" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-brand outline-none bg-white transition">
+                            <option value="">-- เลือกหมวดหมู่ปัญหา --</option>
+                            <option value="การทำความสะอาดไม่เรียบร้อย">การทำความสะอาดไม่เรียบร้อย</option>
+                            <option value="ระเบียบวินัย/มารยาทพนักงาน">ระเบียบวินัย/มารยาทพนักงาน</option>
+                            <option value="ทรัพย์สินลูกค้าเสียหาย">ทรัพย์สินลูกค้าเสียหาย</option>
+                            <option value="พนักงานมาสาย/ทิ้งงาน">พนักงานมาสาย/ทิ้งงาน</option>
+                            <option value="ปัญหาความปลอดภัย/สภาพแวดล้อม">ปัญหาความปลอดภัย/สภาพแวดล้อม (ไซต์งาน)</option>
+                            <option value="อุปกรณ์/น้ำยาไม่เพียงพอ">อุปกรณ์/น้ำยาไม่เพียงพอ</option>
+                            <option value="อื่นๆ">อื่นๆ</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รายละเอียดปัญหา <span class="text-red-500">*</span></label>
+                        <textarea id="issueDesc" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white" placeholder="ระบุเหตุการณ์หรือจุดที่พบปัญหา..."></textarea>
+                    </div>
+
+                    <!-- 📸 อัปโหลดรูปภาพปัญหา (Section 1) -->
+                    <div class="mt-1 border-t border-gray-100 pt-3">
+                        <label class="block text-[12px] font-bold text-gray-600 mb-2">รูปภาพประกอบปัญหา <span class="text-gray-400 font-medium">(แนบได้มากกว่า 1 รูป)</span></label>
+                        <input type="file" id="issueImgInput" multiple accept="image/*" onchange="uploadMultipleImages(this, 'issueImagesPreview', 'issueImagesData')" class="text-[12px] w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none cursor-pointer transition">
+                        <input type="hidden" id="issueImagesData" value="[]">
+                        <div id="issueImagesPreview" class="flex gap-3 mt-3 flex-wrap"></div>
+                    </div>
+                </div>
+
+                <!-- 🟦 ส่วนที่ 2: การมอบหมายงานและดำเนินการ (รวม Action Taken และ SLA) -->
+                <div id="sec-assignment" class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-4 relative transition-opacity">
+                    <div class="flex justify-between items-center border-b border-blue-100 pb-2">
+                        <h4 class="text-[13px] font-black text-blue-700"><i class="fa-solid fa-clipboard-user mr-1"></i> 2. การมอบหมายงานและการดำเนินการ</h4>
+                        <button type="button" onclick="unlockSection('sec-assignment')" class="section-edit-btn hidden text-blue-600 hover:text-blue-800 text-[11px] font-bold px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded transition border border-blue-200"><i class="fa-solid fa-pen mr-1"></i> แก้ไข</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้รับผิดชอบ (Assignee) <span class="text-red-500">*</span></label>
+                            <select id="issueAssignee" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white transition"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">กำหนดเสร็จสิ้น (Due Date) <span class="text-red-500">*</span></label>
+                            <input type="date" id="issueDueDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white">
+                        </div>
+                        
+                        <div class="md:col-span-2 mt-1">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">การดำเนินการกับพนักงาน (Action Taken)</label>
+                            <select id="issueActionTaken" onchange="updateSLAUI()" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-blue-400 bg-white transition">
+                                <option value="">-- ไม่ระบุ / ไม่มีการดำเนินการ --</option>
+                                <option value="ให้คำแนะนำ / อบรม">ให้คำแนะนำ / อบรม</option>
+                                <option value="ตักเตือนด้วยวาจา">ตักเตือนด้วยวาจา</option>
+                                <option value="ตักเตือนด้วยลายลักษณ์อักษร">ตักเตือนด้วยลายลักษณ์อักษร</option>
+                                <option value="เชิญออก">เชิญออก / ไล่ออก</option>
+                            </select>
+                            
+                            <!-- 💡 กล่องแจ้งเตือน SLA -->
+                            <div id="slaWarningContainer" class="hidden mt-2 p-3 bg-red-50 border border-red-200 rounded-md shadow-sm">
+                                <div class="flex items-start gap-2.5">
+                                    <i class="fa-solid fa-clock-rotate-left text-red-500 mt-0.5 text-lg"></i>
+                                    <div>
+                                        <p class="text-[11px] font-bold text-red-700 mb-0.5 uppercase tracking-wide">เงื่อนไข SLA (นับจากวันที่แจ้งปัญหา)</p>
+                                        <p id="slaWarningText" class="text-[11px] text-red-600 font-medium leading-relaxed"></p>
+                                        <div id="slaCountdownText" class="text-[12px] font-black mt-1.5 inline-block"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🟧 ส่วนที่ 3: ผลการแก้ไขและบันทึก -->
+                <div id="sec-action" class="bg-orange-50/50 p-5 rounded-xl border border-orange-100 shadow-sm flex flex-col gap-4 relative transition-opacity">
+                    <div class="flex justify-between items-center border-b border-orange-100 pb-2">
+                        <h4 class="text-[13px] font-black text-orange-700"><i class="fa-solid fa-wrench mr-1"></i> 3. บันทึกผลการแก้ปัญหา</h4>
+                        <button type="button" onclick="unlockSection('sec-action')" class="section-edit-btn hidden text-orange-600 hover:text-orange-800 text-[11px] font-bold px-2 py-1 bg-orange-100 hover:bg-orange-200 rounded transition border border-orange-200"><i class="fa-solid fa-pen mr-1"></i> แก้ไข</button>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">บันทึกการแก้ไข / หมายเหตุเพิ่มเติม <span class="text-red-500">*</span></label>
+                        <textarea id="issueResolutionNote" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-orange-400 bg-white" placeholder="อธิบายขั้นตอนที่ดำเนินการไปแล้ว..."></textarea>
+                    </div>
+
+                    <!-- 📸 อัปโหลดรูปภาพการแก้ไข (Section 3) -->
+                    <div class="mt-1 border-t border-orange-200/50 pt-3">
+                        <label class="block text-[12px] font-bold text-gray-600 mb-2">รูปภาพประกอบการแก้ไข <span class="text-gray-400 font-medium">(แนบได้มากกว่า 1 รูป)</span></label>
+                        <input type="file" id="resImgInput" multiple accept="image/*" onchange="uploadMultipleImages(this, 'resImagesPreview', 'resImagesData')" class="text-[12px] w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-orange-100 file:text-orange-600 hover:file:bg-orange-200 outline-none cursor-pointer transition">
+                        <input type="hidden" id="resImagesData" value="[]">
+                        <div id="resImagesPreview" class="flex gap-3 mt-3 flex-wrap"></div>
+                    </div>
+                </div>
+            </div> <!-- End Edit Mode Container -->
+
+            <!-- 📜 Container สำหรับแสดง History Logs -->
+            <div id="issueHistoryLogContainer" class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hidden flex-col gap-3"></div>
+
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 bg-white shrink-0 flex items-center justify-between" id="modalFooterContainer">
+            <button onclick="closeModal('issueModal')" class="px-5 py-2 border border-gray-300 bg-white text-gray-600 rounded-md text-[13px] font-bold hover:bg-gray-50 transition">ปิดหน้าต่าง</button>
+            <div id="issueFooterActions" class="flex gap-2">
+                <!-- ปุ่มจะถูกแทรกอัตโนมัติด้วย JS ตามสถานะของเคส -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. MODAL: ป๊อปอัปไม่อนุมัติ (Reject) -->
+<div id="rejectDialogOverlay" class="fixed inset-0 bg-gray-900/60 z-[100000] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col mx-4 transform transition-transform">
+        <div class="p-6 pb-4">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </div>
+            <h3 class="text-[16px] font-black text-gray-900 mb-2">ไม่อนุมัติ (Reject)</h3>
+            <p class="text-[12px] text-gray-500 mb-4">กรุณาระบุเหตุผลที่ไม่อนุมัติ เพื่อให้ทีมงานนำไปแก้ไขเพิ่มเติม</p>
+            <textarea id="rejectReasonInput" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-red-500 bg-gray-50 focus:bg-white transition" placeholder="ระบุเหตุผล..."></textarea>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+            <button onclick="document.getElementById('rejectDialogOverlay').classList.add('hidden')" class="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-md text-[13px] font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+            <button onclick="confirmReject()" class="px-5 py-2 bg-red-500 text-white rounded-md text-[13px] font-bold hover:bg-red-600 shadow-sm transition">ยืนยันไม่อนุมัติ</button>
+        </div>
+    </div>
+</div>
+
+<!-- 💡 4. MODAL: Lightbox แสดงรูปภาพ (สไลด์ดูได้แบบไม่กินทรัพยากร) -->
+<div id="imageLightboxOverlay" class="fixed inset-0 bg-black/95 z-[999999] hidden flex-col items-center justify-center backdrop-blur-sm transition-opacity">
+    <button onclick="closeLightbox()" class="absolute top-5 right-5 text-white/70 hover:text-white transition z-50 bg-black/30 w-10 h-10 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark text-xl"></i></button>
+    <button id="lbPrevBtn" onclick="prevLightboxImage()" class="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition z-50 p-4"><i class="fa-solid fa-chevron-left text-4xl"></i></button>
+    <div class="relative max-w-[90vw] max-h-[85vh] flex items-center justify-center">
+        <img id="lightboxImage" src="" class="max-w-full max-h-[85vh] object-contain rounded shadow-2xl transition-transform duration-300">
+    </div>
+    <button id="lbNextBtn" onclick="nextLightboxImage()" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition z-50 p-4"><i class="fa-solid fa-chevron-right text-4xl"></i></button>
+    <div id="lightboxCounter" class="absolute bottom-6 text-white text-[13px] font-bold tracking-widest bg-black/60 px-4 py-1.5 rounded-full border border-white/10 shadow-lg"></div>
+</div>
+
+<!-- 5. JAVASCRIPT: โค้ดควบคุมสำหรับหน้านี้โดยเฉพาะ -->
+<script>
+    var currentIssueFilter = 'New';
+    var manualEditTriggered = false; 
+
+    // 💡 ฟังก์ชัน Lightbox (สำหรับดูรูปภาพแบบขยาย)
+    var lightboxImages = [];
+    var lightboxCurrentIndex = 0;
+
+    function openLightboxFromContainer(imgEl) {
+        var container = imgEl.closest('.flex-wrap'); 
+        if (!container) {
+            openLightbox(imgEl.src, [imgEl.src]);
+            return;
+        }
+        var imgs = container.querySelectorAll('img');
+        var urls = Array.from(imgs).map(function(i) { return i.src; });
+        openLightbox(imgEl.src, urls);
+    }
+
+    function openLightbox(startUrl, imagesArray) {
+        lightboxImages = imagesArray || [startUrl];
+        lightboxCurrentIndex = lightboxImages.indexOf(startUrl);
+        if (lightboxCurrentIndex === -1) lightboxCurrentIndex = 0;
+        
+        updateLightboxUI();
+        
+        var overlay = document.getElementById('imageLightboxOverlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    }
+
+    function closeLightbox() {
+        var overlay = document.getElementById('imageLightboxOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+
+    function prevLightboxImage() {
+        if (lightboxCurrentIndex > 0) {
+            lightboxCurrentIndex--;
+            updateLightboxUI();
+        }
+    }
+
+    function nextLightboxImage() {
+        if (lightboxCurrentIndex < lightboxImages.length - 1) {
+            lightboxCurrentIndex++;
+            updateLightboxUI();
+        }
+    }
+
+    function updateLightboxUI() {
+        var imgEl = document.getElementById('lightboxImage');
+        imgEl.src = lightboxImages[lightboxCurrentIndex];
+        
+        document.getElementById('lbPrevBtn').style.display = lightboxCurrentIndex > 0 ? 'block' : 'none';
+        document.getElementById('lbNextBtn').style.display = lightboxCurrentIndex < lightboxImages.length - 1 ? 'block' : 'none';
+        
+        var counter = document.getElementById('lightboxCounter');
+        if (lightboxImages.length > 1) {
+            counter.style.display = 'block';
+            counter.innerText = (lightboxCurrentIndex + 1) + " / " + lightboxImages.length;
+        } else {
+            counter.style.display = 'none';
+        }
+    }
+
+    // 💡 ฟังก์ชันจัดการรูปภาพ (Multi-Upload)
+    function uploadMultipleImages(input, previewId, dataId) {
+        if (!input.files || input.files.length === 0) return;
+        var previewContainer = document.getElementById(previewId);
+        var dataInput = document.getElementById(dataId);
+        var currentUrls = dataInput.value ? JSON.parse(dataInput.value) : [];
+
+        Array.from(input.files).forEach(function(file) {
+            // โชว์ Loading Placeholder
+            var placeholder = document.createElement('div');
+            placeholder.className = 'w-16 h-16 bg-gray-200 animate-pulse rounded-lg border border-gray-300 flex items-center justify-center shrink-0';
+            placeholder.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>';
+            previewContainer.appendChild(placeholder);
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var ctx = canvas.getContext('2d');
+                    var MAX = 800; // บีบอัดขนาดสำหรับรูปปัญหา
+                    var w = img.width, h = img.height;
+                    if (w > h) { if (w > MAX) { h *= MAX/w; w = MAX; } }
+                    else { if (h > MAX) { w *= MAX/h; h = MAX; } }
+                    canvas.width = w; canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    var b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                    
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        google.script.run.withSuccessHandler(function(url) {
+                            currentUrls.push(url);
+                            dataInput.value = JSON.stringify(currentUrls);
+                            renderSingleImagePreview(url, placeholder, dataInput.id);
+                        }).withFailureHandler(function(err){
+                            placeholder.remove();
+                            if(typeof showToast === 'function') showToast('อัปโหลดรูปล้มเหลว');
+                        }).uploadImageToDrive(b64, 'IssueImg_' + new Date().getTime() + '.jpg');
+                    } else {
+                        // Mock Upload
+                        setTimeout(function() {
+                            var mockUrl = 'https://via.placeholder.com/150?text=Mock+Image';
+                            currentUrls.push(mockUrl);
+                            dataInput.value = JSON.stringify(currentUrls);
+                            renderSingleImagePreview(mockUrl, placeholder, dataInput.id);
+                        }, 1000);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        input.value = ''; // รีเซ็ต Input
+    }
+
+    function renderSingleImagePreview(url, placeholder, dataId) {
+        placeholder.className = 'w-16 h-16 rounded-lg border border-gray-300 relative group overflow-hidden shrink-0 shadow-sm';
+        placeholder.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform" onclick="openLightboxFromContainer(this)">' +
+                                '<button type="button" class="remove-img-btn absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" onclick="removeIssueImage(this, \'' + url + '\', \'' + dataId + '\')"><i class="fa-solid fa-xmark text-[10px]"></i></button>';
+    }
+
+    function removeIssueImage(btn, url, dataId) {
+        var dataInput = document.getElementById(dataId);
+        var currentUrls = dataInput.value ? JSON.parse(dataInput.value) : [];
+        currentUrls = currentUrls.filter(function(u) { return u !== url; });
+        dataInput.value = JSON.stringify(currentUrls);
+        btn.parentElement.remove();
+    }
+
+    // ฟังก์ชันวาดรูปภาพที่มีอยู่แล้วลงใน Preview
+    function renderExistingImages(urlArray, containerId, dataId, isReadOnly) {
+        var container = document.getElementById(containerId);
+        var dataInput = document.getElementById(dataId);
+        container.innerHTML = '';
+        dataInput.value = JSON.stringify(urlArray || []);
+        
+        if (urlArray && urlArray.length > 0) {
+            urlArray.forEach(function(url) {
+                var div = document.createElement('div');
+                div.className = 'w-16 h-16 rounded-lg border border-gray-300 relative group overflow-hidden shrink-0 shadow-sm';
+                var removeBtnHtml = isReadOnly ? '' : '<button type="button" class="remove-img-btn absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" onclick="removeIssueImage(this, \'' + url + '\', \'' + dataId + '\')"><i class="fa-solid fa-xmark text-[10px]"></i></button>';
+                div.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform" onclick="openLightboxFromContainer(this)">' + removeBtnHtml;
+                container.appendChild(div);
+            });
+        }
+    }
+
+    // 💡 ฟังก์ชันสร้าง HTML รูปภาพเพื่อไปแสดงในหน้า Summary
+    function generateSummaryImageHtml(urlArray) {
+        if (!urlArray || urlArray.length === 0) return '<span class="text-[12px] text-gray-400 italic">- ไม่มีรูปภาพ -</span>';
+        var html = '<div class="flex gap-2 flex-wrap">';
+        urlArray.forEach(function(url) {
+            html += '<img src="' + url + '" onclick="openLightboxFromContainer(this)" class="w-16 h-16 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition shadow-sm">';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    // 💡 ฟังก์ชันดึงเงื่อนไข SLA
+    function getSLAInfo(action) {
+        switch(action) {
+            case 'ให้คำแนะนำ / อบรม': return { text: 'แจ้งแม่บ้าน ภายใน 1 วันทำการ, ติดตามผล ภายใน 7 วัน', maxDays: 7 };
+            case 'ตักเตือนด้วยวาจา': return { text: 'แจ้งแม่บ้าน ภายใน 1 วันทำการ, ติดตามผล ภายใน 14 วัน', maxDays: 14 };
+            case 'ตักเตือนด้วยลายลักษณ์อักษร': return { text: 'แจ้งแม่บ้านและลูกค้า ภายใน 1 วันทำการ, ออกหนังสือตักเตือน ภายใน 7 วันทำการ, ติดตามผล ภายใน 30 วัน', maxDays: 30 };
+            case 'เชิญออก': return { text: 'แจ้งหัวหน้าและ HR ภายใน 4 ชั่วโมง, ดำเนินการ ภายใน 3 วันทำการ', maxDays: 3 };
+            default: return null;
+        }
+    }
+
+    // 💡 ฟังก์ชันคำนวณวัน SLA คงเหลือ
+    function calculateSLARemaining(action, baseDateStr) {
+        var sla = getSLAInfo(action);
+        if(!sla || !baseDateStr) return null;
+        
+        var baseDate = new Date(baseDateStr); baseDate.setHours(0,0,0,0);
+        var targetDate = new Date(baseDate); targetDate.setDate(targetDate.getDate() + sla.maxDays);
+        var today = new Date(); today.setHours(0,0,0,0);
+        
+        var diffTime = targetDate - today;
+        var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    }
+
+    // 💡 ฟังก์ชันอัปเดต UI กรอบสีแดงในแบบฟอร์ม และคำนวณ Due Date อัตโนมัติ
+    function updateSLAUI() {
+        var action = document.getElementById('issueActionTaken').value;
+        var container = document.getElementById('slaWarningContainer');
+        var textEl = document.getElementById('slaWarningText');
+        var countEl = document.getElementById('slaCountdownText');
+        var dateStr = document.getElementById('issueDate').value;
+        if (!dateStr) {
+            var d = new Date();
+            dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+        var currentStatus = document.getElementById('issueCurrentStatus').value;
+        var dueDateInput = document.getElementById('issueDueDate');
+
+        var sla = getSLAInfo(action);
+        if(sla) {
+            textEl.innerText = sla.text;
+            
+            // Auto-Calculate และระบุในช่อง Due Date ทันทีหากฟอร์มปลดล็อกอยู่
+            if (!dueDateInput.disabled) {
+                var baseD = new Date(dateStr);
+                baseD.setDate(baseD.getDate() + sla.maxDays);
+                var tY = baseD.getFullYear();
+                var tM = String(baseD.getMonth() + 1).padStart(2, '0');
+                var tD = String(baseD.getDate()).padStart(2, '0');
+                dueDateInput.value = tY + '-' + tM + '-' + tD;
+            }
+            
+            if (currentStatus === 'Resolved') {
+                countEl.innerHTML = '<span class="px-2 py-1 bg-green-100 text-green-700 rounded"><i class="fa-solid fa-check"></i> เคสนี้ปิดและสรุปผลเรียบร้อยแล้ว</span>';
+                countEl.className = 'text-[11px] font-bold mt-1 inline-block';
+            } else {
+                var remaining = calculateSLARemaining(action, dateStr);
+                if (remaining < 0) {
+                    countEl.innerHTML = '<span class="px-2 py-1 bg-red-600 text-white rounded shadow-sm"><i class="fa-solid fa-triangle-exclamation"></i> ทะลุ SLA มาแล้ว ' + Math.abs(remaining) + ' วัน</span>';
+                } else if (remaining === 0) {
+                    countEl.innerHTML = '<span class="px-2 py-1 bg-orange-500 text-white rounded shadow-sm"><i class="fa-solid fa-bell"></i> ครบกำหนดเวลา SLA วันนี้!</span>';
+                } else {
+                    countEl.innerHTML = '<span class="px-2 py-1 bg-green-500 text-white rounded shadow-sm"><i class="fa-regular fa-clock"></i> เหลือเวลาดำเนินการ ' + remaining + ' วัน</span>';
+                }
+            }
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    // 💡 ฟังก์ชันตรวจสอบประวัติปัญหาของแม่บ้านอัตโนมัติ
+    function checkHkIssueHistory() {
+        var hkId = document.getElementById('issueProvider').value;
+        var container = document.getElementById('hkIssueHistoryContainer');
+        var currentIssueId = document.getElementById('issueId').value;
+        
+        if (!hkId) {
+            container.classList.add('hidden');
+            return;
+        }
+        
+        // ค้นหาประวัติปัญหาเก่าๆ ที่ไม่ใช่เคสนี้
+        var pastIssues = MOCK_ISSUES.filter(function(i) { 
+            return i.providerId === hkId && i.id !== currentIssueId; 
+        });
+        
+        if (pastIssues.length > 0) {
+            var issueIds = pastIssues.map(function(i) { return '#' + i.id.substring(i.id.length - 6); }).join(', ');
+            container.innerHTML = '<div class="flex items-start gap-2 text-[11px] text-red-600 font-medium">' +
+                                  '<i class="fa-solid fa-triangle-exclamation mt-0.5 text-[12px]"></i>' +
+                                  '<div><span class="font-bold uppercase tracking-wide">พบประวัติปัญหา: ' + pastIssues.length + ' ครั้ง</span><br>' +
+                                  '<span class="text-red-500 mt-0.5 inline-block">รายการ: ' + issueIds + '</span></div></div>';
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    function initIssuesView() {
+        var issueClientSelect = document.getElementById('issueClient');
+        if (issueClientSelect) { 
+            issueClientSelect.innerHTML = '<option value="">-- เลือกไซต์งาน --</option>'; 
+            MOCK_CLIENTS.forEach(function(c) { 
+                if(c.type !== 'system') {
+                    var opt = document.createElement('option'); opt.value = c.id; opt.text = c.name; issueClientSelect.appendChild(opt); 
+                }
+            });
+            if (window.jQuery && $.fn.select2) $('#issueClient').select2({ width: '100%', dropdownParent: $('#issueModal') });
+        }
+
+        var issueProviderSelect = document.getElementById('issueProvider');
+        if (issueProviderSelect) {
+            issueProviderSelect.innerHTML = '<option value="">-- เลือกพนักงาน --</option>';
+            MOCK_HOUSEKEEPERS.forEach(function(hk) {
+                var opt = document.createElement('option'); opt.value = hk.id; opt.text = hk.name + (hk.nickname ? ' (' + hk.nickname + ')' : ''); issueProviderSelect.appendChild(opt);
+            });
+            if (window.jQuery && $.fn.select2) { 
+                $('#issueProvider').select2({ width: '100%', dropdownParent: $('#issueModal') });
+                // 💡 ผูก Event เช็คประวัติเมื่อเปลี่ยนชื่อพนักงาน
+                $('#issueProvider').on('select2:select', function() { checkHkIssueHistory(); });
+            }
+        }
+        
+        var assigneeSelect = document.getElementById('issueAssignee');
+        if (assigneeSelect) {
+            assigneeSelect.innerHTML = '<option value="">-- ไม่ระบุ --</option>';
+            if (MOCK_USERS && MOCK_USERS.length > 0) {
+                MOCK_USERS.forEach(function(u) {
+                    var roleLower = (u.role || "").toLowerCase();
+                    var isDev = roleLower === "dev";
+                    var isEligible = roleLower.includes('admin') || roleLower.includes('supervisor') || roleLower.includes('ae');
+                    if(!isDev && isEligible) {
+                        var opt = document.createElement('option'); opt.value = u.name; opt.text = u.name + ' (' + u.role + ')'; assigneeSelect.appendChild(opt);
+                    }
+                });
+            }
+            if (window.jQuery && $.fn.select2) { $('#issueAssignee').select2({ width: '100%', dropdownParent: $('#issueModal'), placeholder: "-- เลือกผู้รับผิดชอบ --" }); }
+        }
+
+        filterIssues('New');
+    }
+
+    function toggleProviderContainer() {
+        var src = document.getElementById('issueSource').value;
+        if(src === 'site') {
+            document.getElementById('issueProviderContainer').classList.add('hidden');
+        } else {
+            document.getElementById('issueProviderContainer').classList.remove('hidden');
+        }
+    }
+
+    function filterIssues(status) {
+        currentIssueFilter = status;
+        var buttons = ['All', 'New', 'InProgress', 'PendingApproval', 'Resolved'];
+        buttons.forEach(function(btnPrefix) {
+            var btn = document.getElementById('btnFilterIssue-' + btnPrefix);
+            var badge = document.getElementById('countIssue' + btnPrefix);
+            if(btn) {
+                btn.className = "px-4 py-1.5 rounded-full text-[12px] font-bold bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition";
+                if(badge) badge.className = "ml-1 px-1.5 bg-gray-100 rounded-full text-[10px]";
+            }
+        });
+
+        var idSuffix = status.replace(' ', '');
+        var activeBtn = document.getElementById('btnFilterIssue-' + idSuffix);
+        var activeBadge = document.getElementById('countIssue' + idSuffix);
+        
+        if(activeBtn) {
+            activeBtn.className = "px-4 py-1.5 rounded-full text-[12px] font-bold bg-gray-800 text-white shadow-sm transition";
+            if(activeBadge) activeBadge.className = "ml-1 px-1.5 bg-white/20 rounded-full text-[10px]";
+        }
+        renderIssuesTable();
+    }
+
+    function renderIssuesTable() {
+        var tbody = document.getElementById('issuesTableBody');
+        if (!tbody) return;
+
+        // 💡 ดึงค่าคำค้นหามาใช้กรอง
+        var searchInput = document.getElementById('issueSearchInput');
+        var keyword = searchInput ? searchInput.value.toLowerCase() : '';
+
+        var countAll = MOCK_ISSUES.length;
+        var countNew = MOCK_ISSUES.filter(function(i) { return i.status === 'New' || i.status === 'Pending'; }).length;
+        var countProg = MOCK_ISSUES.filter(function(i) { return i.status === 'In Progress' || i.status === 'Rejected'; }).length;
+        var countApprv = MOCK_ISSUES.filter(function(i) { return i.status === 'Pending Approval'; }).length;
+        var countRes = MOCK_ISSUES.filter(function(i) { return i.status === 'Resolved'; }).length;
+
+        var elAll = document.getElementById('countIssueAll'); if(elAll) elAll.innerText = countAll;
+        var elNew = document.getElementById('countIssueNew'); if(elNew) elNew.innerText = countNew;
+        var elProg = document.getElementById('countIssueInProgress'); if(elProg) elProg.innerText = countProg;
+        var elApprv = document.getElementById('countIssuePendingApproval'); if(elApprv) elApprv.innerText = countApprv;
+        var elRes = document.getElementById('countIssueResolved'); if(elRes) elRes.innerText = countRes;
+
+        var displayIssues = MOCK_ISSUES;
+        if (currentIssueFilter !== 'All') {
+            displayIssues = MOCK_ISSUES.filter(function(i) { 
+                if(currentIssueFilter === 'New') return i.status === 'New' || i.status === 'Pending';
+                if(currentIssueFilter === 'In Progress') return i.status === 'In Progress' || i.status === 'Rejected';
+                return i.status === currentIssueFilter; 
+            });
+        }
+        
+        // 💡 กรองข้อมูลตาม Keyword ที่พิมพ์ในช่องค้นหา
+        if (keyword) {
+            displayIssues = displayIssues.filter(function(i) {
+                var c = MOCK_CLIENTS.find(x => x.id === i.clientId);
+                var clientName = c ? c.name.toLowerCase() : '';
+                var hk = MOCK_HOUSEKEEPERS.find(x => x.id === i.providerId);
+                var hkName = hk ? hk.name.toLowerCase() : '';
+                var shortId = '#' + i.id.substring(i.id.length - 6);
+                
+                return shortId.includes(keyword) || 
+                       clientName.includes(keyword) || 
+                       hkName.includes(keyword) || 
+                       (i.assignedTo || '').toLowerCase().includes(keyword) ||
+                       (i.category || '').toLowerCase().includes(keyword) ||
+                       (i.description || '').toLowerCase().includes(keyword);
+            });
+        }
+
+        displayIssues.sort(function(a, b) { return new Date(b.dateReported) - new Date(a.dateReported); });
+
+        var html = '';
+        displayIssues.forEach(function(issue) {
+            var client = MOCK_CLIENTS.find(function(c) { return c.id === issue.clientId; });
+            var clientName = client ? client.name : 'ไม่ระบุไซต์งาน';
+
+            var dateObj = new Date(issue.dateReported);
+            var dateStr = String(dateObj.getDate()).padStart(2, '0') + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + dateObj.getFullYear();
+            
+            var statusBadge = '';
+            var rejectTag = '';
+            var isRejected = issue.status === 'Rejected';
+            
+            if (isRejected) {
+                rejectTag = '<span class="px-1.5 py-0.5 bg-red-500 text-white rounded text-[9px] ml-1 shadow-sm">ตีกลับ</span>';
+            }
+
+            if (issue.status === 'New' || issue.status === 'Pending') {
+                statusBadge = '<span class="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-sparkles mr-1"></i> เคสใหม่</span>';
+            } else if (issue.status === 'In Progress' || isRejected) {
+                statusBadge = '<span class="px-3 py-1 bg-orange-100 text-orange-600 rounded-md text-[11px] font-bold flex items-center justify-center"><i class="fa-solid fa-person-digging mr-1"></i> กำลังแก้ไข ' + rejectTag + '</span>';
+            } else if (issue.status === 'Pending Approval') {
+                statusBadge = '<span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-clock-rotate-left mr-1"></i> รออนุมัติ</span>';
+            } else {
+                statusBadge = '<span class="px-3 py-1 bg-green-100 text-green-700 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-check-circle mr-1"></i> ปิดงานแล้ว</span>';
+            }
+
+            var slaHtml = '';
+            if (issue.actionTaken && issue.status !== 'Resolved') {
+                var remaining = calculateSLARemaining(issue.actionTaken, issue.dateReported);
+                if (remaining !== null) {
+                    if (remaining < 0) {
+                        slaHtml = '<div class="mt-1.5 text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded shadow-sm border border-red-200"><i class="fa-solid fa-triangle-exclamation"></i> ทะลุ SLA ' + Math.abs(remaining) + ' วัน</div>';
+                    } else if (remaining === 0) {
+                        slaHtml = '<div class="mt-1.5 text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded shadow-sm border border-orange-200"><i class="fa-solid fa-bell"></i> ครบ SLA วันนี้</div>';
+                    } else {
+                        slaHtml = '<div class="mt-1.5 text-[9px] font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded shadow-sm border border-green-200"><i class="fa-regular fa-clock"></i> เหลือ SLA ' + remaining + ' วัน</div>';
+                    }
+                }
+            }
+
+            var assigneeHtml = issue.assignedTo 
+                ? '<div class="text-[12px] font-bold text-gray-800">' + issue.assignedTo + '</div>'
+                : '<span class="text-[11px] text-red-400 italic font-bold">รอการมอบหมาย</span>';
+            
+            var sourceStr = issue.source === 'site' ? '<span class="text-blue-500 font-medium">ลูกค้าแจ้ง</span>' : '<span class="text-brand font-medium">แม่บ้านแจ้ง</span>';
+
+            html += '<tr class="hover:bg-gray-50/50 transition-colors border-b border-gray-100">';
+            html += '<td class="text-center py-4"><span class="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">#' + issue.id.substring(issue.id.length - 6) + '</span></td>';
+            html += '<td class="text-center font-black text-gray-700">' + dateStr + '</td>';
+            html += '<td class="py-4"><div class="font-black text-brand">' + clientName + '</div><div class="text-[10px] mt-0.5">' + sourceStr + '</div></td>';
+            html += '<td class="py-4"><span class="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200 mb-1 inline-block">' + issue.category + '</span><div class="text-[12px] text-gray-500 leading-tight max-w-xs truncate" title="' + issue.description + '">' + issue.description + '</div></td>';
+            html += '<td class="text-center py-4">' + assigneeHtml + '</td>';
+            html += '<td class="text-center py-4"><div class="flex flex-col items-center justify-center w-full">' + statusBadge + slaHtml + '</div></td>';
+            html += '<td class="text-center py-4">';
+            html += '<button onclick="editIssue(\'' + issue.id + '\')" class="w-full max-w-[90px] mx-auto py-1.5 border border-gray-300 rounded-md text-[11px] font-black text-gray-600 hover:bg-brand hover:text-white transition shadow-sm bg-white"><i class="fa-solid fa-folder-open mr-1"></i> เปิดดู</button>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        if (!html) { html = '<tr><td colspan="7" class="text-center py-16 text-gray-400 italic">- ไม่พบรายการแจ้งปัญหาในสถานะนี้ -</td></tr>'; }
+        tbody.innerHTML = html;
+    }
+
+    function setSectionState(secId, isUnlocked, hideEditBtn) {
+        var sec = document.getElementById(secId);
+        if(!sec) return;
+        var inputs = sec.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(el) {
+            el.disabled = !isUnlocked;
+            if(!isUnlocked) el.classList.add('bg-gray-100', 'cursor-not-allowed');
+            else el.classList.remove('bg-gray-100', 'cursor-not-allowed');
+        });
+        
+        if (window.jQuery && $.fn.select2) {
+            $(sec).find('.select2-hidden-accessible').prop('disabled', !isUnlocked);
+        }
+
+        // ล็อก/ปลดล็อก ปุ่มแนบรูปภาพ และ ปิด/เปิดปุ่มลบรูปภาพ
+        if (secId === 'sec-info') {
+            var issueImgInput = document.getElementById('issueImgInput');
+            if(issueImgInput) {
+                issueImgInput.disabled = !isUnlocked;
+                issueImgInput.classList.toggle('hidden', !isUnlocked);
+            }
+            document.querySelectorAll('#issueImagesPreview .remove-img-btn').forEach(function(btn) { btn.classList.toggle('hidden', !isUnlocked); });
+        }
+        if (secId === 'sec-action') {
+            var resImgInput = document.getElementById('resImgInput');
+            if(resImgInput) {
+                resImgInput.disabled = !isUnlocked;
+                resImgInput.classList.toggle('hidden', !isUnlocked);
+            }
+            document.querySelectorAll('#resImagesPreview .remove-img-btn').forEach(function(btn) { btn.classList.toggle('hidden', !isUnlocked); });
+        }
+
+        var btn = sec.querySelector('.section-edit-btn');
+        if(btn) {
+            if (hideEditBtn || isUnlocked) btn.classList.add('hidden');
+            else btn.classList.remove('hidden');
+        }
+    }
+
+    function unlockSection(secId) {
+        setSectionState(secId, true, true);
+        manualEditTriggered = true;
+        renderIssueFooterActions(document.getElementById('issueCurrentStatus').value);
+    }
+
+    function openRejectDialog() {
+        var overlay = document.getElementById('rejectDialogOverlay');
+        document.getElementById('rejectReasonInput').value = '';
+        overlay.classList.remove('hidden');
+    }
+
+    function confirmReject() {
+        var reason = document.getElementById('rejectReasonInput').value;
+        if (!reason.trim()) {
+            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ระบุเหตุผล', message: 'กรุณาระบุเหตุผลการตีกลับ (Reject) ด้วยครับ', type: 'warning' });
+            else alert('กรุณาระบุเหตุผลการตีกลับ');
+            return;
+        }
+        document.getElementById('rejectDialogOverlay').classList.add('hidden');
+        // แอบนำเหตุผลไปใส่ในช่อง Note ชั่วคราวเพื่อให้ฟังก์ชันหลักดึงไปบันทึก
+        document.getElementById('issueResolutionNote').value = reason;
+        saveIssueStatus('Rejected');
+    }
+
+    // 💡 ฟังก์ชันปุ่ม Footer (เพิ่มปุ่ม บันทึกร่าง ในระหว่างแก้ไข)
+    function renderIssueFooterActions(status) {
+        var footer = document.getElementById('issueFooterActions');
+        footer.innerHTML = '';
+        var actualStatus = (status === 'Pending') ? 'New' : status;
+        
+        var hasId = document.getElementById('issueId').value !== '';
+
+        if (manualEditTriggered) {
+            footer.innerHTML = `<button onclick="saveIssueStatus('${actualStatus}')" class="px-6 py-2 bg-brand text-white rounded-md text-[13px] font-bold hover:bg-brandDark shadow-md transition">บันทึกการเปลี่ยนแปลง (Save Edit)</button>`;
+            return;
+        }
+
+        if (actualStatus === 'New') {
+            if (!hasId) {
+                footer.innerHTML = `<button onclick="saveIssueStatus('New')" class="px-6 py-2 bg-brand text-white rounded-md text-[13px] font-bold hover:bg-brandDark shadow-md transition"><i class="fa-solid fa-save mr-1"></i> บันทึกเคสใหม่</button>`;
+            } else {
+                footer.innerHTML = `<button onclick="saveIssueStatus('In Progress')" class="px-6 py-2 bg-blue-600 text-white rounded-md text-[13px] font-bold hover:bg-blue-700 shadow-md transition"><i class="fa-solid fa-user-check mr-1"></i> บันทึกและมอบหมายงาน</button>`;
+            }
+        } 
+        else if (actualStatus === 'In Progress' || actualStatus === 'Rejected') {
+            footer.innerHTML = `
+                <button onclick="saveIssueStatus('${actualStatus}')" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-[13px] font-bold hover:bg-gray-50 shadow-sm transition"><i class="fa-solid fa-save mr-1"></i> บันทึกข้อมูล (ร่าง)</button>
+                <button onclick="saveIssueStatus('Pending Approval')" class="px-6 py-2 bg-orange-500 text-white rounded-md text-[13px] font-bold hover:bg-orange-600 shadow-md transition"><i class="fa-solid fa-paper-plane mr-1"></i> ดำเนินการเรียบร้อย (ส่งขออนุมัติ)</button>
+            `;
+        } 
+        else if (actualStatus === 'Pending Approval') {
+            footer.innerHTML = `
+                <button onclick="openRejectDialog()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-md text-[13px] font-bold hover:bg-gray-300 transition">ไม่อนุมัติ</button>
+                <button onclick="saveIssueStatus('Resolved')" class="px-6 py-2 bg-[#2b404d] text-white rounded-md text-[13px] font-bold hover:bg-[#1a2b35] shadow-md transition">อนุมัติปิดเคส</button>
+            `;
+        }
+    }
+
+    function openIssueModal() {
+        manualEditTriggered = false;
+        setInputValue('issueId', '');
+        setInputValue('issueCurrentStatus', 'New');
+        
+        setInputValue('issueClient', '');
+        if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueClient').val('').trigger('change'); }, 50); }
+        
+        setInputValue('issueProvider', '');
+        if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueProvider').val('').trigger('change'); }, 50); }
+        
+        setInputValue('issueDate', formatDateString(new Date()));
+        document.getElementById('issueSource').value = 'housekeeper';
+        document.getElementById('issueProviderContainer').classList.remove('hidden');
+        
+        setInputValue('issueCategory', '');
+        setInputValue('issueDesc', '');
+        
+        setInputValue('issueAssignee', '');
+        if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueAssignee').val('').trigger('change'); }, 50); }
+        
+        setInputValue('issueDueDate', '');
+        setInputValue('issueActionTaken', ''); 
+        setInputValue('issueResolutionNote', '');
+
+        renderExistingImages([], 'issueImagesPreview', 'issueImagesData', false);
+        renderExistingImages([], 'resImagesPreview', 'resImagesData', false);
+        
+        document.getElementById('hkIssueHistoryContainer').classList.add('hidden');
+        
+        document.getElementById('modalIssueTitle').innerText = 'เปิดปัญหาคุณภาพใหม่ (New Case)';
+        document.getElementById('modalIssueStatusBadge').className = 'hidden';
+        
+        document.getElementById('issueHistoryLogContainer').classList.remove('hidden');
+        document.getElementById('issueHistoryLogContainer').innerHTML = '<p class="text-[11px] text-gray-400 italic">- ยังไม่มีประวัติ -</p>';
+        
+        document.getElementById('issueEditModeContainer').classList.remove('hidden');
+        document.getElementById('issueSummaryModeContainer').classList.add('hidden');
+        document.getElementById('modalFooterContainer').classList.remove('hidden');
+
+        document.getElementById('sec-action').classList.add('hidden');
+        document.getElementById('sec-assignment').classList.add('hidden');
+        setSectionState('sec-info', true, true);
+        
+        updateSLAUI(); 
+        renderIssueFooterActions('New');
+        
+        var modal = document.getElementById('issueModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function editIssue(id) {
+        manualEditTriggered = false;
+        var issue = MOCK_ISSUES.find(function(i) { return i.id === id; });
+        if(!issue) return;
+
+        var parsedData = { logs: [], issueImages: [], resImages: [], adminNote: '' };
+        try {
+            var raw = JSON.parse(issue.resolutionNote || "[]");
+            if (Array.isArray(raw)) {
+                parsedData.logs = raw;
+            } else {
+                parsedData = raw;
+                if (!parsedData.logs) parsedData.logs = [];
+            }
+        } catch(e) {}
+        
+        var logs = parsedData.logs;
+
+        setInputValue('issueId', issue.id);
+        var actStatus = (issue.status === 'Pending') ? 'New' : issue.status;
+        setInputValue('issueCurrentStatus', actStatus);
+        
+        var dateObj = new Date(issue.dateReported);
+        var dateStr = String(dateObj.getDate()).padStart(2, '0') + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + dateObj.getFullYear();
+            
+        var headerTitle = document.getElementById('modalIssueTitle');
+        headerTitle.innerText = 'รหัสปัญหา #' + issue.id.substring(issue.id.length - 6);
+        
+        var badge = document.getElementById('modalIssueStatusBadge');
+        badge.classList.remove('hidden');
+        if(actStatus === 'New') { badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-500 text-white"; badge.innerText = "เคสใหม่"; }
+        else if(actStatus === 'In Progress') { badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500 text-white"; badge.innerText = "กำลังแก้ไข"; }
+        else if(actStatus === 'Rejected') { badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-red-600 text-white"; badge.innerText = "กำลังแก้ไข (ตีกลับ)"; }
+        else if(actStatus === 'Pending Approval') { badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-purple-600 text-white"; badge.innerText = "รอหัวหน้างานอนุมัติ"; }
+        else if(actStatus === 'Resolved') { badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-green-600 text-white"; badge.innerText = "ปิดงานเรียบร้อย"; }
+
+        // --- 💡 โหมด Summary ---
+        if (actStatus === 'Resolved') {
+            document.getElementById('issueEditModeContainer').classList.add('hidden');
+            document.getElementById('issueSummaryModeContainer').classList.remove('hidden');
+            document.getElementById('modalFooterContainer').classList.add('hidden'); 
+
+            var resolvedDate = logs.length > 0 ? new Date(logs[logs.length - 1].timestamp) : new Date();
+            var diffTime = Math.abs(resolvedDate - dateObj);
+            var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            var daysText = diffDays > 0 ? `(${diffDays} วัน)` : '(เสร็จภายในวัน)';
+            var resolvedDateStr = String(resolvedDate.getDate()).padStart(2, '0') + '-' + String(resolvedDate.getMonth() + 1).padStart(2, '0') + '-' + resolvedDate.getFullYear();
+
+            var summaryHtml = `
+                <div class="bg-[#f3f4f6] p-7 rounded-xl text-[13px] text-gray-800 shadow-sm border border-gray-200 mt-2">
+                    <div class="grid grid-cols-[180px_1fr] gap-y-3 items-start">
+                        <div class="font-bold text-gray-600">รหัสปัญหา</div>
+                        <div class="font-black text-gray-900 text-[14px]">#${issue.id.substring(issue.id.length - 6)}</div>
+                        
+                        <div class="font-bold text-gray-600">วันที่แจ้ง</div>
+                        <div>${dateStr}</div>
+                        
+                        <div class="font-bold text-gray-600">วันที่ดำเนินการเสร็จสิ้น</div>
+                        <div>${resolvedDateStr} <span class="text-gray-500 ml-1 font-medium">${daysText}</span></div>
+                        
+                        <div class="font-bold text-gray-600">หมวดหมู่ปัญหา</div>
+                        <div>${issue.category}</div>
+                        
+                        <div class="font-bold text-gray-600">รายละเอียดปัญหา</div>
+                        <div class="leading-relaxed max-w-xl">${issue.description}</div>
+                        
+                        <!-- 💡 แสดงรูปปัญหา -->
+                        <div class="font-bold text-gray-600 pt-2">รูปภาพประกอบปัญหา</div>
+                        <div class="pt-2">${generateSummaryImageHtml(parsedData.issueImages)}</div>
+                        
+                        <div class="col-span-2 py-2"></div>
+                        
+                        <div class="font-bold text-gray-600">การดำเนินงาน</div>
+                        <div class="font-bold text-gray-800">${issue.actionTaken || '-'}</div>
+                        
+                        <div class="font-bold text-gray-600 pt-2">รายละเอียดการดำเนินงาน</div>
+                        <div>
+                            <div class="bg-[#fcfcd4] px-4 py-3 rounded text-gray-800 leading-relaxed shadow-sm border border-yellow-200 min-w-full">
+                                ${(parsedData.adminNote || '-').replace(/\n/g, '<br>')}
+                            </div>
+                        </div>
+
+                        <!-- 💡 แสดงรูปการแก้ไข -->
+                        <div class="font-bold text-gray-600 pt-2">รูปภาพประกอบการแก้ไข</div>
+                        <div class="pt-2">${generateSummaryImageHtml(parsedData.resImages)}</div>
+                        
+                        <div class="col-span-2 py-2"></div>
+                        
+                        <div class="font-bold text-gray-600">ผู้รับผิดชอบ</div>
+                        <div class="font-medium text-gray-800">${issue.assignedTo || '-'}</div>
+                    </div>
+                </div>
+                <div class="flex justify-center mt-2 mb-2">
+                    <button type="button" onclick="document.getElementById('issueHistoryLogContainer').classList.toggle('hidden')" class="px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-600 rounded-full text-[13px] font-bold transition border border-gray-300 shadow-sm"><i class="fa-solid fa-clock-rotate-left mr-1"></i> แสดงประวัติการดำเนินงาน (Logs)</button>
+                </div>
+            `;
+            document.getElementById('issueSummaryModeContainer').innerHTML = summaryHtml;
+            document.getElementById('issueHistoryLogContainer').classList.add('hidden');
+        } 
+        // --- 💡 โหมดแก้ไขปกติ ---
+        else {
+            document.getElementById('issueEditModeContainer').classList.remove('hidden');
+            document.getElementById('issueSummaryModeContainer').classList.add('hidden');
+            document.getElementById('modalFooterContainer').classList.remove('hidden');
+            document.getElementById('issueHistoryLogContainer').classList.remove('hidden');
+
+            setInputValue('issueClient', issue.clientId);
+            if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueClient').val(issue.clientId || '').trigger('change'); }, 50); }
+            
+            setInputValue('issueProvider', issue.providerId || '');
+            if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueProvider').val(issue.providerId || '').trigger('change'); }, 50); }
+
+            var sourceVal = issue.source || 'housekeeper';
+            document.getElementById('issueSource').value = sourceVal;
+            if(sourceVal === 'site') document.getElementById('issueProviderContainer').classList.add('hidden');
+            else document.getElementById('issueProviderContainer').classList.remove('hidden');
+
+            setInputValue('issueDate', issue.dateReported);
+            setInputValue('issueCategory', issue.category);
+            setInputValue('issueDesc', issue.description);
+            
+            setInputValue('issueAssignee', issue.assignedTo || '');
+            if (window.jQuery && $.fn.select2) { setTimeout(function() { $('#issueAssignee').val(issue.assignedTo || '').trigger('change'); }, 50); }
+            setInputValue('issueDueDate', issue.dueDate || '');
+            setInputValue('issueActionTaken', issue.actionTaken || '');
+            
+            setInputValue('issueResolutionNote', parsedData.adminNote || ''); 
+
+            renderExistingImages(parsedData.issueImages, 'issueImagesPreview', 'issueImagesData', actStatus === 'Pending Approval');
+            renderExistingImages(parsedData.resImages, 'resImagesPreview', 'resImagesData', actStatus === 'Pending Approval');
+            
+            setTimeout(function() { checkHkIssueHistory(); }, 100);
+
+            if (actStatus === 'New') {
+                document.getElementById('sec-assignment').classList.remove('hidden');
+                document.getElementById('sec-action').classList.add('hidden');
+                setSectionState('sec-info', false, false);
+                setSectionState('sec-assignment', true, true);
+            } 
+            else if (actStatus === 'In Progress' || actStatus === 'Rejected') {
+                document.getElementById('sec-assignment').classList.remove('hidden');
+                document.getElementById('sec-action').classList.remove('hidden');
+                setSectionState('sec-info', false, false); 
+                setSectionState('sec-assignment', false, false);
+                setSectionState('sec-action', true, true); 
+            } 
+            else if (actStatus === 'Pending Approval') {
+                document.getElementById('sec-assignment').classList.remove('hidden');
+                document.getElementById('sec-action').classList.remove('hidden');
+                setSectionState('sec-info', false, false);
+                setSectionState('sec-assignment', false, false);
+                setSectionState('sec-action', false, false);
+            }
+            
+            updateSLAUI(); 
+            renderIssueFooterActions(actStatus);
+        }
+
+        // --- 📜 อัปเดตประวัติการดำเนินงาน ---
+        var historyHtml = '<h4 class="text-[13px] font-black text-brand border-b border-gray-100 pb-2"><i class="fa-solid fa-list-ul mr-1"></i> ประวัติและบันทึกการทำงาน (Logs)</h4>';
+        if (logs.length > 0) {
+            historyHtml += '<div class="flex flex-col gap-2 mt-2">';
+            var reversedLogs = logs.slice().reverse();
+            
+            reversedLogs.forEach(function(log) {
+                var d = new Date(log.timestamp);
+                var dStr = d.toLocaleDateString('th-TH') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+                var statusColor = 'text-gray-600 bg-gray-100';
+                
+                if(log.status === 'Resolved') statusColor = 'text-green-600 bg-green-100';
+                else if(log.status === 'Pending Approval') statusColor = 'text-purple-600 bg-purple-100';
+                else if(log.status === 'In Progress') statusColor = 'text-orange-600 bg-orange-100';
+                else if(log.status === 'Rejected') statusColor = 'text-red-600 bg-red-100';
+                else if(log.status === 'New') statusColor = 'text-cyan-600 bg-cyan-100';
+                
+                historyHtml += 
+                    '<div class="bg-gray-50 p-3 rounded-lg border border-gray-200 text-[12px]">' +
+                        '<div class="flex justify-between items-center mb-1 border-b border-gray-100 pb-1.5">' +
+                            '<span class="font-bold text-gray-800">' + log.user + ' <span class="font-medium text-gray-500 text-[10px] ml-1">' + dStr + '</span></span>' +
+                            '<span class="font-bold px-2 py-0.5 rounded text-[10px] ' + statusColor + '">' + log.status + '</span>' +
+                        '</div>' +
+                        '<p class="text-gray-700 mt-1.5 leading-relaxed">' + (log.note || '<span class="italic text-gray-400">- ไม่มีการระบุข้อความ -</span>') + '</p>' +
+                    '</div>';
+            });
+            historyHtml += '</div>';
+        } else {
+            historyHtml += '<p class="text-[11px] text-gray-400 italic mt-2">- ยังไม่มีประวัติ -</p>';
+        }
+
+        var historyContainer = document.getElementById('issueHistoryLogContainer');
+        historyContainer.innerHTML = historyHtml;
+        
+        var modal = document.getElementById('issueModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function saveIssueStatus(targetStatus) {
+        var id = document.getElementById('issueId').value;
+        var client = document.getElementById('issueClient').value;
+        var date = document.getElementById('issueDate').value;
+        var cat = document.getElementById('issueCategory').value;
+        var desc = document.getElementById('issueDesc').value;
+        var assignee = document.getElementById('issueAssignee').value;
+        var dueDate = document.getElementById('issueDueDate').value;
+
+        if(!client || !date || !cat || !desc) {
+            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกข้อมูลปัญหาให้ครบถ้วน (ส่วนที่ 1)', type: 'warning' });
+            return;
+        }
+
+        if (!manualEditTriggered) {
+            if (targetStatus === 'In Progress' && (!assignee || !dueDate)) {
+                if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'มอบหมายงาน', message: 'กรุณาเลือกผู้รับผิดชอบ และกำหนดเสร็จสิ้น (Due Date) ก่อนมอบหมายงานครับ', type: 'warning' });
+                return;
+            }
+        }
+
+        var resNote = document.getElementById('issueResolutionNote').value;
+        var actionTaken = document.getElementById('issueActionTaken') ? document.getElementById('issueActionTaken').value : '';
+        
+        if (!manualEditTriggered) {
+            if (targetStatus === 'Pending Approval' && !resNote.trim()) {
+                if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ลืมสรุปงาน', message: 'กรุณาระบุ "บันทึกการแก้ไข / หมายเหตุเพิ่มเติม" ก่อนส่งขออนุมัติครับ', type: 'warning' });
+                return;
+            }
+        }
+
+        var source = document.getElementById('issueSource').value;
+        var existingIssue = MOCK_ISSUES.find(function(i) { return i.id === id; });
+        
+        var issueIdToUse = id || 'ISS-' + new Date().getTime();
+        var shortId = '#' + issueIdToUse.substring(issueIdToUse.length - 6);
+        var clientNameObj = MOCK_CLIENTS.find(x => x.id === client);
+        var clientNameStr = clientNameObj ? clientNameObj.name : client;
+        
+        var parsedData = { logs: [], issueImages: [], resImages: [], adminNote: '' };
+        if (existingIssue && existingIssue.resolutionNote) {
+            try { 
+                var raw = JSON.parse(existingIssue.resolutionNote);
+                if (Array.isArray(raw)) parsedData.logs = raw;
+                else parsedData = raw;
+                if (!parsedData.logs) parsedData.logs = [];
+            } catch(e) {}
+        }
+
+        var logMessage = '';
+        if (manualEditTriggered) {
+            logMessage = '[แก้ไขข้อมูล] ' + (resNote.trim() || 'อัปเดตรายละเอียดปัญหา/การดำเนินการ');
+        } else {
+            if (targetStatus === 'Rejected') {
+                logMessage = 'ตีกลับ (Reject) เหตุผล: ' + resNote.trim();
+                // 💡 แจ้งเตือนผู้รับผิดชอบงาน
+                if(typeof addSystemNotification === 'function') {
+                    addSystemNotification('งานถูกตีกลับ (Reject)', 'เคส ' + shortId + ' ถูกไม่อนุมัติโดยหัวหน้า', 'IssueRejected', issueIdToUse);
+                }
+            } else if (targetStatus === 'New' && !id) {
+                logMessage = 'เปิดเคสแจ้งปัญหาคุณภาพ';
+                // 💡 แจ้งเตือนหัวหน้างาน
+                if(typeof addSystemNotification === 'function') {
+                    addSystemNotification('มีเคสปัญหาใหม่ (รอหัวหน้างาน)', 'เคส ' + shortId + ' ไซต์ ' + clientNameStr, 'IssueNew', issueIdToUse);
+                }
+            } else {
+                logMessage = resNote.trim();
+                
+                if (targetStatus === 'In Progress') {
+                    if (!existingIssue || existingIssue.status === 'New') {
+                        logMessage = 'มอบหมายงานให้: ' + assignee;
+                        // 💡 แจ้งเตือนผู้รับผิดชอบงาน
+                        if(typeof addSystemNotification === 'function') {
+                            addSystemNotification('คุณได้รับมอบหมายเคสปัญหา', 'รับผิดชอบปัญหาคุณภาพไซต์ ' + clientNameStr, 'IssueAssigned', issueIdToUse);
+                        }
+                    } else {
+                        logMessage = '[บันทึกร่าง] ' + (resNote.trim() || 'อัปเดตข้อมูลการดำเนินการ');
+                    }
+                }
+                
+                if (targetStatus === 'Resolved' && !logMessage) logMessage = 'ตรวจสอบและปิดงานเรียบร้อย';
+                
+                if (targetStatus === 'Pending Approval') {
+                    if (actionTaken) {
+                        logMessage = '[ดำเนินการกับพนักงาน: ' + actionTaken + ']\n' + logMessage;
+                    }
+                    // 💡 แจ้งเตือนหัวหน้างาน
+                    if(typeof addSystemNotification === 'function') {
+                        addSystemNotification('ส่งขออนุมัติปิดงาน (รอหัวหน้างาน)', 'เคส ' + shortId + ' ส่งตรวจสอบและขออนุมัติ', 'IssueResolved', issueIdToUse);
+                    }
+                }
+            }
+        }
+
+        parsedData.logs.push({
+            timestamp: new Date().toISOString(),
+            user: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.name : 'System User',
+            status: targetStatus,
+            note: logMessage
+        });
+
+        var issueImgsRaw = document.getElementById('issueImagesData').value;
+        var resImgsRaw = document.getElementById('resImagesData').value;
+        parsedData.issueImages = issueImgsRaw ? JSON.parse(issueImgsRaw) : [];
+        parsedData.resImages = resImgsRaw ? JSON.parse(resImgsRaw) : [];
+        
+        if (targetStatus === 'Pending Approval' || targetStatus === 'Resolved' || targetStatus === 'In Progress' || targetStatus === 'Rejected' || manualEditTriggered) {
+            parsedData.adminNote = (targetStatus === 'Rejected' && !manualEditTriggered) ? '' : resNote.trim();
+        }
+
+        var issueData = {
+            id: issueIdToUse,
+            clientId: client,
+            dateReported: date,
+            source: source,
+            providerId: document.getElementById('issueProvider').value,
+            category: cat,
+            description: desc,
+            status: targetStatus,
+            assignedTo: assignee,
+            dueDate: dueDate,
+            actionTaken: actionTaken,
+            resolutionNote: JSON.stringify(parsedData), 
+            actionBy: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.email : 'Unknown'
+        };
+
+        var idx = MOCK_ISSUES.findIndex(function(i) { return i.id === issueData.id; }); 
+        if(idx > -1) { MOCK_ISSUES[idx] = issueData; } else { MOCK_ISSUES.push(issueData); }
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) { 
+            google.script.run.saveIssueToBackend(issueData); 
+        }
+
+        closeModal('issueModal');
+        
+        if (currentIssueFilter === 'All') filterIssues('All');
+        else if (targetStatus === 'Resolved') filterIssues('Resolved');
+        else filterIssues(currentIssueFilter);
+        
+        if(typeof renderStaffTable === 'function') renderStaffTable();
+        if(typeof showToast === 'function') showToast(manualEditTriggered ? 'บันทึกการแก้ไขสำเร็จ' : 'อัปเดตสถานะงานสำเร็จ');
+    }
+</script>
