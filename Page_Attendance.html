@@ -1,0 +1,151 @@
+<!-- ======================================= -->
+<!-- [PAGE COMPONENT]: ATTENDANCE (เวลาเข้า-ออก) -->
+<!-- ======================================= -->
+
+<div id="view-attendance" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
+    
+    <!-- 💡 ส่วนหัว: ตัวกรองข้อมูล (Filter) -->
+    <div class="bg-white px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-end justify-between shrink-0 gap-4 shadow-sm z-10">
+        <div class="flex flex-wrap items-end gap-4 w-full md:w-auto">
+            <div>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1">ตั้งแต่วันที่</label>
+                <input type="date" id="attFilterStartDate" onchange="renderAttendanceTable()" class="border border-gray-300 rounded-md px-3 py-1.5 text-[12px] focus:border-brand outline-none bg-gray-50 focus:bg-white shadow-sm transition">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1">ถึงวันที่</label>
+                <input type="date" id="attFilterEndDate" onchange="renderAttendanceTable()" class="border border-gray-300 rounded-md px-3 py-1.5 text-[12px] focus:border-brand outline-none bg-gray-50 focus:bg-white shadow-sm transition">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1">ไซต์งาน (Client)</label>
+                <select id="attFilterClient" onchange="renderAttendanceTable()" class="border border-gray-300 rounded-md px-3 py-1.5 text-[12px] focus:border-brand outline-none min-w-[200px] bg-gray-50 focus:bg-white shadow-sm transition">
+                    <option value="all">-- ทุกไซต์งาน --</option>
+                </select>
+            </div>
+        </div>
+        <div class="relative w-full md:w-64 shrink-0">
+            <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-[12px]"></i>
+            <input type="text" id="attSearchInput" onkeyup="renderAttendanceTable()" placeholder="ค้นหาชื่อพนักงาน..." class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-full text-[12px] focus:border-brand outline-none transition shadow-sm bg-gray-50 focus:bg-white">
+        </div>
+    </div>
+
+    <!-- 💡 ตารางแสดงผลข้อมูล -->
+    <div class="flex-grow overflow-auto p-6 custom-scrollbar">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full data-table text-[13px]">
+                <thead>
+                    <tr>
+                        <th class="w-[10%] text-center">วันที่</th>
+                        <th class="w-[20%]">พนักงาน</th>
+                        <th class="w-[20%]">ไซต์งาน / กะเวลา</th>
+                        <th class="w-[20%] text-center">เช็คอิน (Check-in)</th>
+                        <th class="w-[20%] text-center">เช็คเอาท์ (Check-out)</th>
+                        <th class="w-[10%] text-center">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceTableBody">
+                    <!-- ข้อมูลจะถูกดึงมาแสดงตรงนี้ -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function initAttendanceView() {
+        var today = new Date();
+        document.getElementById('attFilterStartDate').value = formatDateString(today);
+        document.getElementById('attFilterEndDate').value = formatDateString(today);
+
+        var clientSelect = document.getElementById('attFilterClient');
+        if (clientSelect) {
+            clientSelect.innerHTML = '<option value="all">-- ทุกไซต์งาน --</option>';
+            MOCK_CLIENTS.forEach(function(c) {
+                if (c.type !== 'system') {
+                    var opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.text = c.name;
+                    clientSelect.appendChild(opt);
+                }
+            });
+        }
+        renderAttendanceTable();
+    }
+
+    function renderAttendanceTable() {
+        var tbody = document.getElementById('attendanceTableBody');
+        if (!tbody) return;
+
+        var startDateStr = document.getElementById('attFilterStartDate').value;
+        var endDateStr = document.getElementById('attFilterEndDate').value;
+        var filterClient = document.getElementById('attFilterClient').value;
+        var keyword = document.getElementById('attSearchInput').value.toLowerCase();
+
+        var displayData = MOCK_ATTENDANCE.filter(function(record) {
+            if (startDateStr && record.date < startDateStr) return false;
+            if (endDateStr && record.date > endDateStr) return false;
+            if (filterClient !== 'all' && record.clientId !== filterClient) return false;
+
+            if (keyword) {
+                var hk = MOCK_HOUSEKEEPERS.find(h => h.id === record.hkId);
+                var hkName = hk ? hk.name.toLowerCase() : '';
+                if (!hkName.includes(keyword) && !record.hkId.toLowerCase().includes(keyword)) return false;
+            }
+            return true;
+        });
+
+        // เรียงลำดับจากวันที่ล่าสุด -> เก่าสุด และเวลาเช็คอินล่าสุด
+        displayData.sort(function(a, b) {
+            if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
+            return new Date(b.checkInTime) - new Date(a.checkInTime);
+        });
+
+        var html = '';
+        displayData.forEach(function(record) {
+            var hk = MOCK_HOUSEKEEPERS.find(h => h.id === record.hkId) || { name: 'ไม่พบข้อมูล', nickname: '-' };
+            var client = MOCK_CLIENTS.find(c => c.id === record.clientId) || { name: 'ไม่พบข้อมูล' };
+            var shift = MOCK_SHIFTS.find(s => s.id === record.shiftId) || { start: '-', end: '-' };
+
+            var dateObj = new Date(record.date);
+            var dateStr = String(dateObj.getDate()).padStart(2, '0') + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + dateObj.getFullYear();
+
+            var checkInTime = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '-';
+            var checkOutTime = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '-';
+
+            var imgClass = "w-12 h-12 object-cover rounded-md border border-gray-200 shadow-sm cursor-pointer hover:scale-[1.15] transition-transform duration-200";
+            var noImg = '<div class="w-12 h-12 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center text-gray-400" title="ไม่มีรูปภาพ"><i class="fa-solid fa-camera text-[12px]"></i></div>';
+
+            var inImg = record.checkInImg ? '<img src="' + record.checkInImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkInImg + '\', \'รูปสถานที่ตอนเช็คอิน\')">' : noImg;
+            var outSiteImg = record.checkOutSiteImg ? '<img src="' + record.checkOutSiteImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkOutSiteImg + '\', \'รูปสถานที่ก่อนเลิกงาน\')" title="รูปสถานที่">' : noImg;
+            var outDocImg = record.checkOutDocImg ? '<img src="' + record.checkOutDocImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkOutDocImg + '\', \'รูปเอกสารใบงาน\')" title="รูปใบงาน">' : noImg;
+
+            var inHtml = '<div class="flex items-center justify-center gap-3">' + inImg + '<span class="font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100">' + checkInTime + ' น.</span></div>';
+            var outHtml = record.status === 'working' ? '<span class="text-[11px] text-gray-400 italic">- ยังไม่เลิกงาน -</span>' : '<div class="flex items-center justify-center gap-3"><div class="flex gap-1.5">' + outSiteImg + outDocImg + '</div><span class="font-bold text-[#3d5a6c] bg-blue-50 px-2 py-1 rounded border border-blue-100">' + checkOutTime + ' น.</span></div>';
+
+            var statusBadge = record.status === 'completed' 
+                ? '<span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-check-double mr-1"></i> สมบูรณ์</span>'
+                : '<span class="px-2.5 py-1 bg-orange-100 text-orange-600 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-person-digging mr-1"></i> กำลังทำงาน</span>';
+
+            var hkAvatar = hk.avatar || 'https://ui-avatars.com/api/?name=U';
+            var hkColorBorder = 'border: 2px solid ' + (hk.color || '#e5e7eb') + '; padding: 1px; background: white;';
+            
+            var gpsPin = '';
+            if (record.checkInLat && record.checkInLng) {
+                gpsPin = '<a href="https://www.google.com/maps/search/?api=1&query=' + record.checkInLat + ',' + record.checkInLng + '" target="_blank" class="text-[10px] text-blue-500 hover:text-blue-700 hover:underline mt-1 inline-block"><i class="fa-solid fa-location-dot"></i> ดูพิกัด (Map)</a>';
+            }
+
+            html += '<tr class="hover:bg-gray-50/50 transition-colors border-b border-gray-100">';
+            html += '<td class="text-center font-bold text-gray-700">' + dateStr + '</td>';
+            html += '<td><div class="flex items-center gap-3"><img src="' + hkAvatar + '" class="w-10 h-10 rounded-full object-cover shadow-sm" style="' + hkColorBorder + '"><div class="flex flex-col"><span class="font-bold text-gray-900">' + hk.name + '</span><span class="text-[10px] font-medium text-gray-500">' + record.hkId + '</span></div></div></td>';
+            html += '<td><div class="font-bold text-brand truncate max-w-[200px]" title="' + client.name + '">' + client.name + '</div><div class="text-[11px] font-medium text-gray-500 mt-0.5"><i class="fa-regular fa-clock mr-1"></i> ' + shift.start + ' - ' + shift.end + '</div></td>';
+            html += '<td class="text-center py-3">' + inHtml + gpsPin + '</td>';
+            html += '<td class="text-center py-3">' + outHtml + '</td>';
+            html += '<td class="text-center">' + statusBadge + '</td>';
+            html += '</tr>';
+        });
+
+        if (!html) {
+            html = '<tr><td colspan="6" class="text-center py-16 text-gray-400 italic text-[13px]">- ไม่พบข้อมูลการลงเวลาในช่วงนี้ -</td></tr>';
+        }
+        tbody.innerHTML = html;
+    }
+</script>
