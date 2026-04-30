@@ -1,0 +1,1071 @@
+<!-- ======================================= -->
+<!-- [PAGE COMPONENT]: MANAGE (ข้อมูลหลัก & สิทธิ์ผู้ใช้) -->
+<!-- ======================================= -->
+
+<!-- ======================================= -->
+<!-- 1. VIEWS (ส่วนแสดงผลหน้าจอ) -->
+<!-- ======================================= -->
+
+<!-- หน้าจอ Manage (พนักงาน & ไซต์งาน) -->
+<div id="view-manage" class="view-container hidden flex-grow flex-col overflow-hidden bg-white">
+    
+    <!-- Tabs Header -->
+    <div class="flex items-center gap-2 px-8 pt-6 border-b border-gray-200 shrink-0 bg-[#f8fafb]">
+        <button onclick="switchManageTab('staff')" id="tab-manage-staff" class="px-6 py-3 text-[14px] font-bold border-b-[3px] border-brand text-brand transition-colors">
+            <i class="fa-solid fa-users mr-2"></i> ข้อมูลพนักงาน (Housekeepers)
+        </button>
+        <button onclick="switchManageTab('clients')" id="tab-manage-clients" class="px-6 py-3 text-[14px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors">
+            <i class="fa-regular fa-building mr-2"></i> ข้อมูลไซต์งาน (Clients)
+        </button>
+    </div>
+
+    <div class="flex-grow overflow-hidden relative">
+        
+        <!-- Tab Content: Staff -->
+        <div id="content-manage-staff" class="manage-content flex flex-col h-full absolute inset-0 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-sm text-gray-500 font-medium">จัดการข้อมูลและประวัติของพนักงาน</p>
+                <button onclick="openStaffModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i> เพิ่มพนักงาน
+                </button>
+            </div>
+            <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar">
+                <table class="w-full data-table">
+                    <thead>
+                        <tr>
+                            <th class="w-24 text-center whitespace-nowrap">รูป</th>
+                            <th class="w-1/4 min-w-[200px]">รหัส / ชื่อ-นามสกุล</th>
+                            <th class="w-32 whitespace-nowrap">ชื่อเล่น</th>
+                            <th class="w-1/4 min-w-[150px]">เบอร์โทร / LINE</th>
+                            <th class="w-28 text-center whitespace-nowrap">ประเภทงาน</th>
+                            <th class="w-24 text-center whitespace-nowrap">สถานะ</th>
+                            <th class="w-20 text-right whitespace-nowrap">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffTableBody">
+                        <!-- JS จะแทรกข้อมูลพนักงานที่นี่ -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Tab Content: Clients -->
+        <div id="content-manage-clients" class="manage-content hidden flex-col h-full absolute inset-0 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-sm text-gray-500 font-medium">จัดการข้อมูลสถานที่และข้อมูลผู้ติดต่อ</p>
+                <button onclick="openClientModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i> เพิ่มไซต์งาน
+                </button>
+            </div>
+            <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar">
+                <table class="w-full data-table">
+                    <thead>
+                        <tr>
+                            <th class="min-w-[200px]">รหัส / ชื่อไซต์งาน</th>
+                            <th class="w-24 whitespace-nowrap text-center">ประเภท</th>
+                            <th class="min-w-[220px]">พื้นที่ / จังหวัด</th>
+                            <th class="min-w-[150px]">ผู้ติดต่อ / เบอร์โทร</th>
+                            <th class="w-24 text-center whitespace-nowrap">Req. (คน)</th>
+                            <th class="w-24 whitespace-nowrap text-center">สถานะ</th>
+                            <th class="w-20 text-right whitespace-nowrap">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientTableBody">
+                        <!-- JS จะแทรกข้อมูลไซต์งานที่นี่ -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- หน้าจอ Users (ตั้งค่าสิทธิ์) -->
+<div id="view-users" class="view-container hidden flex-grow flex-col overflow-hidden bg-white p-6">
+    <div class="flex justify-between items-center mb-4">
+        <p class="text-sm text-gray-500 font-medium">จัดการสิทธิ์การเข้าถึงระบบของพนักงานออฟฟิศ</p>
+        <button onclick="openUserModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2">
+            <i class="fa-solid fa-user-plus text-xs"></i> เพิ่มผู้ใช้งาน
+        </button>
+    </div>
+    <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar">
+        <table class="w-full data-table">
+            <thead>
+                <tr>
+                    <th class="min-w-[180px]">ชื่อผู้ใช้ (Name)</th>
+                    <th class="min-w-[200px]">อีเมล (Email)</th>
+                    <th class="w-40 whitespace-nowrap text-center">บทบาท (Role)</th>
+                    <th class="w-24 whitespace-nowrap text-center">สถานะ</th>
+                    <th class="w-16 text-right whitespace-nowrap">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                <!-- JS จะแทรกข้อมูลสิทธิ์ผู้ใช้ที่นี่ -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- ======================================= -->
+<!-- 2. MODALS (ป๊อปอัปฟอร์มต่างๆ) -->
+<!-- ======================================= -->
+
+<!-- 🏢 Modal: Client (ไซต์งาน) -->
+<div id="clientModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <!-- Header -->
+        <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+            <h3 class="text-lg font-black text-brand" id="modalClientTitle">ข้อมูลไซต์งาน (Client Profile)</h3>
+            <button onclick="closeModal('clientModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <input type="hidden" id="clientId">
+                
+                <!-- Section 1: ข้อมูลทั่วไป -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-regular fa-building mr-1"></i> ข้อมูลทั่วไป</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อไซต์งาน / ลูกค้า <span class="text-red-500">*</span></label>
+                        <input type="text" id="clientName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทลูกค้า</label>
+                        <select id="clientType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            <option value="B2B">องค์กร / บริษัท (B2B)</option>
+                            <option value="B2C">ที่พักอาศัย (B2C)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สีบนตาราง (Auto Random)</label>
+                        <input type="color" id="clientColor" value="#3d5a6c" class="w-full h-[40px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Section 2: ข้อมูลที่ตั้ง -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-map-location-dot mr-1"></i> ข้อมูลที่ตั้ง</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ที่อยู่ (บ้านเลขที่, อาคาร, ซอย, ถนน)</label>
+                        <input type="text" id="clientAddressDetail" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">จังหวัด <span class="text-red-500">*</span></label>
+                        <select id="clientProvince" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">อำเภอ / เขต <span class="text-red-500">*</span></label>
+                        <select id="clientDistrict" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ตำบล / แขวง</label>
+                            <select id="clientTambon" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-white shadow-sm"></select>
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสไปรษณีย์</label>
+                            <input type="text" id="clientZipcode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand bg-gray-100 shadow-sm" readonly>
+                        </div>
+                    </div>
+                    
+                    <!-- 💡 เพิ่มช่องกรอกพิกัด Latitude / Longitude ตรงนี้ -->
+                    <div class="flex gap-3 mt-1">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ละติจูด (Latitude)</label>
+                            <input type="text" id="clientLat" placeholder="เช่น 18.7953" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-blue-50/30">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ลองจิจูด (Longitude)</label>
+                            <input type="text" id="clientLng" placeholder="เช่น 98.9620" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-blue-50/30">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Section 3: การติดต่อและสัญญา -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-file-contract mr-1"></i> การติดต่อ & สัญญา</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">วันเข้าให้บริการ <span class="text-gray-400 font-normal">(เช่น 7 วันทำงาน)</span></label>
+                        <input type="text" id="clientServiceDays" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ความถี่ / เดือน <span class="text-gray-400 font-normal">(เช่น 1 ครั้ง ทั้งวัน)</span></label>
+                        <input type="text" id="clientFrequency" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ติดต่อหลัก / เบอร์โทร</label>
+                        <input type="text" id="clientContact" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะสัญญา</label>
+                        <select id="clientStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            <option value="Active">Active (ยังดำเนินงาน)</option>
+                            <option value="Pending">Pending (รอยืนยัน)</option>
+                            <option value="Expired">Expired (หมดสัญญา)</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3 mt-1">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มสัญญา</label>
+                            <input type="date" id="clientStartDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่สิ้นสุดสัญญา</label>
+                            <input type="date" id="clientEndDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-2">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานที่ตกลงต่อสัปดาห์/เดือน">ชม. ทำงาน(สัญญา)</label>
+                            <input type="number" id="clientContractHours" placeholder="ระบุ ชม." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="จำนวนแม่บ้านที่ต้องการต่อวัน/กะ">จำนวน พนง./กะ</label>
+                            <input type="number" id="clientReqStaff" value="1" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Audit Log Section -->
+            <div id="clientHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                <div id="clientHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
+            </div>
+            
+        </div>
+        
+        <!-- Footer -->
+        <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
+            <button onclick="closeModal('clientModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+            <button onclick="saveClient()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5">บันทึกไซต์งาน</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 🧑‍💼 Modal: Staff (พนักงาน) -->
+<div id="staffModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <!-- Header -->
+        <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+            <h3 class="text-lg font-black text-brand" id="modalStaffTitle">ข้อมูลพนักงาน</h3>
+            <button onclick="closeModal('staffModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <input type="hidden" id="staffIdHidden">
+                
+                <!-- Section 1: ข้อมูลส่วนบุคคล -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-user mr-1"></i> ข้อมูลส่วนบุคคล</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสพนักงาน <span class="text-brand">(Auto)</span></label>
+                        <input type="text" id="staffId" class="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-bold text-brand bg-gray-100 outline-none cursor-not-allowed shadow-sm" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                        <input type="text" id="staffName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อเล่น</label>
+                            <input type="text" id="staffNickname" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สีประจำตัว</label>
+                            <input type="color" id="staffColor" value="#3b82f6" class="w-full h-[38px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รูปโปรไฟล์พนักงาน</label>
+                        <input type="file" id="staffImageFile" accept="image/*" onchange="uploadStaffImage()" class="w-full text-[12px] font-medium text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none">
+                        <input type="hidden" id="staffImage">
+                        <span id="uploadStatusText" class="text-[11px] text-gray-500 font-bold mt-1 block"></span>
+                    </div>
+                </div>
+
+                <!-- Section 2: การติดต่อและสถานะ -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-address-card mr-1"></i> การติดต่อ & สถานะ</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">เบอร์โทรศัพท์ (ใช้เข้าระบบ) <span class="text-red-500">*</span></label>
+                        <input type="text" id="staffPhone" placeholder="0XXXXXXXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand shadow-sm">
+                    </div>
+                    
+                    <!-- 💡 เพิ่มช่องรหัส PIN ตรงนี้ -->
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสเข้าแอปแม่บ้าน (PIN 4 หลัก) <span class="text-red-500">*</span></label>
+                        <input type="password" id="staffPin" maxlength="4" placeholder="ระบุตัวเลข 4 หลัก" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center tracking-[0.5em] text-brand outline-none focus:border-brand shadow-sm bg-blue-50/30">
+                    </div>
+
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">LINE ID</label>
+                        <input type="text" id="staffLine" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                        <select id="staffStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                            <option value="Active">Active (ทำงานปกติ)</option>
+                            <option value="Inactive">Inactive (ลาออก/พักงาน)</option>
+                            <option value="On Leave">On Leave (ลางาน)</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทงาน</label>
+                            <select id="staffJobType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                                <option value="Full-time">Full-time</option>
+                                <option value="Part-time">Part-time</option>
+                            </select>
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานสูงสุด/สัปดาห์">ชม.สูงสุด/สัปดาห์</label>
+                            <input type="number" id="staffMaxHours" value="48" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: พื้นที่และทักษะ -->
+                <div class="flex flex-col gap-4">
+                    <div class="pb-2 border-b border-gray-200">
+                        <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-briefcase mr-1"></i> พื้นที่ & ทักษะ</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">โซน/พื้นที่ปฏิบัติงาน (เลือกได้หลายพื้นที่)</label>
+                        <select id="staffZones" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm">
+                            <option value="โซนตัวเมือง">โซนตัวเมือง</option>
+                            <option value="โซนหางดง">โซนหางดง</option>
+                            <option value="โซนสันทราย">โซนสันทราย</option>
+                            <option value="โซนแม่ริม">โซนแม่ริม</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-bold text-gray-600 mb-1">ทักษะพิเศษ</label>
+                        <input type="text" id="staffSkills" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มงาน</label>
+                            <input type="date" id="staffStartDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1">วันหมดสัญญา</label>
+                            <input type="date" id="staffEndDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Log Section -->
+            <div id="staffHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
+                <div id="staffHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
+            </div>
+
+        </div>
+        
+        <!-- Footer -->
+        <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
+            <button onclick="closeModal('staffModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+            <button onclick="saveStaff()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5">บันทึกพนักงาน</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 🔐 Modal: User (สิทธิ์ผู้ใช้งาน) -->
+<div id="userModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+        <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
+            <h3 class="text-lg font-black text-brand">สิทธิ์ผู้ใช้งาน</h3>
+            <button onclick="closeModal('userModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-7 flex flex-col gap-4">
+            <input type="hidden" id="userId">
+            <div>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อผู้ใช้งาน <span class="text-red-500">*</span></label>
+                <input type="text" id="userName" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+            </div>
+            <div>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">อีเมล (Google Account) <span class="text-red-500">*</span></label>
+                <input type="email" id="userEmail" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+            </div>
+            <div>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">ระดับสิทธิ์ (Role)</label>
+                <select id="userRole" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                    <option value="Admin / Supervisor">Admin / Supervisor (จัดการได้ทุกอย่าง)</option>
+                    <option value="AE/หัวหน้าแม่บ้าน">AE/หัวหน้าแม่บ้าน (ดู/แก้ไขตารางงาน)</option>
+                    <option value="Viewer">Viewer (ดูได้อย่างเดียว)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                <select id="userStatus" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
+                    <option value="Active">Active (เปิดใช้งาน)</option>
+                    <option value="Inactive">Inactive (ระงับสิทธิ์)</option>
+                </select>
+            </div>
+        </div>
+        <div class="px-7 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+            <button onclick="closeModal('userModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-100 transition">ยกเลิก</button>
+            <button onclick="saveUser()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow transition">บันทึกผู้ใช้</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================= -->
+<!-- 3. JAVASCRIPT: โค้ดควบคุมสำหรับหน้า Manage -->
+<!-- ======================================= -->
+<script>
+    // ------------------------------------------
+    // ส่วนที่ 1: จัดการพนักงาน (Staff)
+    // ------------------------------------------
+    function generateStaffId() {
+        var d = new Date();
+        var yy = String(d.getFullYear()).slice(-2);
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var prefix = 'MARI' + yy + mm;
+        var maxNum = 0;
+        MOCK_HOUSEKEEPERS.forEach(function(hk) {
+            if (hk.id && hk.id.startsWith(prefix)) {
+                var numStr = hk.id.replace(prefix, '');
+                var num = parseInt(numStr, 10);
+                if (!isNaN(num) && num > maxNum) { maxNum = num; }
+            }
+        });
+        return prefix + String(maxNum + 1).padStart(3, '0');
+    }
+
+    function uploadStaffImage() {
+        var fileInput = document.getElementById('staffImageFile');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+        var file = fileInput.files[0];
+        
+        var popupId = 'uploadPoploadOverlay';
+        var popup = document.getElementById(popupId);
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = popupId;
+            popup.className = 'fixed inset-0 bg-gray-900/70 z-[99999] flex items-center justify-center backdrop-blur-sm transition-opacity';
+            popup.innerHTML = '<div class="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-xs mx-4 text-center transform scale-100 transition-transform">' + 
+                              '<div class="w-14 h-14 border-4 border-brand/20 border-t-brand rounded-full animate-spin mb-4"></div>' + 
+                              '<h3 class="text-[16px] font-black text-gray-900 mb-1">กำลังดำเนินการ</h3>' + 
+                              '<p class="text-[12px] text-gray-500 font-medium">กำลังบีบอัดและอัปโหลดรูปภาพ...</p>' + 
+                              '</div>';
+            document.body.appendChild(popup);
+        } else {
+            popup.classList.remove('hidden');
+        }
+        
+        window.isUploadingStaffImage = true;
+
+        var statusText = document.getElementById('uploadStatusText');
+        if(statusText) {
+            statusText.innerText = 'กำลังบีบอัดและอัปโหลด...';
+            statusText.className = 'text-[11px] text-blue-600 font-medium mt-1 block animate-pulse';
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                var MAX_WIDTH = 400;
+                var MAX_HEIGHT = 400;
+                var width = img.width;
+                var height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                } else {
+                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                var base64Data = dataUrl.split(',')[1]; 
+                var fileName = 'Profile_' + new Date().getTime() + '.jpg';
+
+                if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    google.script.run
+                        .withSuccessHandler(function(url) {
+                            var p = document.getElementById(popupId);
+                            if (p) p.classList.add('hidden');
+                            window.isUploadingStaffImage = false;
+
+                            if(statusText) { 
+                                statusText.innerText = '✅ อัปโหลดรูปภาพสำเร็จ! กดบันทึกเพื่อยืนยัน'; 
+                                statusText.className = 'text-[11px] text-green-600 font-medium mt-1 block'; 
+                            }
+                            setInputValue('staffImage', url);
+                            if(typeof showToast === 'function') showToast('อัปโหลดรูปภาพสำเร็จ');
+                        })
+                        .withFailureHandler(function(error) {
+                            var p = document.getElementById(popupId);
+                            if (p) p.classList.add('hidden');
+                            window.isUploadingStaffImage = false;
+
+                            if(statusText) { 
+                                statusText.innerText = '❌ เกิดข้อผิดพลาดในการอัปโหลด'; 
+                                statusText.className = 'text-[11px] text-red-600 font-medium mt-1 block'; 
+                            }
+                            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อผิดพลาด', message: 'ไม่สามารถอัปโหลดรูปได้: ' + error, type: 'warning' });
+                        })
+                        .uploadImageToDrive(base64Data, fileName); 
+                } else {
+                    setTimeout(function() {
+                        var p = document.getElementById(popupId);
+                        if (p) p.classList.add('hidden');
+                        window.isUploadingStaffImage = false;
+                        if(statusText) { statusText.innerText = '✅ อัปโหลดสำเร็จ (Mock)'; statusText.className = 'text-[11px] text-green-600 font-medium mt-1 block'; }
+                        if(typeof showToast === 'function') showToast('อัปโหลดรูปภาพสำเร็จ (จำลอง)');
+                    }, 1500);
+                }
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderStaffTable() {
+        var tbody = document.getElementById('staffTableBody');
+        if (!tbody) return;
+        var html = '';
+        MOCK_HOUSEKEEPERS.forEach(function(hk) {
+            var statusBadge = hk.status === 'Active' 
+                ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">Active</span>' 
+                : '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold">' + hk.status + '</span>';
+            var hkColorBorder = 'border: 2px solid ' + (hk.color || '#e5e7eb') + '; padding: 2px; background: white;';
+            var imgSrc = hk.avatar || 'https://ui-avatars.com/api/?name=U&background=f0f4f8&color=3d5a6c';
+            
+            var issuesCount = MOCK_ISSUES ? MOCK_ISSUES.filter(function(i) { return i.providerId === hk.id; }).length : 0;
+            var issueBadge = issuesCount > 0 ? '<span class="ml-1.5 px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[9px] font-bold shadow-sm" title="มีประวัติปัญหาคุณภาพ ' + issuesCount + ' ครั้ง"><i class="fa-solid fa-triangle-exclamation"></i> ' + issuesCount + '</span>' : '';
+
+            var actionBtns = '<button onclick="editStaff(\'' + hk.id + '\')" class="text-gray-400 hover:text-brand px-2 transition bg-white hover:bg-brandLight border border-gray-200 hover:border-brand/30 w-8 h-8 rounded-md shadow-sm"><i class="fa-solid fa-pen-to-square"></i></button>';
+            
+            if (CURRENT_USER && (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin' || CURRENT_USER.role === 'DEV')) {
+                actionBtns += '<button onclick="deleteStaff(\'' + hk.id + '\')" class="text-red-400 hover:text-red-600 px-2 transition bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 w-8 h-8 rounded-md shadow-sm ml-1.5" title="ลบข้อมูลพนักงาน"><i class="fa-solid fa-trash-can"></i></button>';
+            }
+
+            html += '<tr class="group hover:bg-brandLight/40 transition-colors">' +
+                    '<td class="text-center py-3"><div class="relative inline-block cursor-pointer transform hover:scale-105 transition-all duration-200" onclick="previewImage(\'' + imgSrc + '\', \'' + hk.name + '\')" title="คลิกเพื่อขยายรูปภาพ"><img src="' + imgSrc + '" onerror="this.src=\'https://ui-avatars.com/api/?name=U&background=f0f4f8&color=3d5a6c\'" class="w-14 h-14 rounded-full mx-auto object-cover shadow-sm" style="' + hkColorBorder + '"><div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i></div></div></td>' +
+                    '<td class="max-w-[200px]"><div class="font-bold text-gray-900 text-[14px] flex items-center truncate">' + hk.name + issueBadge + '</div><div class="text-[11px] text-gray-500 font-medium mt-0.5 truncate">' + hk.id + '</div></td>' +
+                    '<td><span class="font-bold text-brand bg-brandLight px-2 py-1 rounded text-[12px]">' + (hk.nickname || '-') + '</span></td>' +
+                    '<td><div class="text-[13px] font-medium">' + (hk.phone || '-') + '</div><span class="text-[11px] text-gray-500">LINE: ' + (hk.lineId || '-') + '</span></td>' +
+                    '<td class="text-center"><span class="px-2.5 py-1 bg-blue-50 text-brand rounded-md text-[11px] font-bold border border-blue-100">' + hk.type + '</span></td>' +
+                    '<td class="text-center">' + statusBadge + '</td>' +
+                    '<td class="text-right pr-6 whitespace-nowrap">' + actionBtns + '</td>' +
+                    '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ------------------------------------------
+    // ส่วนที่ 2: จัดการไซต์งาน (Clients)
+    // ------------------------------------------
+    function renderClientTable() {
+        var tbody = document.getElementById('clientTableBody');
+        if (!tbody) return;
+        var html = '';
+        MOCK_CLIENTS.forEach(function(c) {
+            if(c.type === 'system') return; 
+            var statusBadge = c.status === 'Active' 
+                ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">Active</span>' 
+                : '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">' + c.status + '</span>';
+            var locationText = (c.district && c.province) ? c.district + ', ' + c.province : (c.district || c.province || '-');
+            var actionBtns = '<button onclick="editClient(\'' + c.id + '\')" class="text-gray-400 hover:text-brand px-2 transition bg-white hover:bg-brandLight border border-gray-200 hover:border-brand/30 w-8 h-8 rounded-md shadow-sm"><i class="fa-solid fa-pen-to-square"></i></button>';
+            
+            if (CURRENT_USER && (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin' || CURRENT_USER.role === 'DEV')) {
+                actionBtns += '<button onclick="deleteClient(\'' + c.id + '\')" class="text-red-400 hover:text-red-600 px-2 transition bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 w-8 h-8 rounded-md shadow-sm ml-1.5" title="ลบข้อมูลไซต์งาน"><i class="fa-solid fa-trash-can"></i></button>';
+            }
+
+            html += '<tr>' +
+                    '<td><div class="flex items-center gap-3"><div class="w-3.5 h-3.5 rounded-sm shadow-sm" style="background-color: ' + c.color + '"></div><div class="flex flex-col"><span class="font-bold text-gray-900">' + c.name + '</span><span class="text-[11px] text-gray-500 font-medium">' + c.id + '</span></div></div></td>' +
+                    '<td><span class="text-[12px] font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">' + c.type + '</span></td>' +
+                    '<td><div class="max-w-[200px] truncate font-medium text-gray-800" title="' + locationText + '">' + locationText + '</div><div class="text-[11px] text-gray-500 truncate max-w-[200px] mt-0.5" title="' + (c.address || '') + '">' + (c.address || '') + '</div></td>' +
+                    '<td><div class="text-[13px] font-medium">' + (c.contact || '-') + '</div><span class="text-[11px] text-gray-500">' + (c.phone || '') + '</span></td>' +
+                    '<td class="text-center font-bold text-brand">' + c.reqStaff + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td class="text-right pr-6 whitespace-nowrap">' + actionBtns + '</td>' +
+                    '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ------------------------------------------
+    // ส่วนที่ 3: จัดการผู้ใช้งาน (Users)
+    // ------------------------------------------
+    function renderUserTable() {
+        var tbody = document.getElementById('userTableBody');
+        if (!tbody) return;
+        var html = '';
+        MOCK_USERS.forEach(function(u) {
+            var statusBadge = u.status === 'Active' ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">Active</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold">Inactive</span>';
+            var roleClass = (u.role === 'Admin / Supervisor' || u.role === 'Admin' || u.role === 'DEV') ? 'text-purple-600 bg-purple-50 border-purple-100' : ((u.role === 'AE/หัวหน้าแม่บ้าน' || u.role === 'Supervisor') ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-gray-600 bg-gray-50 border-gray-200');
+            html += '<tr>' +
+                    '<td class="font-bold text-gray-900">' + u.name + '</td>' +
+                    '<td class="text-gray-600">' + u.email + '</td>' +
+                    '<td class="text-center"><span class="px-2 py-1 rounded text-[11px] font-bold border ' + roleClass + '">' + u.role + '</span></td>' +
+                    '<td class="text-center">' + statusBadge + '</td>' +
+                    '<td class="text-right"><button onclick="editUser(\'' + u.id + '\')" class="text-gray-400 hover:text-brand px-2 transition bg-gray-50 hover:bg-brandLight w-8 h-8 rounded"><i class="fa-solid fa-pen-to-square"></i></button></td>' +
+                    '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ------------------------------------------
+    // ส่วนที่ 4: ฟังก์ชัน Save ข้อมูลหลัก
+    // ------------------------------------------
+    function saveClient() {
+        var id = document.getElementById('clientId').value;
+        var name = document.getElementById('clientName').value;
+        if(!name) { if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อไซต์งาน', type: 'warning' }); return; }
+        
+        var detail = document.getElementById('clientAddressDetail').value;
+        var prov = document.getElementById('clientProvince').value;
+        var dist = document.getElementById('clientDistrict').value;
+        var tam = document.getElementById('clientTambon').value;
+        var zip = document.getElementById('clientZipcode').value;
+
+        var fullAddress = detail;
+        if(tam) fullAddress += (fullAddress ? ' ' : '') + 'ต.' + tam;
+        if(zip) fullAddress += (fullAddress ? ' ' : '') + zip;
+
+        var clientData = {
+            id: id || 'CL-' + new Date().getTime(), 
+            name: name, 
+            address: fullAddress, 
+            district: dist, 
+            province: prov,         
+            type: document.getElementById('clientType').value, 
+            status: document.getElementById('clientStatus').value,
+            contact: document.getElementById('clientContact').value, 
+            reqStaff: parseInt(document.getElementById('clientReqStaff').value) || 1,
+            color: document.getElementById('clientColor').value, 
+            contractHours: document.getElementById('clientContractHours').value,
+            
+            serviceDays: document.getElementById('clientServiceDays') ? document.getElementById('clientServiceDays').value : '',
+            frequency: document.getElementById('clientFrequency') ? document.getElementById('clientFrequency').value : '',
+            startDate: document.getElementById('clientStartDate') ? document.getElementById('clientStartDate').value : '',
+            endDate: document.getElementById('clientEndDate') ? document.getElementById('clientEndDate').value : '',
+            
+            // บันทึกพิกัด Lat/Lng ด้วย
+            lat: document.getElementById('clientLat').value || '',
+            lng: document.getElementById('clientLng').value || '',
+            
+            actionBy: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.email : 'Unknown'
+        };
+        
+        var idx = MOCK_CLIENTS.findIndex(function(c) { return c.id === clientData.id; }); 
+        if(idx > -1) { MOCK_CLIENTS[idx] = clientData; } else { MOCK_CLIENTS.push(clientData); }
+        if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.saveClientToBackend(clientData); }
+        
+        closeModal('clientModal'); 
+        refreshAllViews(); 
+        if(typeof showToast === 'function') showToast('บันทึกข้อมูลไซต์งานสำเร็จ');
+    }
+
+    function saveStaff() {
+        if (window.isUploadingStaffImage) {
+            if(typeof showCustomDialog === 'function') {
+                showCustomDialog({ title: 'กำลังอัปโหลดรูปภาพ', message: 'กรุณารอสักครู่ ระบบกำลังประมวลผลรูปโปรไฟล์ให้เสร็จสิ้นก่อนครับ', type: 'warning' });
+            } else {
+                alert('กำลังอัปโหลดรูปภาพ กรุณารอสักครู่...');
+            }
+            return;
+        }
+
+        var id = document.getElementById('staffId').value;
+        var name = document.getElementById('staffName').value;
+        if(!name) { if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อ-นามสกุล', type: 'warning' }); return; }
+        
+        var phone = document.getElementById('staffPhone').value;
+        if(typeof formatPhoneDisplay === 'function') phone = formatPhoneDisplay(phone);
+        if (!phone || !/^0[0-9]{9}$/.test(phone)) {
+            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ถูกต้อง', message: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง\n(ต้องขึ้นต้นด้วย 0 และมีตัวเลข 10 หลักพอดี)', type: 'warning' });
+            return;
+        }
+        
+        // ตรวจสอบรหัส PIN ว่าต้องเป็น 4 หลัก
+        var pin = document.getElementById('staffPin').value;
+        if(!pin || pin.length !== 4 || isNaN(pin)) {
+            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ถูกต้อง', message: 'กรุณากำหนดรหัสเข้าแอป (PIN) ตัวเลข 4 หลักให้พนักงาน', type: 'warning' });
+            return;
+        }
+        
+        var inputAvatar = document.getElementById('staffImage').value;
+        var defaultAvatar = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=f0f4f8&color=3d5a6c';
+        var zonesArr = window.jQuery && $.fn.select2 ? $('#staffZones').val() : [];
+        var zonesStr = zonesArr ? zonesArr.join(', ') : '';
+
+        var staffData = {
+            id: id || generateStaffId(), 
+            name: name, 
+            nickname: document.getElementById('staffNickname').value || name.split(' ')[0],
+            phone: phone, 
+            lineId: document.getElementById('staffLine').value,
+            type: document.getElementById('staffJobType').value, 
+            status: document.getElementById('staffStatus').value,
+            skills: document.getElementById('staffSkills').value, 
+            zones: zonesStr,
+            maxHoursWeek: document.getElementById('staffMaxHours').value || 48,
+            startDate: document.getElementById('staffStartDate').value, 
+            endDate: document.getElementById('staffEndDate').value,
+            avatar: inputAvatar ? inputAvatar : defaultAvatar, 
+            color: document.getElementById('staffColor').value,
+            
+            // บันทึกรหัส PIN ด้วย
+            pin: pin,
+            
+            actionBy: CURRENT_USER ? CURRENT_USER.email : 'Unknown'
+        };
+        
+        var idx = MOCK_HOUSEKEEPERS.findIndex(function(h) { return h.id === staffData.id; }); 
+        if(idx > -1) { MOCK_HOUSEKEEPERS[idx] = staffData; } else { MOCK_HOUSEKEEPERS.push(staffData); }
+        if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.saveStaffToBackend(staffData); }
+        
+        closeModal('staffModal'); 
+        refreshAllViews(); 
+        if(typeof showToast === 'function') showToast('บันทึกข้อมูลพนักงานสำเร็จ');
+    }
+
+    function saveUser() {
+        var id = document.getElementById('userId').value;
+        var name = document.getElementById('userName').value;
+        var email = document.getElementById('userEmail').value;
+        if(!name || !email) { if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อและอีเมล', type: 'warning' }); return; }
+        
+        var userData = { 
+            id: id || 'U' + new Date().getTime(), 
+            name: name, 
+            email: email, 
+            role: document.getElementById('userRole').value, 
+            status: document.getElementById('userStatus').value 
+        };
+        
+        var idx = MOCK_USERS.findIndex(function(u) { return u.id === userData.id; }); 
+        if(idx > -1) { MOCK_USERS[idx] = userData; } else { MOCK_USERS.push(userData); }
+        if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.saveUserToBackend(userData); }
+        
+        closeModal('userModal'); 
+        renderUserTable(); 
+        if(typeof showToast === 'function') showToast('บันทึกสิทธิ์ผู้ใช้งานสำเร็จ');
+    }
+
+    // ------------------------------------------
+    // ส่วนที่ 5: ฟังก์ชันสรุปสถิติพนักงาน (Dashboard)
+    // ------------------------------------------
+    function renderStaffIssueStats(hkId) {
+        var statsSec = document.getElementById('staffIssueStatsSection');
+        if (!statsSec) {
+            statsSec = document.createElement('div');
+            statsSec.id = 'staffIssueStatsSection';
+            statsSec.className = 'mt-6 pt-6 border-t border-gray-200 mb-6';
+            var histSec = document.getElementById('staffHistorySection');
+            if (histSec && histSec.parentNode) {
+                histSec.parentNode.insertBefore(statsSec, histSec);
+            }
+        }
+
+        if (!MOCK_ISSUES || MOCK_ISSUES.length === 0) {
+            statsSec.classList.add('hidden');
+            return;
+        }
+
+        var advise = 0, verbal = 0, written = 0, fire = 0, total = 0;
+        MOCK_ISSUES.forEach(function(i) {
+            if (i.providerId === hkId) {
+                total++;
+                if (i.actionTaken === 'ให้คำแนะนำ / อบรม') advise++;
+                else if (i.actionTaken === 'ตักเตือนด้วยวาจา') verbal++;
+                else if (i.actionTaken === 'ตักเตือนด้วยลายลักษณ์อักษร') written++;
+                else if (i.actionTaken === 'เชิญออก') fire++;
+            }
+        });
+
+        if (total === 0) {
+             statsSec.classList.add('hidden');
+             return;
+        }
+        
+        statsSec.classList.remove('hidden');
+        
+        var html = '<label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-triangle-exclamation mr-1 text-red-500"></i> สถิติปัญหาคุณภาพและการดำเนินการ (Incident Stats)</label>' +
+            '<div class="grid grid-cols-2 lg:grid-cols-5 gap-3">' +
+                '<div class="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">' +
+                    '<div class="text-[20px] font-black text-gray-800">' + total + '</div>' +
+                    '<div class="text-[10px] font-bold text-gray-500 uppercase">ปัญหาทั้งหมด</div>' +
+                '</div>' +
+                '<div class="bg-blue-50 p-3 rounded-lg border border-blue-100 text-center shadow-sm">' +
+                    '<div class="text-[20px] font-black text-blue-600">' + advise + '</div>' +
+                    '<div class="text-[10px] font-bold text-blue-500 uppercase">ให้คำแนะนำ/อบรม</div>' +
+                '</div>' +
+                '<div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-center shadow-sm">' +
+                    '<div class="text-[20px] font-black text-yellow-600">' + verbal + '</div>' +
+                    '<div class="text-[10px] font-bold text-yellow-600 uppercase">ตักเตือนด้วยวาจา</div>' +
+                '</div>' +
+                '<div class="bg-orange-50 p-3 rounded-lg border border-orange-200 text-center shadow-sm">' +
+                    '<div class="text-[20px] font-black text-orange-600">' + written + '</div>' +
+                    '<div class="text-[10px] font-bold text-orange-600 uppercase">เตือนเป็นหนังสือ</div>' +
+                '</div>' +
+                '<div class="bg-red-50 p-3 rounded-lg border border-red-200 text-center shadow-sm">' +
+                    '<div class="text-[20px] font-black text-red-600">' + fire + '</div>' +
+                    '<div class="text-[10px] font-bold text-red-600 uppercase">เชิญออก</div>' +
+                '</div>' +
+            '</div>';
+        statsSec.innerHTML = html;
+    }
+
+    // ------------------------------------------
+    // ส่วนที่ 6: Modal Helpers
+    // ------------------------------------------
+    function openClientModal() {
+        setInputValue('clientId', ''); 
+        setInputValue('clientName', ''); 
+        setInputValue('clientAddressDetail', '');
+        setInputValue('clientProvince', ''); 
+        setInputValue('clientServiceDays', ''); 
+        setInputValue('clientFrequency', '');
+        
+        if (window.jQuery && $.fn.select2) $('#clientProvince').trigger('change.select2');
+        
+        var elDist = document.getElementById('clientDistrict'); 
+        if(elDist) { elDist.innerHTML = '<option value="">-- เลือกอำเภอ/เขต --</option>'; }
+        if (window.jQuery && $.fn.select2) $('#clientDistrict').trigger('change.select2');
+        
+        var elTam = document.getElementById('clientTambon'); 
+        if(elTam) { elTam.innerHTML = '<option value="">-- เลือกตำบล/แขวง --</option>'; }
+        if (window.jQuery && $.fn.select2) $('#clientTambon').trigger('change.select2');
+        
+        setInputValue('clientZipcode', ''); 
+        setInputValue('clientType', 'B2B'); 
+        setInputValue('clientStatus', 'Active'); 
+        setInputValue('clientContact', ''); 
+        setInputValue('clientReqStaff', '1'); 
+        setInputValue('clientContractHours', '');
+        setInputValue('clientColor', typeof getRandomColor === 'function' ? getRandomColor() : '#3d5a6c');
+        
+        // เคลียร์ค่าพิกัดให้เป็นค่าว่าง
+        setInputValue('clientLat', '');
+        setInputValue('clientLng', '');
+        
+        var titleEl = document.getElementById('modalClientTitle'); 
+        if(titleEl) titleEl.innerText = 'เพิ่มไซต์งานใหม่'; 
+        
+        var histSec = document.getElementById('clientHistorySection'); 
+        if(histSec) histSec.classList.add('hidden');
+
+        var modal = document.getElementById('clientModal'); 
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function editClient(id) {
+        var c = MOCK_CLIENTS.find(function(x) { return x.id === id; }); 
+        if(!c) return;
+        
+        setInputValue('clientId', c.id); 
+        setInputValue('clientName', c.name); 
+        setInputValue('clientAddressDetail', c.address || '');
+        setInputValue('clientProvince', c.province || ''); 
+        setInputValue('clientServiceDays', c.serviceDays || ''); 
+        setInputValue('clientFrequency', c.frequency || '');
+
+        var provEl = document.getElementById('clientProvince'); 
+        if(provEl) provEl.dispatchEvent(new Event('change'));
+        if (window.jQuery && $.fn.select2) $('#clientProvince').trigger('change.select2');
+        
+        setTimeout(function() {
+            setInputValue('clientDistrict', c.district || '');
+            var distEl = document.getElementById('clientDistrict'); 
+            if(distEl) distEl.dispatchEvent(new Event('change'));
+            if (window.jQuery && $.fn.select2) $('#clientDistrict').trigger('change.select2');
+            
+            setTimeout(function() {
+                var tamMatch = c.address ? c.address.match(/ต\.([^\s0-9]+)/) : null;
+                setInputValue('clientTambon', tamMatch && tamMatch[1] ? tamMatch[1] : '');
+                if (window.jQuery && $.fn.select2) $('#clientTambon').trigger('change.select2');
+                
+                var zipMatch = c.address ? c.address.match(/\b\d{5}\b/) : null; 
+                setInputValue('clientZipcode', zipMatch ? zipMatch[0] : '');
+            }, 50);
+        }, 50);
+
+        setInputValue('clientType', c.type || 'B2B'); 
+        setInputValue('clientStatus', c.status || 'Active'); 
+        setInputValue('clientContact', c.contact || ''); 
+        setInputValue('clientReqStaff', c.reqStaff || 1); 
+        setInputValue('clientColor', c.color || '#3d5a6c'); 
+        setInputValue('clientContractHours', c.contractHours || '');
+        
+        // ดึงค่าพิกัดมาใส่ในฟอร์ม
+        setInputValue('clientLat', c.lat || '');
+        setInputValue('clientLng', c.lng || '');
+        
+        var titleEl = document.getElementById('modalClientTitle'); 
+        if(titleEl) titleEl.innerText = 'แก้ไขข้อมูลไซต์งาน'; 
+        
+        if (typeof loadRecordHistory === 'function') {
+             loadRecordHistory('Clients', id, 'clientHistoryContainer', 'clientHistorySection');
+        }
+
+        var modal = document.getElementById('clientModal'); 
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function openStaffModal() {
+        setInputValue('staffId', generateStaffId()); 
+        setInputValue('staffName', ''); 
+        setInputValue('staffNickname', '');
+        setInputValue('staffImageFile', ''); 
+        setInputValue('staffImage', ''); 
+        
+        var statusText = document.getElementById('uploadStatusText'); 
+        if(statusText) { statusText.innerText = ''; }
+        
+        setInputValue('staffColor', typeof getRandomColor === 'function' ? getRandomColor() : '#3b82f6'); 
+        setInputValue('staffPhone', ''); 
+        
+        // เคลียร์ค่า PIN
+        setInputValue('staffPin', ''); 
+        
+        setInputValue('staffLine', ''); 
+        setInputValue('staffJobType', 'Full-time'); 
+        setInputValue('staffStatus', 'Active'); 
+        setInputValue('staffSkills', '');
+        setInputValue('staffMaxHours', '48'); 
+        setInputValue('staffStartDate', typeof formatDateString === 'function' ? formatDateString(new Date()) : ''); 
+        setInputValue('staffEndDate', '');
+        
+        if (window.jQuery && $.fn.select2) { $('#staffZones').val(null).trigger('change'); }
+        
+        var titleEl = document.getElementById('modalStaffTitle'); 
+        if(titleEl) titleEl.innerText = 'เพิ่มพนักงานใหม่'; 
+        
+        var histSec = document.getElementById('staffHistorySection'); 
+        if(histSec) histSec.classList.add('hidden');
+
+        var statsSec = document.getElementById('staffIssueStatsSection'); 
+        if(statsSec) statsSec.classList.add('hidden');
+
+        var modal = document.getElementById('staffModal'); 
+        if(modal) modal.classList.remove('hidden');
+    }
+    
+    function editStaff(id) {
+        var h = MOCK_HOUSEKEEPERS.find(function(x) { return x.id === id; }); 
+        if(!h) return;
+        
+        setInputValue('staffId', h.id); 
+        setInputValue('staffName', h.name); 
+        setInputValue('staffNickname', h.nickname || '');
+        setInputValue('staffImageFile', ''); 
+        setInputValue('staffImage', h.avatar && !h.avatar.includes('ui-avatars') ? h.avatar : ''); 
+        
+        var statusText = document.getElementById('uploadStatusText');
+        if(statusText) { 
+            statusText.innerText = h.avatar && !h.avatar.includes('ui-avatars') ? 'มีรูปโปรไฟล์แล้ว (เลือกไฟล์ใหม่เพื่อเปลี่ยน)' : ''; 
+            statusText.className = 'text-[11px] text-gray-500 font-medium mt-1 block'; 
+        }
+        
+        setInputValue('staffColor', h.color || '#3b82f6'); 
+        setInputValue('staffPhone', h.phone || ''); 
+        
+        // ดึงค่า PIN มาใส่ในฟอร์ม
+        setInputValue('staffPin', h.pin || ''); 
+        
+        setInputValue('staffLine', h.lineId || ''); 
+        setInputValue('staffJobType', h.type || 'Full-time'); 
+        setInputValue('staffStatus', h.status || 'Active'); 
+        setInputValue('staffSkills', h.skills || '');
+        setInputValue('staffMaxHours', h.maxHoursWeek || '48'); 
+        setInputValue('staffStartDate', h.startDate || ''); 
+        setInputValue('staffEndDate', h.endDate || '');
+        
+        if (window.jQuery && $.fn.select2) { 
+            var zonesArr = h.zones ? h.zones.split(',').map(function(s) { return s.trim(); }) : [];
+            $('#staffZones').val(zonesArr).trigger('change'); 
+        }
+        
+        var titleEl = document.getElementById('modalStaffTitle'); 
+        if(titleEl) titleEl.innerText = 'แก้ไขข้อมูลพนักงาน'; 
+        
+        if (typeof loadRecordHistory === 'function') {
+            loadRecordHistory('Housekeepers', id, 'staffHistoryContainer', 'staffHistorySection');
+        }
+
+        if(typeof renderStaffIssueStats === 'function') renderStaffIssueStats(id); 
+
+        var modal = document.getElementById('staffModal'); 
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function openUserModal() {
+        setInputValue('userId', ''); 
+        setInputValue('userName', ''); 
+        setInputValue('userEmail', ''); 
+        setInputValue('userRole', 'Viewer'); 
+        setInputValue('userStatus', 'Active');
+        
+        var modal = document.getElementById('userModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+    
+    function editUser(id) {
+        var u = MOCK_USERS.find(function(x) { return x.id === id; }); 
+        if(!u) return;
+        
+        setInputValue('userId', u.id); 
+        setInputValue('userName', u.name); 
+        setInputValue('userEmail', u.email); 
+        setInputValue('userRole', u.role); 
+        setInputValue('userStatus', u.status);
+        
+        var modal = document.getElementById('userModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function initModalForms() {
+        var clientSelect = document.getElementById('modalClient');
+        if (clientSelect) { 
+            clientSelect.innerHTML = '<option value="">-- เลือกสถานที่ --</option>'; 
+            MOCK_CLIENTS.forEach(function(c) { 
+                var opt = document.createElement('option'); 
+                opt.value = c.id; 
+                opt.text = c.name; 
+                clientSelect.appendChild(opt); 
+            });
+            if (window.jQuery && $.fn.select2) $('#modalClient').trigger('change.select2');
+        }
+    }
+</script>
