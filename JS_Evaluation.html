@@ -1,0 +1,205 @@
+<!-- ======================================= -->
+<!-- [PAGE COMPONENT]: EVALUATION (ระบบดูผลประเมินลูกค้า) -->
+<!-- ======================================= -->
+
+<div id="view-evaluation" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f8fafb]">
+    <!-- Header & Filters -->
+    <div class="bg-white px-6 py-4 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brandLight text-brand flex items-center justify-center shadow-sm">
+                <i class="fa-solid fa-star-half-stroke text-lg"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-black text-brand leading-tight">คะแนนประเมินลูกค้า</h3>
+                <p class="text-[11px] text-gray-400 font-medium">Customer Satisfaction Index (CSI)</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
+                <button onclick="changeEvalMonth(-1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-brand transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                <input type="month" id="evalMonthPicker" onchange="renderEvaluations()" class="bg-transparent border-none text-sm font-bold text-brand outline-none px-2 focus:ring-0 cursor-pointer">
+                <button onclick="changeEvalMonth(1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-brand transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+            </div>
+            
+            <div class="relative w-56">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input type="text" id="evalSearch" placeholder="ค้นหาชื่อไซต์งาน..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:border-brand outline-none transition" onkeyup="renderEvaluations()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div id="evalCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Evaluation Cards will be injected here -->
+        </div>
+        
+        <!-- Empty State -->
+        <div id="evalEmptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                <i class="fa-regular fa-comment-dots text-3xl"></i>
+            </div>
+            <h4 class="font-bold text-gray-500">ไม่พบข้อมูลการประเมิน</h4>
+            <p class="text-[12px] text-gray-400">ยังไม่มีลูกค้าส่งแบบประเมินในเดือนที่ท่านเลือก</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * ==========================================
+     * ⭐ Customer Evaluation Logic
+     * ==========================================
+     */
+
+    function initEvaluationView() { 
+        var picker = document.getElementById('evalMonthPicker');
+        if (picker && !picker.value) {
+            var now = new Date();
+            picker.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        }
+        renderEvaluations();
+    }
+
+    function changeEvalMonth(offset) {
+        var picker = document.getElementById('evalMonthPicker');
+        if(!picker.value) return;
+        var date = new Date(picker.value + '-01');
+        date.setMonth(date.getMonth() + offset);
+        picker.value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        renderEvaluations();
+    }
+
+    function renderEvaluations() {
+        var container = document.getElementById('evalCardsContainer');
+        var emptyState = document.getElementById('evalEmptyState');
+        var monthVal = document.getElementById('evalMonthPicker').value;
+        var searchVal = document.getElementById('evalSearch').value.toLowerCase();
+        
+        // 💡 ใช้ MOCK_EVALUATIONS ให้สอดคล้องกับไฟล์ JS_Core.html 
+        if (!container || !MOCK_EVALUATIONS) return;
+
+        // Filter ข้อมูลตามเดือนและคำค้นหา
+        var filtered = MOCK_EVALUATIONS.filter(function(ev) {
+            var client = MOCK_CLIENTS.find(c => c.id === ev.client_id) || { name: '' };
+            return ev.eval_month === monthVal && client.name.toLowerCase().includes(searchVal);
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            emptyState.classList.add('flex');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+
+        var html = '';
+        filtered.forEach(function(ev) {
+            var client = MOCK_CLIENTS.find(c => c.id === ev.client_id) || { name: ev.client_id, color: '#3d5a6c' };
+            
+            // คำนวณคะแนนเฉลี่ย
+            var scores = {};
+            try { scores = JSON.parse(ev.hk_scores); } catch(e) { scores = {}; }
+            
+            var scoreArr = Object.values(scores);
+            var avg = scoreArr.length > 0 ? (scoreArr.reduce((a, b) => a + b, 0) / scoreArr.length).toFixed(1) : 0;
+            
+            html += `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col group">
+                <div class="p-5 border-b border-gray-50 bg-white group-hover:bg-brandLight/20 transition-colors">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-brand text-white rounded-md text-[10px] font-black uppercase tracking-wider">${ev.eval_month}</span>
+                        <div class="flex items-center gap-1 text-yellow-500">
+                            <i class="fa-solid fa-star text-sm"></i>
+                            <span class="text-lg font-black text-gray-800">${avg}</span>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-900 leading-tight mb-1 truncate">${client.name}</h4>
+                    <p class="text-[11px] text-gray-400 font-medium"><i class="fa-regular fa-clock mr-1"></i>ประเมินเมื่อ: ${new Date(ev.created_at).toLocaleDateString('th-TH')}</p>
+                </div>
+                <div class="p-4 bg-gray-50/50 flex-grow">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">ความคิดเห็นลูกค้า:</p>
+                    <p class="text-[12px] text-gray-600 italic leading-relaxed line-clamp-2">"${ev.comment || 'ไม่มีข้อเสนอแนะเพิ่มเติม'}"</p>
+                </div>
+                <div class="p-3 bg-white border-t border-gray-100">
+                    <button onclick="openEvaluationDetail('${ev.eval_id}')" class="w-full py-2.5 bg-brandLight text-brand hover:bg-brand hover:text-white rounded-xl text-[12px] font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-users-viewfinder"></i> ดูคะแนนพนักงานรายคน
+                    </button>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function openEvaluationDetail(evalId) {
+        // 💡 ใช้ MOCK_EVALUATIONS ให้ถูกต้อง
+        var ev = MOCK_EVALUATIONS.find(i => i.eval_id === evalId);
+        if(!ev) return;
+
+        var client = MOCK_CLIENTS.find(c => c.id === ev.client_id) || { name: ev.client_id };
+        var scores = {};
+        try { scores = JSON.parse(ev.hk_scores); } catch(e) { scores = {}; }
+
+        var hkRowsHtml = '';
+        for (var hkId in scores) {
+            var hk = MOCK_HOUSEKEEPERS.find(h => h.id === hkId) || { name: hkId, avatar: '' };
+            var score = scores[hkId];
+            var starsHtml = '';
+            for(var s=1; s<=5; s++) {
+                starsHtml += `<i class="fa-solid fa-star ${s <= score ? 'text-yellow-400' : 'text-gray-100'} text-lg"></i>`;
+            }
+
+            var avatar = hk.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(hk.name)}&background=f0f4f8&color=3d5a6c`;
+
+            hkRowsHtml += `
+            <div class="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <img src="${avatar}" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-gray-800">${hk.name}</span>
+                        <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider">รหัส: ${hk.id}</span>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end gap-1">
+                    <div class="flex gap-1">${starsHtml}</div>
+                    <span class="text-[11px] font-black text-brand">${score}/5 คะแนน</span>
+                </div>
+            </div>`;
+        }
+
+        var detailContent = `
+            <div class="flex flex-col gap-5">
+                <div class="bg-brand text-white p-6 rounded-2xl shadow-inner relative overflow-hidden">
+                    <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4"><i class="fa-solid fa-heart text-8xl"></i></div>
+                    <p class="text-[11px] font-bold uppercase tracking-widest opacity-80 mb-1">ผลประเมินรายบุคคลประจำเดือน</p>
+                    <h3 class="text-xl font-black">${ev.eval_month}</h3>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    ${hkRowsHtml}
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mt-2">
+                    <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">ข้อเสนอแนะเพิ่มเติมจากลูกค้า</h4>
+                    <div class="p-4 bg-brandLight/30 rounded-xl border-l-4 border-brand italic text-gray-700 text-[13px] leading-relaxed">
+                        "${ev.comment || 'ไม่มีข้อเสนอแนะ'}"
+                    </div>
+                </div>
+            </div>
+        `;
+
+        showCustomDialog({
+            title: 'รายละเอียดการประเมิน: ' + client.name,
+            message: detailContent,
+            type: 'info',
+            buttons: [{ text: 'ปิดหน้าต่าง', style: 'cancel' }]
+        });
+
+        var box = document.getElementById('customDialogBox');
+        if(box) box.style.maxWidth = '600px';
+    }
+
+</script>
