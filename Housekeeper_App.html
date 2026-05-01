@@ -2,230 +2,509 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>MARI Housekeeper</title>
     
-    <!-- 💡 ส่วนที่เพิ่มเข้ามาเพื่อให้ติดตั้งเป็น App (Add to Home Screen) บนมือถือได้ -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3d5a6c">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="MARI">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Prompt', 'sans-serif'] },
+                    colors: { brand: '#3d5a6c', brandDark: '#2b404d', brandLight: '#f0f4f8' }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: 'Prompt', sans-serif; background-color: #f0f4f8; -webkit-tap-highlight-color: transparent; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafb; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+        .fade-in { animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* ซ่อน input file แต่ยังให้กดใช้งานได้ผ่านปุ่มอื่น */
         .camera-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        #signatureCanvas { touch-action: none; }
+        
+        /* Animation สำหรับตอนกดดาว */
+        .star-bounce { animation: starBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes starBounce { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+<body class="text-gray-800 h-[100dvh] flex flex-col bg-[#f8fafb] overflow-hidden w-full relative">
 
-    <!-- Navbar -->
-    <div class="bg-[#3d5a6c] text-white px-5 py-4 flex items-center justify-between shadow-md shrink-0 z-50">
-        <div class="flex items-center gap-3 bg-white/10 px-3 py-1.5 rounded-lg">
-            <!-- 💡 เรียกใช้ไฟล์ logo.png จากในโฟลเดอร์ -->
-            <img src="logo.png" alt="MARI Logo" class="h-6 w-auto brightness-0 invert">
+    <div id="appNavbar" class="bg-white px-5 py-4 flex items-center justify-between shadow-sm shrink-0 z-40 hidden border-b border-gray-100">
+        <div class="flex items-center gap-2">
+            <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" alt="MARI Logo" class="h-5 w-auto object-contain">
         </div>
-        <button id="btnLogout" onclick="logout()" class="hidden text-white/80 hover:text-white"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brandLight text-brand flex items-center justify-center border border-brand/20 shadow-inner overflow-hidden shrink-0">
+                <img id="navUserAvatar" src="" class="w-full h-full object-cover hidden" alt="Profile">
+                <i id="navUserIcon" class="fa-solid fa-user text-[11px]"></i>
+            </div>
+            <button onclick="logout()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition shrink-0"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+        </div>
     </div>
 
-    <!-- Main Content Area -->
-    <div class="flex-grow overflow-y-auto relative" id="app-container">
+    <div class="flex-1 flex flex-col overflow-hidden relative w-full" id="app-container">
 
         <!-- ========================================== -->
         <!-- SCREEN 1: LOGIN -->
         <!-- ========================================== -->
-        <div id="screen-login" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-white fade-in z-40">
-            <!-- 💡 เรียกใช้ไฟล์ logo.png จากในโฟลเดอร์ -->
-            <div class="mb-6 flex items-center justify-center">
-                <img src="logo.png" alt="MARI Logo" class="h-16 w-auto drop-shadow-sm">
-            </div>
-            
-            <h1 class="text-xl font-black text-[#3d5a6c] mb-1">ยินดีต้อนรับ</h1>
-            <p class="text-sm text-gray-500 mb-8">เข้าสู่ระบบสำหรับพนักงาน</p>
-
-            <div class="w-full max-w-xs space-y-4 relative">
-                <!-- Loading Overlay Login -->
-                <div id="loginLoading" class="absolute inset-0 bg-white/90 z-10 hidden flex-col items-center justify-center rounded-xl">
-                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-[#3d5a6c] mb-3"></i>
-                    <span class="text-sm font-bold text-gray-600">กำลังตรวจสอบข้อมูล...</span>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1 ml-1">เบอร์โทรศัพท์</label>
-                    <input type="tel" id="loginPhone" placeholder="08X-XXX-XXXX" maxlength="10" class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:bg-white focus:border-[#3d5a6c] outline-none text-center text-lg font-bold tracking-wider transition shadow-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1 ml-1">รหัส PIN 4 หลัก</label>
-                    <input type="password" id="loginPin" placeholder="••••" maxlength="4" class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:bg-white focus:border-[#3d5a6c] outline-none text-center text-2xl tracking-[0.5em] transition shadow-sm">
-                </div>
-                <button onclick="doLogin()" class="w-full mt-6 bg-[#3d5a6c] text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-[#2b404d] active:scale-95 transition-transform text-[15px]">
-                    เข้าสู่ระบบ
-                </button>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- SCREEN 2: DASHBOARD (เช็คอิน/เช็คเอาท์) -->
-        <!-- ========================================== -->
-        <div id="screen-dashboard" class="absolute inset-0 hidden flex-col p-5 fade-in">
-            <h2 class="text-xl font-black text-[#3d5a6c] mb-4">สวัสดีตอนเช้า! <span id="displayUserName" class="text-brand"></span></h2>
-            
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6 flex flex-col h-full max-h-[420px]">
-                <div class="bg-gray-50 p-4 border-b border-gray-100 shrink-0">
-                    <div class="text-[12px] text-gray-500 font-bold mb-1">วันที่ปฏิบัติงาน</div>
-                    <div id="dashDate" class="text-[14px] font-black text-gray-800">-</div>
+        <div id="screen-login" class="h-full w-full hidden flex-col items-center justify-center p-6 bg-gradient-to-br from-brandLight to-white fade-in overflow-y-auto">
+            <div class="w-full max-w-sm bg-white p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white relative overflow-hidden my-auto shrink-0">
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-brand"></div>
+                
+                <div class="mb-8 mt-2 flex justify-center">
+                    <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" alt="MARI Logo" class="h-14 w-auto object-contain">
                 </div>
                 
-                <!-- กรณีมีกะงาน -->
-                <div id="dashHasShift" class="p-5 flex-grow overflow-y-auto hidden">
-                    <div class="mb-4">
-                        <div class="text-[12px] text-gray-500 font-bold mb-0.5">เวลาทำงาน</div>
-                        <div id="dashTime" class="text-[15px] font-black text-gray-800">-</div>
+                <h1 class="text-2xl font-bold text-gray-900 text-center mb-1">เข้าสู่ระบบ</h1>
+                <p class="text-sm text-gray-500 text-center mb-8">Housekeeper & AE App</p>
+
+                <div class="space-y-5 relative">
+                    <div id="loginLoading" class="absolute inset-0 bg-white/90 z-10 hidden flex-col items-center justify-center rounded-xl backdrop-blur-sm">
+                        <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand mb-3"></i>
+                        <span class="text-sm font-bold text-brand mt-2" id="loginLoadingText">กำลังตรวจสอบข้อมูล...</span>
                     </div>
-                    <div class="mb-4">
-                        <div class="text-[12px] text-gray-500 font-bold mb-0.5">สถานที่ทำงาน</div>
-                        <div id="dashSite" class="text-[15px] font-black text-[#3d5a6c]">-</div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">เบอร์โทรศัพท์ / รหัสผู้ใช้</label>
+                        <input type="tel" inputmode="numeric" id="loginPhone" placeholder="08X-XXX-XXXX" maxlength="10" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand/10 outline-none text-center text-lg font-bold tracking-wider transition shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">รหัส PIN 4 หลัก</label>
+                        <div class="relative">
+                            <input type="password" inputmode="numeric" pattern="[0-9]*" id="loginPin" placeholder="••••" maxlength="4" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand/10 outline-none text-center text-2xl tracking-[0.5em] transition shadow-sm text-brand">
+                            <button type="button" onclick="toggleAppPinVisibility()" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-brand transition p-2"><i class="fa-solid fa-eye" id="appPinEyeIcon"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between px-1">
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" id="rememberMe" class="w-4 h-4 rounded border-gray-300 text-brand focus:ring-brand accent-brand">
+                            <span class="text-[12px] font-medium text-gray-500 group-hover:text-brand transition">จดจำการเข้าระบบ</span>
+                        </label>
+                    </div>
+
+                    <button onclick="doLogin()" class="w-full mt-2 bg-brand text-white font-bold py-4 rounded-xl shadow-md hover:bg-brandDark active:scale-[0.98] transition-all text-[15px] flex items-center justify-center gap-2">
+                        เข้าสู่ระบบ <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            <p class="mt-8 mb-4 text-[11px] text-gray-400 font-medium tracking-wider shrink-0">MARI SERVICES WORKFORCE</p>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: DASHBOARD (หน้าหลักแม่บ้าน) -->
+        <!-- ========================================== -->
+        <div id="screen-dashboard" class="h-full w-full hidden flex-col p-5 bg-[#f8fafb] overflow-y-auto custom-scrollbar pb-8 fade-in">
+            <div class="mb-5 flex justify-between items-start gap-2 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full border-2 border-white shadow-sm overflow-hidden bg-brandLight flex items-center justify-center shrink-0">
+                        <img id="dashUserAvatar" src="" class="w-full h-full object-cover hidden" alt="Profile">
+                        <i id="dashUserIcon" class="fa-solid fa-user text-lg text-brand"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900 leading-tight">สวัสดี, <br><span id="displayUserName" class="text-brand font-black text-xl"></span></h2>
+                        <p class="text-gray-500 text-[11px] mt-0.5" id="dashDateHeader">...</p>
+                    </div>
+                </div>
+                <div class="text-right bg-white px-3 py-1.5 rounded-xl shadow-sm border border-gray-100 shrink-0">
+                    <div id="realtimeClock" class="text-lg font-black text-brand tracking-wider">00:00:00</div>
+                    <div class="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center mt-0.5">เวลาปัจจุบัน</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-gray-100 overflow-hidden mb-6 flex flex-col relative shrink-0">
+                <div id="dashHasShift" class="flex flex-col hidden h-full">
+                    <div class="bg-gradient-to-r from-brand to-brandDark p-5 text-white relative overflow-hidden">
+                        <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
+                            <i class="fa-solid fa-briefcase text-8xl"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <span class="inline-block px-2.5 py-1 bg-white/20 rounded-full text-[10px] font-bold tracking-widest mb-2 backdrop-blur-sm border border-white/10 uppercase">งานประจำวันนี้</span>
+                            <h3 id="dashSite" class="text-lg font-bold mb-1 leading-snug truncate">ชื่อไซต์งาน</h3>
+                            <div class="flex items-center gap-2 text-white/80 text-sm font-medium mt-1">
+                                <i class="fa-regular fa-clock"></i>
+                                <span id="dashTime">08:00 - 17:00 น.</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div id="checkinRecordContainer" class="hidden mt-6 pt-4 border-t border-gray-100">
-                        <div class="flex items-center gap-2 text-green-600">
-                            <i class="fa-solid fa-check-circle text-lg"></i>
-                            <span class="text-[13px] font-bold">เริ่มงานแล้วเมื่อ <span id="recordCheckinTime">-</span> น.</span>
+                    <div class="p-5 flex-grow bg-white flex flex-col justify-center">
+                        <div id="checkinRecordContainer" class="hidden mb-3">
+                            <div class="flex items-start gap-3 p-3 rounded-xl bg-green-50/50 border border-green-100">
+                                <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-green-600 uppercase tracking-wider mb-0.5">เวลาเข้างาน</p>
+                                    <p class="text-base font-black text-gray-900"><span id="recordCheckinTime">-</span> น.</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div id="checkoutRecordContainer" class="hidden mt-3">
-                        <div class="flex items-center gap-2 text-[#3d5a6c]">
-                            <i class="fa-solid fa-right-from-bracket text-lg"></i>
-                            <span class="text-[13px] font-bold">เลิกงานแล้วเมื่อ <span id="recordCheckoutTime">-</span> น.</span>
+                        
+                        <div id="checkoutRecordContainer" class="hidden">
+                            <div class="flex items-start gap-3 p-3 rounded-xl bg-blue-50/50 border border-blue-100">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-brand flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-brand uppercase tracking-wider mb-0.5">เวลาเลิกงาน</p>
+                                    <p class="text-base font-black text-gray-900"><span id="recordCheckoutTime">-</span> น.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="dashboardFooter" class="mt-5">
+                            <div id="action-pending-checkin" class="w-full">
+                                <div id="gpsWarning" class="text-[11px] font-medium text-red-500 mb-3 hidden bg-red-50 p-2.5 rounded-xl border border-red-100 flex items-start gap-2">
+                                    <i class="fa-solid fa-location-dot mt-0.5"></i>
+                                    <div>
+                                        <span class="font-bold block">อยู่นอกระยะที่กำหนด</span>
+                                        <span class="text-gray-500 text-[10px] mt-0.5 inline-block">กรุณาเข้าใกล้สถานที่แล้ว <button onclick="checkGPS()" class="font-bold text-brand underline">ลองใหม่</button></span>
+                                    </div>
+                                </div>
+                                <div id="gpsLoading" class="text-[11px] font-bold text-brand mb-3 flex items-center justify-center gap-2 bg-brandLight py-2.5 rounded-xl">
+                                    <i class="fa-solid fa-circle-notch fa-spin"></i> กำลังตรวจสอบพิกัด GPS...
+                                </div>
+                                <button id="btnCheckin" disabled onclick="startFlow('checkin')" class="w-full py-4 bg-gray-200 text-gray-400 rounded-xl font-bold text-[14px] transition-all flex flex-col items-center justify-center gap-1">
+                                    <div class="flex items-center gap-2"><i class="fa-solid fa-camera"></i> ถ่ายรูปเข้างาน</div>
+                                    <span id="gpsCoordsDisplay" class="text-[9px] font-normal opacity-70 hidden">GPS: รอพิกัด</span>
+                                </button>
+                            </div>
+
+                            <div id="action-working" class="w-full hidden">
+                                <button id="btnCheckout" onclick="startFlow('checkout_site')" class="w-full py-4 rounded-xl font-bold text-[14px] transition-all bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white shadow-sm flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-camera"></i> ถ่ายรูปเลิกงาน
+                                </button>
+                            </div>
+
+                            <div id="action-completed" class="w-full hidden">
+                                <div class="text-[12px] font-bold text-green-600 bg-green-50 p-3 rounded-xl border border-green-100 text-center flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-check-circle text-base"></i> ปฏิบัติงานวันนี้เสร็จสมบูรณ์
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- กรณีไม่มีกะงาน -->
-                <div id="dashNoShift" class="p-8 flex-grow flex flex-col items-center justify-center text-center hidden bg-gray-50/50">
-                    <div class="w-20 h-20 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                        <i class="fa-solid fa-calendar-xmark text-3xl"></i>
+                <div id="dashNoShift" class="p-8 flex-grow flex flex-col items-center justify-center text-center hidden bg-white">
+                    <div class="w-20 h-20 bg-brandLight text-brand rounded-full flex items-center justify-center mb-4 shadow-inner relative">
+                        <i class="fa-solid fa-mug-hot text-3xl"></i>
+                        <div class="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
                     </div>
-                    <h3 class="font-bold text-gray-700 text-[15px]">วันนี้ไม่มีรอบปฏิบัติงาน</h3>
-                    <p class="text-[13px] text-gray-500 mt-1">พักผ่อนให้เต็มที่นะคะ!</p>
+                    <h3 class="font-bold text-gray-900 text-base mb-1">วันนี้ไม่มีรอบปฏิบัติงาน</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">พักผ่อนให้เต็มที่ หรือรอการแจ้งเตือน<br>หากมีการเปลี่ยนแปลงตารางงานนะคะ</p>
+                </div>
+            </div>
+            <button onclick="mockGPSInRange()" class="mx-auto text-[9px] text-gray-300 hover:text-gray-500 px-3 py-1.5 transition rounded-full border border-gray-100 flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-code"></i> ข้ามตรวจ GPS (Dev Only)</button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2.5: SCHEDULE (ตารางงานล่วงหน้า แม่บ้าน) -->
+        <!-- ========================================== -->
+        <div id="screen-schedule" class="h-full w-full hidden flex-col p-5 bg-[#f8fafb] overflow-y-auto custom-scrollbar pb-8 fade-in">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">ตารางงานของฉัน</h2>
+            <p class="text-[11px] text-gray-500 mb-4 border-b border-gray-200 pb-3">รายการปฏิบัติงานที่ได้รับมอบหมายใน 7 วันข้างหน้า</p>
+            <div id="scheduleListContainer" class="flex flex-col gap-3"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 5: AE DASHBOARD (หน้าหลักคนตรวจงาน) -->
+        <!-- ========================================== -->
+        <div id="screen-ae-dashboard" class="h-full w-full hidden flex-col p-5 bg-[#f8fafb] overflow-y-auto custom-scrollbar pb-8 fade-in">
+            <div class="mb-5 flex justify-between items-start gap-2 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full border-2 border-white shadow-sm overflow-hidden bg-brandLight flex items-center justify-center shrink-0">
+                        <img id="aeUserAvatar" src="" class="w-full h-full object-cover hidden" alt="Profile">
+                        <i id="aeUserIcon" class="fa-solid fa-user-tie text-lg text-brand"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900 leading-tight">สวัสดี (AE), <br><span id="aeUserName" class="text-brand font-black text-xl"></span></h2>
+                        <p class="text-gray-500 text-[11px] mt-0.5" id="aeDateHeader"></p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    <button onclick="logout()" class="w-8 h-8 flex items-center justify-center rounded-full text-red-400 hover:text-red-600 bg-white shadow-sm border border-gray-100 shrink-0 transition"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
+                    <div class="bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-100 text-center">
+                        <div id="realtimeClockAE" class="text-[13px] font-black text-brand tracking-wider">00:00:00</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-gray-800 mb-3 text-sm">แผนการตรวจงานของคุณ</h3>
+            <div id="aeInspectionList" class="flex flex-col gap-3"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 6: AE INSPECTION (เช็คลิสต์ & แจ้งปัญหา) -->
+        <!-- ========================================== -->
+        <div id="screen-ae-inspection" class="h-full w-full hidden flex-col bg-[#f8fafb] fade-in relative">
+            <div class="bg-white px-4 py-3 flex items-center gap-3 shadow-sm shrink-0 border-b border-gray-100">
+                <button onclick="switchScreen('screen-ae-dashboard')" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition bg-gray-50 shrink-0"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-[14px] font-bold text-gray-900 leading-tight truncate" id="inspectSiteName">ชื่อไซต์งาน</span>
+                    <span class="text-[10px] text-gray-500 font-medium">Checklist ตรวจคุณภาพงานตามจุด</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar pb-10">
+                <div id="inspectChecklistContainer" class="flex flex-col gap-2 mb-5"></div>
+                
+                <div class="border-t-2 border-dashed border-gray-200 pt-4 pb-4">
+                    <h4 class="text-[13px] font-black text-brand mb-1"><i class="fa-solid fa-triangle-exclamation text-orange-400 mr-1"></i> ปัญหาที่พบและการแก้ไข</h4>
+                    <p class="text-[10px] text-gray-500 mb-3">บันทึกรูปภาพก่อนและหลังการแก้ไขปัญหา</p>
+                    <div id="inspectIssuesContainer" class="flex flex-col gap-3 mb-3"></div>
+                    <button onclick="addNewIssue()" class="w-full py-3 bg-white border border-gray-300 border-dashed text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition text-[12px] flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-plus"></i> เพิ่มรายการปัญหา
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] shrink-0 pb-safe">
+                <button onclick="openSummaryScreen()" class="w-full py-3.5 bg-brand text-white font-bold rounded-xl shadow-md hover:bg-brandDark transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2 text-[14px]">
+                    สรุปผลและเซ็นชื่อ <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- ✨ SCREEN 6.5: AE SUMMARY & SIGNATURE -->
+        <!-- ========================================== -->
+        <div id="screen-ae-summary" class="h-full w-full hidden flex-col bg-[#f8fafb] fade-in relative">
+            <div class="bg-white px-4 py-3 flex items-center gap-3 shadow-sm shrink-0 border-b border-gray-100">
+                <button onclick="switchScreen('screen-ae-inspection')" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition bg-gray-50 shrink-0"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-[14px] font-bold text-gray-900 leading-tight">สรุปผลการตรวจงาน</span>
+                    <span class="text-[10px] text-gray-500 font-medium truncate" id="summarySiteName">ไซต์งาน</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-3">
+                    <label class="block text-[12px] font-bold text-brand mb-1.5">1. ระดับคุณภาพโดยรวม <span class="text-red-500">*</span></label>
+                    <select id="summaryQuality" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] focus:border-brand outline-none bg-gray-50 shadow-sm">
+                        <option value="ดีมาก">ดีมาก (Excellent)</option>
+                        <option value="ดี">ดี (Good)</option>
+                        <option value="พอใช้">พอใช้ (Fair)</option>
+                        <option value="ควรปรับปรุง">ควรปรับปรุง (Needs Improvement)</option>
+                    </select>
                 </div>
 
-                <!-- Footer Action Area -->
-                <div id="dashboardFooter" class="p-5 bg-white border-t border-gray-100 flex flex-col items-center justify-center text-center shrink-0">
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-3">
+                    <label class="block text-[12px] font-bold text-brand mb-1.5">2. กำหนดตรวจซ้ำครั้งถัดไป <span class="text-gray-400 font-normal">(Follow up)</span></label>
+                    <input type="date" id="summaryFollowUpDate" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] focus:border-brand outline-none bg-gray-50 shadow-sm">
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-4">
+                    <label class="block text-[12px] font-bold text-brand mb-1.5">3. สัมภาษณ์พนักงาน / ข้อเสนอแนะ</label>
+                    <textarea id="summaryInterview" rows="3" placeholder="ระบุปัญหา, อุปสรรค หรือสิ่งที่ต้องการสนับสนุน..." class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] focus:border-brand outline-none bg-gray-50 resize-none shadow-sm"></textarea>
+                </div>
+
+                <div class="mb-2">
+                    <label class="block text-[12px] font-bold text-brand mb-1.5">4. ลายมือชื่อผู้ตรวจงาน (AE) <span class="text-red-500">*</span></label>
+                    <div class="relative bg-white rounded-2xl border border-gray-200 shadow-inner overflow-hidden mb-2">
+                        <canvas id="signatureCanvas" class="w-full h-32 cursor-crosshair touch-none"></canvas>
+                        <div class="absolute bottom-2 left-0 w-full flex justify-center pointer-events-none">
+                            <span class="text-[9px] text-gray-300 font-medium tracking-widest bg-white px-2 rounded-full border border-gray-100">เซ็นชื่อในกรอบนี้</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button onclick="clearSignature()" class="text-[10px] text-gray-500 hover:text-red-500 transition font-bold px-2 py-1 flex items-center gap-1"><i class="fa-solid fa-eraser"></i> ลบลายเซ็น</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] shrink-0 pb-safe">
+                <button onclick="submitFinalInspection()" class="w-full py-3.5 bg-brand text-white font-bold rounded-xl shadow-md hover:bg-brandDark transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2 text-[14px]">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg"></i> บันทึกและส่งรายงาน
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 💡 SCREEN 8: CUSTOMER EVALUATION (แบบรายบุคคล / ประจำเดือน) -->
+        <!-- ========================================== -->
+        <div id="screen-evaluate" class="h-full w-full hidden flex-col items-center justify-start bg-[#f0f4f8] fade-in overflow-y-auto custom-scrollbar pb-10">
+            
+            <div id="evalLoading" class="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center fade-in">
+                <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand mb-3"></i>
+                <span class="text-sm font-bold text-brand mt-2">กำลังเตรียมแบบประเมิน...</span>
+            </div>
+
+            <div class="w-full bg-brand text-white pt-8 pb-16 px-6 text-center rounded-b-[2rem] shadow-md relative overflow-hidden shrink-0">
+                <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 20px 20px;"></div>
+                <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" class="h-7 mx-auto mb-3 object-contain brightness-0 invert opacity-90 relative z-10">
+                <h2 class="text-lg font-black mb-0.5 relative z-10">แบบประเมินคุณภาพบริการ</h2>
+                <p class="text-[12px] opacity-90 font-medium relative z-10" id="evalMonthText">ประจำเดือน ...</p>
+            </div>
+
+            <div class="w-full max-w-sm px-4 -mt-10 mb-8 relative z-20 shrink-0">
+                <div class="bg-white rounded-[1.5rem] shadow-xl border border-gray-100 p-5 flex flex-col items-center">
                     
-                    <!-- รอเช็คอิน -->
-                    <div id="action-pending-checkin" class="w-full">
-                        <div id="gpsWarning" class="text-[11px] font-bold text-red-500 mb-3 hidden bg-red-50 p-2 rounded-lg border border-red-100">
-                            <i class="fa-solid fa-location-dot"></i> คุณอยู่นอกระยะทางที่กำหนด<br>
-                            <span class="text-gray-500 font-medium mt-1 inline-block">กรุณาเดินเข้าใกล้สถานที่ทำงานแล้ว Refresh <button onclick="checkGPS()" class="underline text-[#3d5a6c]">กดที่นี่</button></span>
-                        </div>
-                        <div id="gpsLoading" class="text-[12px] font-bold text-blue-500 mb-3">
-                            <i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังตรวจสอบตำแหน่งพิกัด...
-                        </div>
-                        <button id="btnCheckin" disabled onclick="startFlow('checkin')" class="w-full py-3.5 rounded-xl font-bold text-[15px] transition-all bg-gray-300 text-gray-500">
-                            เริ่มงาน
-                        </button>
+                    <div class="w-full text-center border-b border-gray-100 pb-3 mb-4">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">สถานที่รับบริการ</p>
+                        <h3 class="text-[15px] font-black text-brand leading-tight" id="evalSiteName">กำลังโหลดข้อมูล...</h3>
                     </div>
 
-                    <!-- กำลังทำงาน (รอเช็คเอาท์) -->
-                    <div id="action-working" class="w-full hidden">
-                        <div id="timeWarning" class="text-[11px] font-bold text-orange-500 mb-3 hidden bg-orange-50 p-2 rounded-lg border border-orange-100">
-                            คุณสามารถเลิกงานได้ตามเวลาที่กำหนดเท่านั้น
-                        </div>
-                        <button id="btnCheckout" onclick="startFlow('checkout_site')" class="w-full py-3.5 rounded-xl font-bold text-[15px] transition-all bg-white border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white shadow-sm">
-                            <i class="fa-solid fa-camera mr-1"></i> เลิกงาน
-                        </button>
+                    <div class="w-full mb-2 text-center">
+                        <label class="block text-[13px] font-bold text-gray-800 mb-2">ประเมินพนักงานผู้ให้บริการ</label>
+                        <p class="text-[10px] text-gray-500 mb-4">กรุณาให้คะแนนพนักงานแต่ละท่านตามความพึงพอใจ</p>
                     </div>
 
-                    <!-- เสร็จสิ้น -->
-                    <div id="action-completed" class="w-full hidden">
-                        <div class="text-[13px] font-bold text-green-600 mb-4 bg-green-50 p-2.5 rounded-lg border border-green-100">
-                            <i class="fa-solid fa-clipboard-check mr-1"></i> ปฏิบัติงานของวันนี้เสร็จสิ้นแล้ว
-                        </div>
-                        <button onclick="logout()" class="w-full py-3 rounded-xl font-bold text-[14px] transition-all border border-gray-300 text-gray-600 hover:bg-gray-100 shadow-sm">
-                            ปิดหน้าต่าง / ออกระบบ
-                        </button>
+                    <!-- 💡 คอนเทนเนอร์รายการแม่บ้าน (จะถูกสร้างจาก JS ทีละคน) -->
+                    <div id="evalHkListContainer" class="w-full flex flex-col gap-3 mb-5">
                     </div>
 
+                    <div class="w-full mb-5">
+                        <label class="block text-[12px] font-bold text-gray-600 mb-2"><i class="fa-regular fa-comment-dots mr-1"></i> ข้อเสนอแนะ หรือคำชมเชยเพิ่มเติม</label>
+                        <textarea id="evalComment" rows="3" placeholder="พิมพ์ข้อความที่นี่..." class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[12px] focus:border-brand outline-none bg-gray-50 resize-none shadow-inner transition"></textarea>
+                    </div>
+
+                    <button onclick="submitCustomerEvaluation()" class="w-full py-3.5 bg-brand text-white font-bold rounded-xl shadow-[0_4px_15px_0_rgba(61,90,108,0.3)] hover:bg-brandDark transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2 text-[14px]">
+                        ส่งแบบประเมิน <i class="fa-solid fa-paper-plane"></i>
+                    </button>
                 </div>
             </div>
             
-            <button onclick="mockGPSInRange()" class="mt-auto mx-auto text-[11px] text-gray-400 hover:text-brand underline p-2 transition"><i class="fa-solid fa-laptop-code mr-1"></i> [DEV] ข้ามการตรวจ GPS</button>
+            <p class="text-[10px] text-gray-400 font-medium mb-6 shrink-0 text-center px-4">ความคิดเห็นของท่านมีค่าอย่างยิ่ง<br>เพื่อนำไปพัฒนาการบริการให้ดียิ่งขึ้น</p>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SCREEN 3: กล้องถ่ายรูป (Instruction) -->
-        <!-- ========================================== -->
-        <div id="screen-camera" class="absolute inset-0 hidden flex-col items-center justify-center p-6 bg-white fade-in z-50">
-            <h3 id="cameraInstructionTitle" class="text-[16px] font-black text-center text-gray-800 mb-10 leading-relaxed">ถ่ายรูปเพื่อยืนยันว่า<br>คุณถึงสถานที่ทำงานแล้ว</h3>
-            
-            <button onclick="document.getElementById('cameraInput').click()" class="w-48 h-48 rounded-3xl border-2 border-dashed border-[#3d5a6c] bg-[#f0f4f8] flex flex-col items-center justify-center text-[#3d5a6c] hover:bg-[#3d5a6c]/10 transition-colors mb-12 shadow-inner">
-                <i class="fa-solid fa-camera text-6xl mb-4 text-[#3d5a6c]/80"></i>
-                <span class="font-bold text-[15px]">แตะเพื่อเปิดกล้อง</span>
-            </button>
-            
-            <input type="file" id="cameraInput" accept="image/*" capture="environment" class="camera-input" onchange="processCapturedImage(event)">
-
-            <button onclick="cancelFlow()" class="px-10 py-3 bg-gray-100 border border-gray-200 text-gray-600 font-bold rounded-full text-[14px] shadow-sm hover:bg-gray-200 transition">
-                ย้อนกลับ
-            </button>
+        <div id="screen-evaluate-success" class="h-full w-full hidden flex-col items-center justify-center bg-white fade-in p-6 text-center">
+            <div class="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative border border-green-100">
+                <i class="fa-solid fa-heart text-5xl text-green-500 animate-pulse"></i>
+            </div>
+            <h2 class="text-2xl font-black text-gray-900 mb-2">ขอบคุณค่ะ!</h2>
+            <p class="text-sm text-gray-500 mb-8 max-w-[250px] leading-relaxed">MARI Services ได้รับแบบประเมิน<br>ของท่านเรียบร้อยแล้วค่ะ</p>
+            <button onclick="window.close()" class="px-8 py-3 bg-gray-100 text-gray-600 font-bold rounded-full text-[13px] hover:bg-gray-200 transition">ปิดหน้าต่างนี้</button>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SCREEN 4: PREVIEW & CONFIRM -->
-        <!-- ========================================== -->
-        <div id="screen-preview" class="absolute inset-0 hidden flex-col items-center justify-start pt-8 pb-6 px-6 bg-gray-900 fade-in z-[60]">
-            
-            <div id="uploadingOverlay" class="absolute inset-0 bg-gray-900/95 z-50 hidden flex-col items-center justify-center backdrop-blur-sm">
-                <i class="fa-solid fa-cloud-arrow-up text-5xl text-white mb-4 animate-bounce"></i>
-                <p class="font-bold text-white text-lg tracking-wide">กำลังส่งข้อมูลรูปภาพ...</p>
-                <p class="text-[13px] text-gray-300 mt-2">โปรดรอสักครู่ ห้ามปิดแอปนะคะ</p>
-            </div>
+    </div> <!-- End Main Content (Flex-1) -->
 
-            <h3 class="text-white font-bold text-[15px] mb-4">ตรวจสอบรูปภาพ</h3>
-
-            <div class="w-full max-w-sm p-1 bg-white/10 rounded-2xl mb-8">
-                <div class="aspect-[3/4] w-full bg-black rounded-xl overflow-hidden relative border border-gray-700">
-                    <img id="previewImage" src="" class="w-full h-full object-contain">
-                </div>
-            </div>
-
-            <div class="flex gap-4 w-full max-w-sm mt-auto">
-                <button onclick="document.getElementById('cameraInput').click()" class="flex-1 py-3.5 bg-white/20 text-white font-bold rounded-xl text-[14px] hover:bg-white/30 transition">
-                    <i class="fa-solid fa-rotate-left mr-1"></i> ถ่ายใหม่
-                </button>
-                <button onclick="confirmImage()" class="flex-1 py-3.5 bg-green-500 text-white font-black rounded-xl text-[14px] shadow-[0_4px_14px_0_rgba(34,197,94,0.39)] hover:bg-green-600 hover:shadow-[0_6px_20px_rgba(34,197,94,0.23)] transition transform hover:-translate-y-0.5">
-                    ยืนยัน <i class="fa-solid fa-check ml-1"></i>
-                </button>
-            </div>
-        </div>
-
+    <!-- ========================================== -->
+    <!-- Bottom Navigation Bar สำหรับแม่บ้าน (Fixed Bottom) -->
+    <!-- ========================================== -->
+    <div id="appBottomNav" class="bg-white border-t border-gray-100 flex justify-around items-center pb-safe pt-1.5 shrink-0 z-40 hidden shadow-[0_-10px_20px_rgba(0,0,0,0.03)] rounded-t-[1.5rem]">
+        <button onclick="switchAppTab('home')" id="tabHome" class="flex-1 flex flex-col items-center py-2 text-brand transition-colors relative">
+            <i class="fa-solid fa-house text-lg mb-1"></i>
+            <span class="text-[9px] font-bold">หน้าหลัก</span>
+            <div id="tabIndicatorHome" class="absolute -top-1.5 left-1/2 transform -translate-x-1/2 w-6 h-1 bg-brand rounded-full"></div>
+        </button>
+        <button onclick="switchAppTab('schedule')" id="tabSchedule" class="flex-1 flex flex-col items-center py-2 text-gray-400 hover:text-brand transition-colors relative">
+            <i class="fa-regular fa-calendar-days text-lg mb-1"></i>
+            <span class="text-[9px] font-bold">ตารางงาน</span>
+            <div id="tabIndicatorSchedule" class="absolute -top-1.5 left-1/2 transform -translate-x-1/2 w-6 h-1 bg-brand rounded-full hidden"></div>
+        </button>
     </div>
 
-    <!-- 💡 ป๊อปอัปแจ้งเตือน Custom Alert -->
-    <div id="customAlertOverlay" class="fixed inset-0 bg-gray-900/60 z-[999999] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xs overflow-hidden flex flex-col mx-4 transform scale-100 transition-transform duration-200">
-            <div class="p-6 flex flex-col items-center text-center">
-                <div id="customAlertIcon" class="w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                    <!-- Icon จะถูกแทนที่ด้วย JS -->
-                </div>
-                <h3 id="customAlertTitle" class="text-[18px] font-black text-gray-900 mb-2">Title</h3>
-                <p id="customAlertMessage" class="text-[14px] text-gray-500 font-medium mb-6">Message</p>
-                <button onclick="closeCustomAlert()" class="w-full py-3.5 bg-[#3d5a6c] text-white font-bold rounded-xl shadow-md hover:bg-[#2b404d] active:scale-95 transition-transform text-[15px]">
+    <!-- ========================================== -->
+    <!-- OVERLAYS: กล้อง, Preview, QR, Alert -->
+    <!-- ========================================== -->
+
+    <!-- SCREEN 7: AE QR CODE -->
+    <div id="screen-ae-qr" class="absolute inset-0 hidden flex-col items-center justify-center bg-brandDark fade-in z-[80]">
+        <button onclick="switchScreen('screen-ae-dashboard')" class="absolute top-6 left-6 text-white/70 hover:text-white w-10 h-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+        
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl flex flex-col items-center max-w-[280px] w-full mx-6 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-brand"></div>
+            <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" class="h-7 mb-5 opacity-90 object-contain">
+            <h3 class="text-[15px] font-bold text-gray-900 mb-1">สแกนเพื่อประเมินผล</h3>
+            <p class="text-[11px] text-brand mb-5 font-bold bg-brandLight px-3 py-1 rounded-md inline-block max-w-full truncate" id="qrSiteName">Inno Store @Wmall</p>
+            
+            <div class="w-48 h-48 bg-white rounded-xl mb-5 p-2 flex items-center justify-center relative overflow-hidden border-2 border-gray-100 shadow-sm">
+                <img id="qrCodeImage" src="" class="w-full h-full object-cover">
+            </div>
+            
+            <p class="text-[10px] text-gray-500 font-medium leading-relaxed">รบกวนคุณลูกค้าสแกน QR Code นี้<br>เพื่อประเมินคุณภาพการทำความสะอาดนะคะ</p>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: กล้องถ่ายรูป -->
+    <div id="screen-camera" class="absolute inset-0 hidden flex-col items-center justify-center p-6 bg-gray-900 fade-in z-[90]">
+        <h3 id="cameraInstructionTitle" class="text-lg font-bold text-center text-white mb-2 leading-relaxed">ถ่ายรูปให้เห็นเต็มตัว<br>พร้อมสถานที่</h3>
+        <p id="cameraSubTitle" class="text-[12px] text-gray-400 mb-8 text-center px-4">รูปภาพจะถูกประทับเวลาและพิกัด GPS อัตโนมัติ</p>
+        
+        <button onclick="document.getElementById('cameraInput').click()" class="w-48 h-48 sm:w-56 sm:h-56 rounded-full border border-white/20 bg-white/5 flex flex-col items-center justify-center text-white hover:bg-white/10 transition-colors mb-10 shadow-[0_0_50px_rgba(255,255,255,0.1)] relative group">
+            <div class="absolute inset-0 rounded-full border border-white/30 scale-110 animate-ping" style="animation-duration: 3s;"></div>
+            <i class="fa-solid fa-camera text-5xl sm:text-6xl mb-3 text-white"></i>
+            <span class="font-bold text-[13px] sm:text-[15px] tracking-wide" id="cameraBtnText">แตะเพื่อเปิดกล้องหน้า</span>
+        </button>
+        
+        <input type="file" id="cameraInput" accept="image/*" class="camera-input" onchange="processCapturedImage(event)">
+
+        <button onclick="cancelFlow()" class="px-8 py-3 bg-white/10 text-white font-bold rounded-full text-sm hover:bg-white/20 transition backdrop-blur-md">
+            ยกเลิก
+        </button>
+    </div>
+
+    <!-- SCREEN 4: PREVIEW & CONFIRM -->
+    <div id="screen-preview" class="absolute inset-0 hidden flex-col items-center justify-start pt-8 pb-6 px-5 bg-gray-900 fade-in z-[95]">
+        
+        <div id="uploadingOverlay" class="absolute inset-0 bg-gray-900/95 z-[100] hidden flex-col items-center justify-center backdrop-blur-md">
+            <div class="relative w-16 h-16 mb-5">
+                <div class="absolute inset-0 rounded-full border-4 border-brand/30 border-t-brand animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-brand"><i class="fa-solid fa-cloud-arrow-up text-xl"></i></div>
+            </div>
+            <p class="font-bold text-white text-base tracking-wide mb-1">กำลังอัปโหลด/บันทึกข้อมูล...</p>
+            <p class="text-[10px] text-gray-400">กรุณารอสักครู่ ห้ามปิดแอปพลิเคชัน</p>
+        </div>
+
+        <h3 class="text-white font-bold text-[14px] mb-4 shrink-0">ตรวจสอบรูปภาพและลายน้ำ</h3>
+
+        <div class="w-full max-w-sm p-1 bg-white/5 rounded-2xl mb-5 flex-1 min-h-0 flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
+            <img id="previewImage" src="" class="w-full h-full object-contain rounded-[1rem]">
+        </div>
+
+        <div id="previewActionsNormal" class="flex gap-3 w-full max-w-sm mt-auto shrink-0 pb-safe">
+            <button onclick="document.getElementById('cameraInput').click()" class="flex-1 py-3.5 bg-white/10 text-white font-bold rounded-xl text-[13px] hover:bg-white/20 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> ถ่ายใหม่
+            </button>
+            <button onclick="confirmImage('normal')" class="flex-1 py-3.5 bg-brand text-white font-bold rounded-xl text-[13px] shadow-[0_4px_20px_0_rgba(61,90,108,0.4)] hover:bg-brandDark transition flex items-center justify-center gap-2">
+                ยืนยัน <i class="fa-solid fa-check"></i>
+            </button>
+        </div>
+
+        <div id="previewActionsInspect" class="flex gap-2 w-full max-w-sm mt-auto shrink-0 pb-safe hidden">
+            <button onclick="document.getElementById('cameraInput').click()" class="w-12 h-[52px] bg-white/10 text-white font-bold rounded-xl text-[14px] hover:bg-white/20 transition flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            <button onclick="confirmImage('fail')" class="flex-1 h-[52px] bg-red-500 text-white font-bold rounded-xl text-[12px] shadow-sm hover:bg-red-600 transition flex flex-col items-center justify-center leading-tight">
+                <span>ไม่ผ่าน</span><span class="text-[9px] font-medium opacity-80">(สร้างปัญหา)</span>
+            </button>
+            <button onclick="confirmImage('pass')" class="flex-1 h-[52px] bg-green-500 text-white font-bold rounded-xl text-[12px] shadow-sm hover:bg-green-600 transition flex flex-col items-center justify-center leading-tight">
+                <span>ผ่าน</span><span class="text-[9px] font-medium opacity-80">(ปกติ)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Alert -->
+    <div id="customAlertOverlay" class="fixed inset-0 bg-gray-900/60 z-[999999] hidden flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div id="customDialogBox" class="bg-white rounded-3xl shadow-2xl w-full max-w-[280px] overflow-hidden flex flex-col mx-4 transform scale-95 transition-transform duration-200">
+            <div class="p-6 flex flex-col items-center text-center pt-8">
+                <div id="customAlertIcon" class="w-14 h-14 rounded-full flex items-center justify-center mb-4"></div>
+                <h3 id="customAlertTitle" class="text-[16px] font-bold text-gray-900 mb-2">Title</h3>
+                <p id="customAlertMessage" class="text-[12px] text-gray-500 font-medium mb-5 leading-relaxed">Message</p>
+                <button onclick="closeCustomAlert()" class="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-md hover:bg-brandDark active:scale-95 transition-transform text-[13px]">
                     ตกลง
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Hidden Canvas สำหรับบีบอัดรูป -->
     <canvas id="compressCanvas" class="hidden"></canvas>
 
     <script>
@@ -234,57 +513,240 @@
         // -------------------------------------------------------------
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs_2fkSEdyfm182Huf3LSimTRhm0ayPZXFor9ASuCviqwNkpvy8JXmbCjyah_ouAzP/exec';
         
-        // --- State Management ---
         var APP_STATE = {
-            user: null,
-            shift: null,
-            status: 'pending_checkin', 
-            currentIntent: '', 
-            tempImageBase64: null,
-            checkoutSiteImg: null,
-            checkoutDocImg: null,
-            currentLat: null,
-            currentLng: null
+            user: null, shift: null, status: 'pending_checkin', currentIntent: '', 
+            upcomingShifts: [], 
+            aeRole: false, upcomingInspections: [], currentInspection: null, currentItemId: null,
+            tempImageBase64: null, checkoutSiteImg: null, checkoutDocImg: null,
+            currentLat: null, currentLng: null, clockInterval: null,
+            // 💡 State สำหรับประเมิน
+            evalClientId: null, evalMonth: null, evalScores: {} 
         };
 
-        // --- Custom Alert Function ---
-        function showCustomAlert(title, message, type = 'warning') {
-            const overlay = document.getElementById('customAlertOverlay');
-            const titleEl = document.getElementById('customAlertTitle');
-            const msgEl = document.getElementById('customAlertMessage');
-            const iconEl = document.getElementById('customAlertIcon');
+        // 💡 ตรวจจับ URL ตอนเปิดแอป
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const evaluateId = urlParams.get('evaluate');
+            const evalMonth = urlParams.get('month'); // รับเดือนจาก URL เช่น 2026-05
 
-            titleEl.innerText = title;
-            msgEl.innerText = message;
-
-            if (type === 'error') {
-                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-500';
-                iconEl.innerHTML = '<i class="fa-solid fa-xmark text-3xl"></i>';
-            } else if (type === 'warning') {
-                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-orange-100 text-orange-500';
-                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-3xl"></i>';
-            } else if (type === 'success') {
-                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-green-100 text-green-500';
-                iconEl.innerHTML = '<i class="fa-solid fa-check text-3xl"></i>';
+            if (evaluateId) {
+                // ถ้าสแกน QR เข้ามา ให้เข้าสู่โหมดประเมินผล
+                APP_STATE.evalClientId = evaluateId;
+                APP_STATE.evalMonth = evalMonth || new Date().toISOString().substring(0, 7);
+                initEvaluationMode();
             } else {
-                iconEl.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-blue-100 text-blue-500';
-                iconEl.innerHTML = '<i class="fa-solid fa-circle-info text-3xl"></i>';
+                autoLoginCheck();
+                startRealtimeClock();
+            }
+        });
+
+        // -------------------------------------------------------------
+        // 💡 ฟังก์ชันสำหรับโหมดประเมินความพึงพอใจลูกค้า (รายบุคคล/เดือน)
+        // -------------------------------------------------------------
+        async function initEvaluationMode() {
+            switchScreen('screen-evaluate');
+            
+            // แปลงเดือนเป็นภาษาไทย
+            let parts = APP_STATE.evalMonth.split('-');
+            let mthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+            if(parts.length === 2) {
+                let mthText = "ประจำเดือน " + mthNames[parseInt(parts[1])-1] + " " + (parseInt(parts[0])+543);
+                document.getElementById('evalMonthText').innerText = mthText;
             }
 
+            const res = await callAPI({ action: 'GET_CLIENT_EVAL_INFO', clientId: APP_STATE.evalClientId, month: APP_STATE.evalMonth });
+            
+            document.getElementById('evalLoading').classList.add('hidden');
+            
+            if (res.success) {
+                document.getElementById('evalSiteName').innerText = res.clientName;
+                renderEvalHousekeepers(res.housekeepers);
+            } else {
+                // 💡 จำลองระบบให้คุณทดสอบได้ทันที (Mock Data) ถ้ายังไม่ได้ต่อ API
+                if(APP_STATE.evalClientId) {
+                     document.getElementById('evalSiteName').innerText = "Inno Store @Wmall (ทดสอบ)";
+                     renderEvalHousekeepers([
+                         { id: 'HK-001', name: 'สมใจ รักสะอาด', avatar: '' },
+                         { id: 'HK-002', name: 'สมศรี ขยันดี', avatar: '' }
+                     ]);
+                } else {
+                    document.getElementById('evalSiteName').innerText = "ไม่ทราบชื่อสถานที่";
+                    if(res.message) showCustomAlert('แจ้งเตือน', res.message, 'warning');
+                }
+            }
+        }
+
+        // 💡 ฟังก์ชันสร้างรายการแม่บ้านที่เข้างานในเดือนนั้นๆ
+        function renderEvalHousekeepers(housekeepers) {
+            APP_STATE.evalScores = {};
+            const container = document.getElementById('evalHkListContainer');
+            
+            if(!housekeepers || housekeepers.length === 0) {
+               container.innerHTML = '<div class="text-[12px] text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100">ไม่พบรายชื่อพนักงานที่เข้าปฏิบัติงานในเดือนนี้</div>';
+               return;
+            }
+
+            let html = '';
+            housekeepers.forEach(hk => {
+                APP_STATE.evalScores[hk.id] = 0; // ค่าเริ่มต้นคือ 0 ดาว
+                let avatar = hk.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(hk.name)}&background=f0f4f8&color=3d5a6c`;
+                
+                html += `
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 flex flex-col items-center gap-2 relative mb-3 shadow-sm w-full">
+                    <img src="${avatar}" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm">
+                    <div class="text-center mb-1">
+                        <p class="text-[13px] font-bold text-gray-900">${hk.name}</p>
+                    </div>
+                    <div class="flex justify-center gap-1.5 hk-stars" data-hkid="${hk.id}">
+                        <i class="fa-solid fa-star text-3xl text-gray-200 cursor-pointer transition-all" data-val="1"></i>
+                        <i class="fa-solid fa-star text-3xl text-gray-200 cursor-pointer transition-all" data-val="2"></i>
+                        <i class="fa-solid fa-star text-3xl text-gray-200 cursor-pointer transition-all" data-val="3"></i>
+                        <i class="fa-solid fa-star text-3xl text-gray-200 cursor-pointer transition-all" data-val="4"></i>
+                        <i class="fa-solid fa-star text-3xl text-gray-200 cursor-pointer transition-all" data-val="5"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-brand h-4 mt-1 eval-score-text-${hk.id}"></p>
+                </div>`;
+            });
+            container.innerHTML = html;
+
+            // ผูก Event ให้ดาว
+            document.querySelectorAll('.hk-stars').forEach(group => {
+                let hkId = group.getAttribute('data-hkid');
+                let stars = group.querySelectorAll('i');
+                let textEl = document.querySelector(`.eval-score-text-${hkId}`);
+                const texts = ["", "ควรปรับปรุง (1/5)", "น้อย (2/5)", "พอใช้ (3/5)", "ดี (4/5)", "ดีมาก ยอดเยี่ยม! (5/5)"];
+
+                stars.forEach(star => {
+                    star.addEventListener('click', (e) => {
+                        let val = parseInt(e.target.getAttribute('data-val'));
+                        APP_STATE.evalScores[hkId] = val;
+                        
+                        stars.forEach((s, idx) => {
+                            s.classList.remove('star-bounce'); void s.offsetWidth;
+                            if(idx < val) {
+                                s.classList.remove('text-gray-200'); s.classList.add('text-yellow-400', 'star-bounce');
+                            } else {
+                                s.classList.remove('text-yellow-400'); s.classList.add('text-gray-200');
+                            }
+                        });
+                        textEl.innerText = texts[val];
+                        if(val <= 2) textEl.className = `text-[11px] font-bold text-red-500 h-4 mt-1 eval-score-text-${hkId}`;
+                        else textEl.className = `text-[11px] font-bold text-brand h-4 mt-1 eval-score-text-${hkId}`;
+                    });
+                });
+            });
+        }
+
+        async function submitCustomerEvaluation() {
+            // เช็คว่ากดดาวให้ครบทุกคนหรือยัง
+            let allRated = true;
+            let hks = Object.keys(APP_STATE.evalScores);
+            if (hks.length > 0) {
+                hks.forEach(hkId => { if(APP_STATE.evalScores[hkId] === 0) allRated = false; });
+                if (!allRated) {
+                    showCustomAlert('ให้คะแนนไม่ครบ', 'รบกวนให้คะแนนประเมินพนักงานให้ครบทุกคนด้วยค่ะ', 'warning');
+                    return;
+                }
+            }
+
+            const comment = document.getElementById('evalComment').value;
+            
+            const overlay = document.getElementById('uploadingOverlay');
+            overlay.querySelector('p.text-base').innerText = "กำลังส่งแบบประเมิน...";
+            overlay.classList.remove('hidden'); overlay.classList.add('flex'); overlay.style.zIndex = '99999';
+
+            const payload = {
+                action: 'SUBMIT_EVALUATION',
+                clientId: APP_STATE.evalClientId,
+                month: APP_STATE.evalMonth,
+                scores: APP_STATE.evalScores,
+                comment: comment
+            };
+
+            const res = await callAPI(payload);
+            
+            overlay.classList.add('hidden'); overlay.classList.remove('flex');
+
+            if (res.success) {
+                switchScreen('screen-evaluate-success');
+            } else {
+                showCustomAlert('เกิดข้อผิดพลาด', 'ไม่สามารถส่งแบบประเมินได้: ' + res.message, 'error');
+            }
+        }
+
+        // -------------------------------------------------------------
+        // ฟังก์ชันระบบหลักเดิม (Login / Dashboard / AE / Camera)
+        // -------------------------------------------------------------
+
+        function autoLoginCheck() {
+            var savedDataStr = localStorage.getItem('mari_hk_remember');
+            if (savedDataStr) {
+                try {
+                    var savedData = JSON.parse(savedDataStr);
+                    document.getElementById('loginPhone').value = savedData.phone;
+                    document.getElementById('loginPin').value = savedData.pin;
+                    document.getElementById('rememberMe').checked = true;
+                } catch(e) {}
+            }
+            switchScreen('screen-login');
+        }
+
+        function toggleAppPinVisibility() {
+            var pinInput = document.getElementById('loginPin');
+            var icon = document.getElementById('appPinEyeIcon');
+            if (pinInput.type === 'password') {
+                pinInput.type = 'tel'; 
+                icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash');
+                pinInput.classList.remove('tracking-[0.5em]');
+                pinInput.classList.add('tracking-widest');
+            } else {
+                pinInput.type = 'password';
+                icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye');
+                pinInput.classList.add('tracking-[0.5em]');
+                pinInput.classList.remove('tracking-widest');
+            }
+        }
+
+        function showCustomAlert(title, message, type = 'warning') {
+            const overlay = document.getElementById('customAlertOverlay');
+            const box = document.getElementById('customDialogBox');
+            const iconEl = document.getElementById('customAlertIcon');
+            
+            document.getElementById('customAlertTitle').innerText = title;
+            document.getElementById('customAlertMessage').innerText = message;
+
+            if (type === 'error') {
+                iconEl.className = 'w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-red-50 text-red-500 ring-4 ring-red-50';
+                iconEl.innerHTML = '<i class="fa-solid fa-xmark text-2xl"></i>';
+            } else if (type === 'warning') {
+                iconEl.className = 'w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-orange-50 text-orange-500 ring-4 ring-orange-50';
+                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-2xl"></i>';
+            } else if (type === 'success') {
+                iconEl.className = 'w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-green-50 text-green-500 ring-4 ring-green-50';
+                iconEl.innerHTML = '<i class="fa-solid fa-check text-2xl"></i>';
+            } else {
+                iconEl.className = 'w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-brandLight text-brand ring-4 ring-brand/10';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-info text-2xl"></i>';
+            }
+            
             overlay.classList.remove('hidden');
-            overlay.classList.add('flex');
+            void overlay.offsetWidth; 
+            overlay.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+            box.classList.add('scale-100');
         }
 
         function closeCustomAlert() {
             const overlay = document.getElementById('customAlertOverlay');
-            overlay.classList.add('hidden');
-            overlay.classList.remove('flex');
+            const box = document.getElementById('customDialogBox');
+            overlay.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => { overlay.classList.add('hidden'); }, 200);
         }
 
-        // --- Core Functions ---
         async function callAPI(payload) {
             try {
-                // ใช้ Text/Plain เพื่อหลีกเลี่ยงปัญหา CORS Preflight
                 const res = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -292,32 +754,89 @@
                 });
                 return await res.json();
             } catch (error) {
-                console.error('API Error:', error);
                 showCustomAlert('ข้อผิดพลาดการเชื่อมต่อ', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง', 'error');
                 return { success: false };
             }
         }
 
-        function switchScreen(screenId) {
-            ['screen-login', 'screen-dashboard', 'screen-camera', 'screen-preview'].forEach(id => {
-                let el = document.getElementById(id);
-                if(el) {
-                    if(id === screenId) {
-                        el.classList.remove('hidden'); el.classList.add('flex');
-                    } else {
-                        el.classList.add('hidden'); el.classList.remove('flex');
-                    }
-                }
-            });
+        function switchAppTab(tabId) {
+            document.getElementById('screen-dashboard').classList.add('hidden');
+            document.getElementById('screen-dashboard').classList.remove('flex');
+            document.getElementById('screen-schedule').classList.add('hidden');
+            document.getElementById('screen-schedule').classList.remove('flex');
+
+            document.getElementById('tabHome').className = "flex-1 flex flex-col items-center py-2 text-brand transition-colors relative";
+            document.getElementById('tabSchedule').className = "flex-1 flex flex-col items-center py-2 text-gray-400 hover:text-brand transition-colors relative";
+            document.getElementById('tabIndicatorHome').classList.add('hidden');
+            document.getElementById('tabIndicatorSchedule').classList.add('hidden');
+
+            if (tabId === 'home') {
+                document.getElementById('tabHome').className = "flex-1 flex flex-col items-center py-2 text-brand transition-colors relative";
+                document.getElementById('tabIndicatorHome').classList.remove('hidden');
+                document.getElementById('screen-dashboard').classList.remove('hidden');
+                document.getElementById('screen-dashboard').classList.add('flex');
+            } else if (tabId === 'schedule') {
+                document.getElementById('tabSchedule').className = "flex-1 flex flex-col items-center py-2 text-gray-400 hover:text-brand transition-colors relative";
+                document.getElementById('tabIndicatorSchedule').classList.remove('hidden');
+                renderUpcomingSchedule(); 
+                document.getElementById('screen-schedule').classList.remove('hidden');
+                document.getElementById('screen-schedule').classList.add('flex');
+            }
         }
 
-        // --- Flows ---
+        function switchScreen(screenId) {
+            ['screen-login', 'screen-dashboard', 'screen-schedule', 'screen-camera', 'screen-preview', 'screen-ae-dashboard', 'screen-ae-inspection', 'screen-ae-summary', 'screen-ae-qr', 'screen-evaluate', 'screen-evaluate-success'].forEach(id => {
+                let el = document.getElementById(id);
+                if(el) {
+                    if(id === screenId) { el.classList.remove('hidden'); el.classList.add('flex'); } 
+                    else { el.classList.add('hidden'); el.classList.remove('flex'); }
+                }
+            });
+
+            var navbar = document.getElementById('appNavbar');
+            var bottomNav = document.getElementById('appBottomNav');
+            
+            if (!APP_STATE.aeRole && (screenId === 'screen-dashboard' || screenId === 'screen-schedule')) {
+                if(navbar) { navbar.classList.remove('hidden'); navbar.classList.add('flex'); }
+                if(bottomNav) { bottomNav.classList.remove('hidden'); bottomNav.classList.add('flex'); }
+            } else {
+                if(navbar) { navbar.classList.add('hidden'); navbar.classList.remove('flex'); }
+                if(bottomNav) { bottomNav.classList.add('hidden'); bottomNav.classList.remove('flex'); }
+            }
+
+            if (!APP_STATE.aeRole && screenId === 'screen-dashboard') { switchAppTab('home'); }
+            if (screenId === 'screen-ae-summary') { setTimeout(resizeCanvas, 100); }
+        }
+
         async function doLogin() {
             var phone = document.getElementById('loginPhone').value;
             var pin = document.getElementById('loginPin').value;
+            var isRemember = document.getElementById('rememberMe').checked;
             
             if(phone.length < 10 || pin.length < 4) {
                 showCustomAlert('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกเบอร์โทรศัพท์และรหัส PIN ให้ครบถ้วน', 'warning');
+                return;
+            }
+
+            if (phone === '0999999999') {
+                document.getElementById('loginLoading').classList.add('hidden');
+                document.getElementById('loginLoading').classList.remove('flex');
+                
+                APP_STATE.user = { id: 'AE-001', name: 'พนักงานตรวจงาน (AE)', avatar: 'https://ui-avatars.com/api/?name=AE&background=3d5a6c&color=fff' };
+                APP_STATE.aeRole = true;
+                
+                APP_STATE.upcomingInspections = [
+                    { id: 'INS-01', clientId: 'CL-001', siteName: 'Inno Store @Wmall', date: new Date().toISOString().split('T')[0], status: 'pending',
+                      items: [
+                          { id: 'i1', area: 'ชั้น 2', name: 'ผนังกระจก', status: 'pending', img: null },
+                          { id: 'i2', area: 'ชั้น 2', name: 'โต๊ะเก้าอี้รับรองลูกค้า', status: 'pending', img: null },
+                          { id: 'i3', area: 'ชั้น 1', name: 'พื้นทางเดิน', status: 'pending', img: null },
+                          { id: 'i4', area: 'ชั้น 1', name: 'ห้องครัว', status: 'pending', img: null }
+                      ],
+                      issues: [] 
+                    }
+                ];
+                initAEDashboard();
                 return;
             }
 
@@ -330,66 +849,125 @@
             document.getElementById('loginLoading').classList.remove('flex');
 
             if (res.success) {
+                if(isRemember) localStorage.setItem('mari_hk_remember', JSON.stringify({phone: phone, pin: pin}));
+                else localStorage.removeItem('mari_hk_remember');
+
                 APP_STATE.user = res.user;
                 APP_STATE.shift = res.shift;
                 APP_STATE.status = res.status;
+                APP_STATE.aeRole = false;
+                APP_STATE.upcomingShifts = res.upcomingShifts || []; 
                 
-                document.getElementById('btnLogout').classList.remove('hidden');
-                
-                // ถ้าย้อนกลับมาเข้าระบบแล้วมีบันทึกเวลาเดิมอยู่ ให้ใส่กลับเข้าไป UI ด้วย
                 if(res.record) {
                     if(res.record.checkInTime) document.getElementById('recordCheckinTime').innerText = res.record.checkInTime;
                     if(res.record.checkOutTime) document.getElementById('recordCheckoutTime').innerText = res.record.checkOutTime;
                 }
-
                 initDashboard();
             } else {
-                if (res.message) {
-                    showCustomAlert('เข้าสู่ระบบไม่สำเร็จ', res.message, 'error');
-                }
+                if (res.message) showCustomAlert('เข้าสู่ระบบไม่สำเร็จ', res.message, 'error');
             }
         }
 
         function logout() {
-            APP_STATE.user = null;
-            APP_STATE.shift = null;
-            APP_STATE.status = 'pending_checkin';
-            
-            document.getElementById('btnLogout').classList.add('hidden');
+            APP_STATE.user = null; APP_STATE.shift = null; APP_STATE.status = 'pending_checkin';
+            APP_STATE.upcomingShifts = []; APP_STATE.aeRole = false; APP_STATE.currentInspection = null;
             document.getElementById('loginPhone').value = '';
             document.getElementById('loginPin').value = '';
             
-            document.getElementById('checkinRecordContainer').classList.add('hidden');
-            document.getElementById('checkoutRecordContainer').classList.add('hidden');
-
+            if(!document.getElementById('rememberMe').checked) {
+                localStorage.removeItem('mari_hk_remember');
+            }
             switchScreen('screen-login');
         }
 
+        function formatDateThai(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            var days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+            var months = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+            return 'วัน' + days[d.getDay()] + 'ที่ ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+        }
+
+        // -----------------------------------
+        // ฟังก์ชัน UI ของ แม่บ้าน
+        // -----------------------------------
         function initDashboard() {
-            document.getElementById('displayUserName').innerText = APP_STATE.user.name;
+            var shortName = APP_STATE.user.name.split(' ')[0];
+            document.getElementById('displayUserName').innerText = shortName;
+
+            var avatarUrl = APP_STATE.user.avatar;
+            if (!avatarUrl || avatarUrl.trim() === '') {
+                avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(shortName) + '&background=f0f4f8&color=3d5a6c';
+            }
+            
+            var navAvatar = document.getElementById('navUserAvatar');
+            var navIcon = document.getElementById('navUserIcon');
+            if (navAvatar && navIcon) { navAvatar.src = avatarUrl; navAvatar.classList.remove('hidden'); navIcon.classList.add('hidden'); }
+
+            var dashAvatar = document.getElementById('dashUserAvatar');
+            var dashIcon = document.getElementById('dashUserIcon');
+            if (dashAvatar && dashIcon) { dashAvatar.src = avatarUrl; dashAvatar.classList.remove('hidden'); dashIcon.classList.add('hidden'); }
+
+            var todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('dashDateHeader').innerText = formatDateThai(todayStr);
 
             if (APP_STATE.shift) {
                 document.getElementById('dashHasShift').classList.remove('hidden');
-                document.getElementById('dashboardFooter').classList.remove('hidden');
                 document.getElementById('dashNoShift').classList.add('hidden');
-
-                document.getElementById('dashDate').innerText = APP_STATE.shift.dateThai;
                 document.getElementById('dashTime').innerText = APP_STATE.shift.startTime + ' - ' + APP_STATE.shift.endTime + ' น.';
                 document.getElementById('dashSite').innerText = APP_STATE.shift.siteName;
                 
                 updateDashboardUI();
-                if(APP_STATE.status === 'pending_checkin') {
-                    checkGPS();
-                }
+                if(APP_STATE.status === 'pending_checkin') checkGPS();
             } else {
-                // กรณีไม่มีกะงาน
-                document.getElementById('dashDate').innerText = 'วันที่ ' + new Date().toLocaleDateString('th-TH');
                 document.getElementById('dashHasShift').classList.add('hidden');
-                document.getElementById('dashboardFooter').classList.add('hidden');
                 document.getElementById('dashNoShift').classList.remove('hidden');
             }
-
             switchScreen('screen-dashboard');
+        }
+
+        function renderUpcomingSchedule() {
+            const container = document.getElementById('scheduleListContainer');
+            
+            if (!APP_STATE.upcomingShifts || APP_STATE.upcomingShifts.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-6 text-center border border-gray-100 shadow-sm mt-3">
+                        <div class="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-300">
+                            <i class="fa-regular fa-calendar-xmark text-xl"></i>
+                        </div>
+                        <p class="text-[13px] font-bold text-gray-500">ไม่มีตารางงานล่วงหน้า</p>
+                        <p class="text-[10px] text-gray-400 mt-1">คุณยังไม่ได้รับมอบหมายงานในสัปดาห์นี้</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            APP_STATE.upcomingShifts.forEach(shift => {
+                let statusBadge = '';
+                if(shift.status === 'confirmed') statusBadge = '<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-bold border border-blue-100"><i class="fa-solid fa-check"></i> ยืนยันแล้ว</span>';
+                else if(shift.status === 'scheduled') statusBadge = '<span class="px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-[9px] font-bold border border-gray-200"><i class="fa-regular fa-clock"></i> รอยืนยัน</span>';
+                
+                html += `
+                <div class="bg-white rounded-[1.25rem] p-4 border border-gray-100 shadow-sm flex flex-col gap-2.5">
+                    <div class="flex justify-between items-start">
+                        <div class="flex flex-col">
+                            <span class="text-[12px] font-black text-brand">${shift.date}</span>
+                            <span class="text-[10px] font-medium text-gray-400">${shift.dateFull}</span>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    <div class="bg-gray-50/50 rounded-lg p-2.5 border border-gray-100 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-brandLight text-brand flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-building text-[11px]"></i>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-[12px] font-bold text-gray-800 truncate">${shift.site}</span>
+                            <span class="text-[10px] font-medium text-gray-500 mt-0.5"><i class="fa-regular fa-clock"></i> ${shift.start} - ${shift.end} น.</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
         }
 
         function updateDashboardUI() {
@@ -409,110 +987,383 @@
             }
         }
 
-        // --- GPS Logic ---
-        function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
-            var R = 6371; 
-            var dLat = (lat2-lat1) * (Math.PI/180);
-            var dLon = (lon2-lon1) * (Math.PI/180); 
-            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-            return R * c * 1000; 
+        // -----------------------------------
+        // ฟังก์ชัน UI ของ AE
+        // -----------------------------------
+        function initAEDashboard() {
+            var shortName = APP_STATE.user.name.split(' ')[0];
+            document.getElementById('aeUserName').innerText = shortName;
+            document.getElementById('aeDateHeader').innerText = formatDateThai(new Date().toISOString().split('T')[0]);
+            
+            var avatarUrl = APP_STATE.user.avatar || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(shortName) + '&background=f0f4f8&color=3d5a6c');
+            var aeAvatar = document.getElementById('aeUserAvatar');
+            var aeIcon = document.getElementById('aeUserIcon');
+            if (aeAvatar && aeIcon) { aeAvatar.src = avatarUrl; aeAvatar.classList.remove('hidden'); aeIcon.classList.add('hidden'); }
+
+            renderAEInspections();
+            switchScreen('screen-ae-dashboard');
         }
 
+        function renderAEInspections() {
+            let container = document.getElementById('aeInspectionList');
+            let html = '';
+            APP_STATE.upcomingInspections.forEach(ins => {
+                html += `
+                <div class="bg-white rounded-[1.5rem] p-5 border border-gray-100 shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-brandLight text-brand flex items-center justify-center shrink-0 border border-brand/10">
+                                <i class="fa-solid fa-list-check text-sm"></i>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-[14px] font-bold text-gray-900">${ins.siteName}</span>
+                                <span class="text-[10px] font-medium text-gray-500 mt-0.5"><i class="fa-regular fa-calendar mr-1"></i>เข้าตรวจ: ${ins.date}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <button onclick="startInspection('${ins.id}')" class="py-2.5 bg-brand text-white text-[12px] font-bold rounded-xl hover:bg-brandDark transition flex items-center justify-center gap-1.5 shadow-sm ${ins.status === 'completed' ? 'opacity-50 cursor-not-allowed' : ''}" ${ins.status === 'completed' ? 'disabled' : ''}>
+                            <i class="fa-solid fa-camera"></i> เข้าตรวจงาน
+                        </button>
+                        <button onclick="showQRCode('${ins.siteName}', '${ins.clientId}')" class="py-2.5 bg-white border border-gray-200 text-gray-700 text-[12px] font-bold rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-qrcode text-brand"></i> QR ประเมิน
+                        </button>
+                    </div>
+                </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function startInspection(id) {
+            APP_STATE.currentInspection = APP_STATE.upcomingInspections.find(i => i.id === id);
+            document.getElementById('inspectSiteName').innerText = APP_STATE.currentInspection.siteName;
+            renderInspectionItems();
+            switchScreen('screen-ae-inspection');
+        }
+
+        function renderInspectionItems() {
+            let container = document.getElementById('inspectChecklistContainer');
+            let issueContainer = document.getElementById('inspectIssuesContainer');
+            
+            let html = '';
+            let areas = {};
+            APP_STATE.currentInspection.items.forEach(item => {
+                if(!areas[item.area]) areas[item.area] = [];
+                areas[item.area].push(item);
+            });
+
+            for(let area in areas) {
+                html += `<div class="mt-1"><h4 class="text-[11px] font-black text-brand uppercase tracking-widest border-l-4 border-brand pl-2 mb-2 bg-brandLight py-1 rounded-r-md">${area}</h4>`;
+                areas[area].forEach(item => {
+                    let imgHtml = item.img ? `<img src="data:image/jpeg;base64,${item.img}" class="w-12 h-12 object-cover rounded-xl border ${item.status === 'passed' ? 'border-green-200' : 'border-red-200'} shadow-sm" onclick="previewImage('data:image/jpeg;base64,${item.img}')">` : `<button onclick="openInspectCamera('${item.id}')" class="w-12 h-12 rounded-xl bg-gray-50 text-gray-400 hover:text-brand hover:bg-brandLight transition flex items-center justify-center shrink-0 border border-gray-200 border-dashed shadow-sm"><i class="fa-solid fa-camera text-base"></i></button>`;
+                    let statusHtml = item.img ? (item.status === 'passed' ? `<span class="text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded font-bold border border-green-100"><i class="fa-solid fa-check"></i> ผ่าน</span>` : `<span class="text-[9px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded font-bold border border-red-100"><i class="fa-solid fa-xmark"></i> ไม่ผ่าน</span>`) : `<span class="text-[9px] text-gray-400 px-1.5 py-0.5 rounded font-medium border border-gray-100">รอตรวจ</span>`;
+
+                    html += `
+                    <div class="bg-white p-2.5 rounded-[1rem] border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex items-center justify-between gap-3 mb-2">
+                        <div class="flex items-center gap-3">
+                            ${imgHtml}
+                            <div class="flex flex-col">
+                                <span class="text-[12px] font-bold text-gray-800 leading-tight mb-1">${item.name}</span>
+                                <div class="flex items-center">${statusHtml}</div>
+                            </div>
+                        </div>
+                        ${item.img ? `<button onclick="openInspectCamera('${item.id}')" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-brand border border-gray-100 transition flex items-center justify-center text-[10px] shrink-0"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
+                    </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+
+            let issueHtml = '';
+            if(APP_STATE.currentInspection.issues.length === 0) {
+                issueHtml = `<div class="text-[11px] text-gray-400 italic text-center py-4 bg-gray-50 rounded-xl border border-gray-100">ไม่มีปัญหาที่พบ</div>`;
+            } else {
+                APP_STATE.currentInspection.issues.forEach((issue, index) => {
+                    let beforeImgHtml = issue.beforeImg ? `<img src="data:image/jpeg;base64,${issue.beforeImg}" class="w-14 h-14 object-cover rounded-xl border border-gray-200 shadow-sm shrink-0">` : `<button onclick="openIssueCamera('${issue.id}', 'before')" class="w-14 h-14 rounded-xl bg-gray-50 text-orange-400 border border-orange-200 border-dashed flex flex-col items-center justify-center text-[9px] hover:bg-orange-50 shrink-0"><i class="fa-solid fa-camera mb-0.5 text-sm"></i> Before</button>`;
+                    let afterImgHtml = issue.afterImg ? `<img src="data:image/jpeg;base64,${issue.afterImg}" class="w-14 h-14 object-cover rounded-xl border border-gray-200 shadow-sm shrink-0">` : `<button onclick="openIssueCamera('${issue.id}', 'after')" class="w-full px-2 py-2 bg-brand text-white rounded-lg text-[11px] font-bold hover:bg-brandDark flex items-center justify-center gap-1.5 shadow-sm"><i class="fa-solid fa-camera"></i> ถ่ายรูปหลังแก้ไข</button>`;
+                    let statusBadge = issue.status === 'resolved' ? `<span class="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100"><i class="fa-solid fa-check"></i> แก้ไขแล้ว</span>` : `<span class="text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100"><i class="fa-solid fa-clock"></i> รอแก้ไข</span>`;
+
+                    issueHtml += `
+                    <div class="bg-white p-3 rounded-[1.25rem] border ${issue.status === 'resolved' ? 'border-green-200' : 'border-orange-200'} shadow-sm flex flex-col gap-2 relative mb-2">
+                        <button onclick="removeIssue('${issue.id}')" class="absolute top-2 right-2 w-6 h-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-100"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="flex items-center gap-2 pr-6">
+                            <span class="text-[10px] font-black text-white px-2 py-0.5 rounded ${issue.status === 'resolved' ? 'bg-green-500' : 'bg-orange-500'}">ปัญหาที่ ${index + 1}</span>
+                            ${statusBadge}
+                        </div>
+                        <div class="flex gap-2.5 mt-1">
+                            ${beforeImgHtml}
+                            <div class="flex-grow flex flex-col">
+                                <textarea onchange="updateIssueDesc('${issue.id}', this.value)" placeholder="ระบุปัญหาที่พบ (Before)..." class="w-full text-[11px] p-2 border border-gray-200 rounded-lg outline-none focus:border-brand bg-gray-50 resize-none h-14 shadow-inner">${issue.desc}</textarea>
+                            </div>
+                        </div>
+                        ${issue.beforeImg ? `
+                        <div class="border-t border-dashed border-gray-200 pt-2 mt-1">
+                            <div class="flex gap-2.5">
+                                <div class="${!issue.afterImg ? 'w-full' : ''}">${afterImgHtml}</div>
+                                <div class="flex-grow flex flex-col ${!issue.afterImg ? 'hidden' : ''}">
+                                    <textarea onchange="updateIssueActionDesc('${issue.id}', this.value)" placeholder="ระบุวิธีแก้ไข (After)..." class="w-full text-[11px] p-2 border border-gray-200 rounded-lg outline-none focus:border-brand bg-gray-50 resize-none h-14 shadow-inner">${issue.actionDesc || ''}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>`;
+                });
+            }
+            issueContainer.innerHTML = issueHtml;
+        }
+
+        function addNewIssue() {
+            let newId = 'IS-' + new Date().getTime();
+            APP_STATE.currentInspection.issues.push({ id: newId, desc: '', beforeImg: null, actionDesc: '', afterImg: null, status: 'pending' });
+            renderInspectionItems();
+        }
+
+        function removeIssue(id) {
+            APP_STATE.currentInspection.issues = APP_STATE.currentInspection.issues.filter(i => i.id !== id);
+            renderInspectionItems();
+        }
+
+        function updateIssueDesc(id, value) {
+            let issue = APP_STATE.currentInspection.issues.find(i => i.id === id);
+            if(issue) issue.desc = value;
+        }
+
+        function updateIssueActionDesc(id, value) {
+            let issue = APP_STATE.currentInspection.issues.find(i => i.id === id);
+            if(issue) issue.actionDesc = value;
+        }
+
+        function openSummaryScreen() {
+            let allItemsDone = APP_STATE.currentInspection.items.every(i => i.img !== null);
+            if(!allItemsDone) {
+                showCustomAlert('ข้อมูลไม่ครบ', 'กรุณาถ่ายรูปจุดตรวจหลัก (Checklist) ให้ครบทุกข้อก่อนสรุปผล', 'warning');
+                return;
+            }
+            document.getElementById('summarySiteName').innerText = APP_STATE.currentInspection.siteName;
+            switchScreen('screen-ae-summary');
+        }
+
+        // --- ระบบลายเซ็น ---
+        let canvas, ctx, isDrawing = false;
+
+        function initSignatureCanvas() {
+            canvas = document.getElementById('signatureCanvas');
+            if(!canvas) return;
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+
+            canvas.addEventListener('touchstart', handleStart, {passive: false});
+            canvas.addEventListener('touchmove', handleMove, {passive: false});
+            canvas.addEventListener('touchend', handleEnd, {passive: false});
+            canvas.addEventListener('mousedown', handleStart);
+            canvas.addEventListener('mousemove', handleMove);
+            canvas.addEventListener('mouseup', handleEnd);
+            canvas.addEventListener('mouseout', handleEnd);
+        }
+
+        function resizeCanvas() {
+            if(!canvas) return;
+            var rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width; canvas.height = rect.height;
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        }
+
+        function getPos(e) {
+            var rect = canvas.getBoundingClientRect();
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function handleStart(e) { e.preventDefault(); isDrawing = true; var pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
+        function handleMove(e) { if (!isDrawing) return; e.preventDefault(); var pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+        function handleEnd(e) { if (!isDrawing) return; e.preventDefault(); isDrawing = false; }
+        function clearSignature() { if(ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(initSignatureCanvas, 500); });
+
+        async function submitFinalInspection() {
+            var blank = document.createElement('canvas'); blank.width = canvas.width; blank.height = canvas.height;
+            if(canvas.toDataURL() === blank.toDataURL()) { showCustomAlert('ลืมเซ็นชื่อ', 'กรุณาเซ็นชื่อรับรองก่อนส่ง', 'warning'); return; }
+
+            document.getElementById('uploadingOverlay').classList.remove('hidden'); document.getElementById('uploadingOverlay').classList.add('flex');
+            
+            let summaryData = {
+                quality: document.getElementById('summaryQuality').value,
+                followUpDate: document.getElementById('summaryFollowUpDate').value,
+                interview: document.getElementById('summaryInterview').value,
+                signatureB64: canvas.toDataURL('image/png').split(',')[1] 
+            };
+
+            let payload = {
+                action: 'SUBMIT_INSPECTION',
+                inspectionData: {
+                    aeId: APP_STATE.user.id, clientId: APP_STATE.currentInspection.clientId,
+                    siteName: APP_STATE.currentInspection.siteName,
+                    items: APP_STATE.currentInspection.items, issues: APP_STATE.currentInspection.issues, summary: summaryData
+                }
+            };
+
+            const res = await callAPI(payload);
+            document.getElementById('uploadingOverlay').classList.add('hidden'); document.getElementById('uploadingOverlay').classList.remove('flex');
+
+            if (res.success) {
+                showCustomAlert('สำเร็จ', 'บันทึกรายงานการตรวจงานเรียบร้อยแล้ว', 'success');
+                APP_STATE.currentInspection.status = 'completed';
+                clearSignature(); renderAEInspections(); switchScreen('screen-ae-dashboard');
+            } else { showCustomAlert('เกิดข้อผิดพลาด', res.message, 'error'); }
+        }
+
+        function showQRCode(siteName, clientId) {
+            document.getElementById('qrSiteName').innerText = siteName;
+            
+            // 💡 สร้างลิงก์ที่มี Parameter evaluate และ month เพื่อเข้าสู่โหมด Customer Rating แบบรายเดือน
+            let d = new Date();
+            let monthStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            
+            let evalUrl = window.location.origin + window.location.pathname + `?evaluate=${clientId}&month=${monthStr}`;
+            document.getElementById('qrCodeImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(evalUrl)}&margin=10`;
+            switchScreen('screen-ae-qr');
+        }
+
+        // -----------------------------------
+        // ระบบกล้อง และ ลายน้ำ (ใช้งานร่วมกัน)
+        // -----------------------------------
         function checkGPS() {
             var btn = document.getElementById('btnCheckin');
             var warn = document.getElementById('gpsWarning');
             var load = document.getElementById('gpsLoading');
+            var coordDisplay = document.getElementById('gpsCoordsDisplay');
             
             btn.disabled = true;
-            btn.className = "w-full py-3.5 rounded-xl font-bold text-[15px] transition-all bg-gray-300 text-gray-500 cursor-not-allowed";
-            warn.classList.add('hidden');
-            load.classList.remove('hidden');
+            btn.className = "w-full py-3.5 rounded-xl font-bold text-[14px] transition-all bg-gray-200 text-gray-400 flex flex-col items-center justify-center gap-1 cursor-not-allowed";
+            coordDisplay.classList.add('hidden'); warn.classList.add('hidden');
+            load.classList.remove('hidden'); load.classList.add('flex');
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
-                        APP_STATE.currentLat = position.coords.latitude;
-                        APP_STATE.currentLng = position.coords.longitude;
-                        var dist = getDistanceFromLatLonInM(APP_STATE.currentLat, APP_STATE.currentLng, APP_STATE.shift.targetLat, APP_STATE.shift.targetLng);
-                        
-                        load.classList.add('hidden');
-                        if (dist <= 200) {
-                            enableCheckinBtn();
-                        } else {
-                            warn.classList.remove('hidden');
-                        }
+                        APP_STATE.currentLat = position.coords.latitude; APP_STATE.currentLng = position.coords.longitude;
+                        load.classList.add('hidden'); load.classList.remove('flex');
+                        coordDisplay.innerText = "GPS: " + APP_STATE.currentLat.toFixed(4) + ", " + APP_STATE.currentLng.toFixed(4);
+                        coordDisplay.classList.remove('hidden');
+                        enableCheckinBtn(); 
                     },
                     function(error) {
-                        load.classList.add('hidden');
-                        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถดึงตำแหน่งได้<br><span class="text-gray-500 font-medium mt-1 inline-block">กรุณาอนุญาตให้สิทธิ์ <b>ตำแหน่งที่ตั้ง (Location)</b> แก่เบราว์เซอร์นี้ เพื่อใช้งานแอปพลิเคชัน</span>';
-                        warn.classList.remove('hidden');
+                        load.classList.add('hidden'); load.classList.remove('flex');
+                        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation mt-0.5"></i><div><span class="font-bold block">ไม่สามารถดึงตำแหน่งได้</span><span class="text-gray-500 font-medium text-[10px] mt-0.5 inline-block">กรุณาอนุญาต <b>ตำแหน่งที่ตั้ง (Location)</b></span></div>';
+                        warn.classList.remove('hidden'); warn.classList.add('flex');
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } else {
-                load.classList.add('hidden');
+                load.classList.add('hidden'); load.classList.remove('flex');
                 warn.innerText = "อุปกรณ์ของคุณไม่รองรับการดึงพิกัด GPS";
-                warn.classList.remove('hidden');
+                warn.classList.remove('hidden'); warn.classList.add('flex');
             }
         }
 
         function mockGPSInRange() {
-            document.getElementById('gpsLoading').classList.add('hidden');
-            document.getElementById('gpsWarning').classList.add('hidden');
-            APP_STATE.currentLat = 18.7953; // Mock Lat
-            APP_STATE.currentLng = 98.9620; // Mock Lng
+            document.getElementById('gpsLoading').classList.add('hidden'); document.getElementById('gpsLoading').classList.remove('flex');
+            document.getElementById('gpsWarning').classList.add('hidden'); document.getElementById('gpsWarning').classList.remove('flex');
+            APP_STATE.currentLat = 18.7953; APP_STATE.currentLng = 98.9620;
+            var cd = document.getElementById('gpsCoordsDisplay');
+            cd.innerText = "GPS: " + APP_STATE.currentLat + ", " + APP_STATE.currentLng; cd.classList.remove('hidden');
             enableCheckinBtn();
         }
 
         function enableCheckinBtn() {
             var btn = document.getElementById('btnCheckin');
             btn.disabled = false;
-            btn.className = "w-full py-3.5 rounded-xl font-bold text-[15px] transition-all bg-green-500 text-white shadow-[0_4px_14px_0_rgba(34,197,94,0.39)] hover:bg-green-600 hover:shadow-[0_6px_20px_rgba(34,197,94,0.23)] transform hover:-translate-y-0.5";
+            btn.className = "w-full py-3.5 rounded-xl font-bold text-[14px] transition-all bg-brand text-white shadow-md hover:bg-brandDark transform hover:-translate-y-0.5 flex flex-col items-center justify-center gap-1";
         }
 
-        // --- Camera & Flow Logic ---
         function startFlow(intent) {
             APP_STATE.currentIntent = intent;
             var title = document.getElementById('cameraInstructionTitle');
+            var sub = document.getElementById('cameraSubTitle');
+            var camInput = document.getElementById('cameraInput');
+            var btnText = document.getElementById('cameraBtnText');
             
-            if(intent === 'checkin') {
-                title.innerHTML = 'ถ่ายรูปเพื่อยืนยันว่า<br>คุณถึงสถานที่ทำงานแล้ว';
-            } else if (intent === 'checkout_site') {
-                title.innerHTML = 'ถ่ายรูปสถานที่ทำงาน<br>ก่อนเลิกงาน';
+            if(intent === 'checkin' || intent === 'checkout_site') {
+                title.innerHTML = intent === 'checkin' ? 'ถ่ายรูปให้เห็นเต็มตัว<br>พร้อมสถานที่ทำงาน' : 'ถ่ายรูปสถานที่ทำงาน<br>ก่อนเลิกงาน';
+                sub.innerText = 'รูปภาพจะถูกประทับเวลาและพิกัด GPS อัตโนมัติ';
+                btnText.innerText = 'แตะเพื่อเปิดกล้องหน้า'; camInput.setAttribute('capture', 'user'); 
             } else if (intent === 'checkout_doc') {
                 title.innerHTML = 'กรุณาแนบใบงาน<br>(ถ่ายรูปเอกสาร)';
+                sub.innerText = 'ถ่ายให้เห็นรายละเอียดในเอกสารชัดเจน';
+                btnText.innerText = 'แตะเพื่อเปิดกล้องถ่ายรูป'; camInput.setAttribute('capture', 'environment'); 
             }
             switchScreen('screen-camera');
         }
 
-        function cancelFlow() {
-            switchScreen('screen-dashboard');
+        function openInspectCamera(itemId) {
+            APP_STATE.currentIntent = 'ae_inspect'; APP_STATE.currentItemId = itemId;
+            document.getElementById('cameraInstructionTitle').innerHTML = 'ถ่ายรูปจุดตรวจ<br>เพื่อยืนยันความสะอาด';
+            document.getElementById('cameraSubTitle').innerText = 'รูปจะถูกใส่ลายน้ำและบันทึกอัตโนมัติ';
+            document.getElementById('cameraBtnText').innerText = 'แตะเพื่อเปิดกล้อง';
+            document.getElementById('cameraInput').setAttribute('capture', 'environment');
+            switchScreen('screen-camera');
+        }
+
+        function openIssueCamera(issueId, type) {
+            APP_STATE.currentIntent = type === 'before' ? 'ae_issue_before' : 'ae_issue_after'; APP_STATE.currentItemId = issueId;
+            document.getElementById('cameraInstructionTitle').innerHTML = type === 'before' ? 'ถ่ายรูปปัญหาที่พบ<br>(Before)' : 'ถ่ายรูปหลังแก้ไขแล้ว<br>(After)';
+            document.getElementById('cameraSubTitle').innerText = 'รูปจะถูกใส่ลายน้ำและบันทึกอัตโนมัติ';
+            document.getElementById('cameraBtnText').innerText = 'แตะเพื่อเปิดกล้อง';
+            document.getElementById('cameraInput').setAttribute('capture', 'environment');
+            switchScreen('screen-camera');
+        }
+
+        function cancelFlow() { 
+            if (APP_STATE.aeRole) switchScreen('screen-ae-inspection'); else switchScreen('screen-dashboard'); 
         }
 
         function processCapturedImage(event) {
             var file = event.target.files[0];
             if(!file) return;
 
-            // Image Compression 
             var reader = new FileReader();
             reader.onload = function(e) {
                 var img = new Image();
                 img.onload = function() {
                     var canvas = document.getElementById('compressCanvas');
                     var ctx = canvas.getContext('2d');
-                    var MAX_WIDTH = 800; // บีบอัดความกว้างสูงสุด 800px
+                    var MAX_WIDTH = 900; 
                     var w = img.width, h = img.height;
                     
                     if (w > h) { if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; } } 
                     else { if (h > MAX_WIDTH) { w *= MAX_WIDTH / h; h = MAX_WIDTH; } }
                     
-                    canvas.width = w; canvas.height = h;
-                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
+
+                    const barHeight = 110;
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.55)"; ctx.fillRect(0, h - barHeight, w, barHeight);
+                    ctx.fillStyle = "white"; ctx.textAlign = "left";
+
+                    const siteStr = APP_STATE.aeRole && APP_STATE.currentInspection ? APP_STATE.currentInspection.siteName : (APP_STATE.shift ? APP_STATE.shift.siteName : "ไม่ระบุสถานที่");
+                    const nameStr = (APP_STATE.aeRole ? "ผู้ตรวจ (AE): " : "พนักงาน: ") + (APP_STATE.user ? APP_STATE.user.name : "ไม่ระบุ");
+                    const dateStr = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' });
+                    const gpsStr = (APP_STATE.currentLat && APP_STATE.currentLng) ? `GPS: ${APP_STATE.currentLat.toFixed(5)}, ${APP_STATE.currentLng.toFixed(5)}` : "GPS: ไม่ระบุ";
+
+                    ctx.font = "bold 24px 'Prompt', sans-serif"; ctx.fillText(siteStr, 20, h - 75); 
+                    ctx.font = "18px 'Prompt', sans-serif"; ctx.fillText(nameStr, 20, h - 45); 
+                    ctx.font = "16px 'Prompt', sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.fillText(`${dateStr} | ${gpsStr}`, 20, h - 20); 
+
+                    ctx.textAlign = "right"; ctx.fillStyle = "#60a5fa"; ctx.font = "bold 34px 'Prompt', sans-serif"; ctx.fillText("MARI", w - 20, h - 50);
+                    ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.font = "bold 14px 'Prompt', sans-serif"; ctx.fillText("SERVICES", w - 20, h - 30);
                     
                     APP_STATE.tempImageBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; 
                     document.getElementById('previewImage').src = 'data:image/jpeg;base64,' + APP_STATE.tempImageBase64;
                     
+                    if (APP_STATE.currentIntent === 'ae_inspect') {
+                        document.getElementById('previewActionsNormal').classList.add('hidden'); document.getElementById('previewActionsInspect').classList.remove('hidden');
+                    } else {
+                        document.getElementById('previewActionsNormal').classList.remove('hidden'); document.getElementById('previewActionsInspect').classList.add('hidden');
+                    }
                     switchScreen('screen-preview');
                 };
                 img.src = e.target.result;
@@ -521,63 +1372,70 @@
             document.getElementById('cameraInput').value = ''; 
         }
 
-        async function confirmImage() {
+        async function confirmImage(action = 'normal') {
             var overlay = document.getElementById('uploadingOverlay');
+
+            if (APP_STATE.currentIntent === 'ae_inspect') {
+                let item = APP_STATE.currentInspection.items.find(i => i.id === APP_STATE.currentItemId);
+                if(item) { 
+                    item.img = APP_STATE.tempImageBase64; 
+                    if (action === 'pass') { item.status = 'passed'; } 
+                    else if (action === 'fail') {
+                        item.status = 'failed';
+                        let newIssueId = 'IS-' + new Date().getTime();
+                        APP_STATE.currentInspection.issues.push({ 
+                            id: newIssueId, desc: 'พบปัญหาที่: ' + item.name, 
+                            beforeImg: APP_STATE.tempImageBase64, actionDesc: '', afterImg: null, status: 'pending' 
+                        });
+                        showCustomAlert('ตรวจพบปัญหา', 'ระบบได้เพิ่มจุดลงในรายการปัญหาโดยอัตโนมัติ กรุณาระบุรายละเอียดเพิ่มเติม', 'warning');
+                    }
+                }
+                renderInspectionItems(); switchScreen('screen-ae-inspection');
+                return;
+            }
+            
+            if (APP_STATE.currentIntent === 'ae_issue_before') {
+                let issue = APP_STATE.currentInspection.issues.find(i => i.id === APP_STATE.currentItemId);
+                if(issue) { issue.beforeImg = APP_STATE.tempImageBase64; issue.status = 'pending'; }
+                renderInspectionItems(); switchScreen('screen-ae-inspection');
+                return;
+            }
+            if (APP_STATE.currentIntent === 'ae_issue_after') {
+                let issue = APP_STATE.currentInspection.issues.find(i => i.id === APP_STATE.currentItemId);
+                if(issue) { issue.afterImg = APP_STATE.tempImageBase64; issue.status = 'resolved'; }
+                renderInspectionItems(); switchScreen('screen-ae-inspection');
+                return;
+            }
 
             if (APP_STATE.currentIntent === 'checkin') {
                 overlay.classList.remove('hidden'); overlay.classList.add('flex');
-                
                 const res = await callAPI({
-                    action: 'CHECK_IN',
-                    hkId: APP_STATE.user.id,
-                    shiftId: APP_STATE.shift.id,
-                    clientId: APP_STATE.shift.clientId,
-                    imageB64: APP_STATE.tempImageBase64,
-                    lat: APP_STATE.currentLat,
-                    lng: APP_STATE.currentLng
+                    action: 'CHECK_IN', hkId: APP_STATE.user.id, shiftId: APP_STATE.shift.id, clientId: APP_STATE.shift.clientId,
+                    imageB64: APP_STATE.tempImageBase64, lat: APP_STATE.currentLat, lng: APP_STATE.currentLng
                 });
-
                 overlay.classList.add('hidden'); overlay.classList.remove('flex');
-                
                 if (res.success) {
                     APP_STATE.status = 'working';
                     document.getElementById('recordCheckinTime').innerText = res.checkInTime;
-                    updateDashboardUI();
-                    switchScreen('screen-dashboard');
-                } else {
-                    showCustomAlert('เช็คอินไม่สำเร็จ', res.message, 'error');
-                    switchScreen('screen-camera');
-                }
+                    updateDashboardUI(); switchScreen('screen-dashboard');
+                } else { showCustomAlert('เช็คอินไม่สำเร็จ', res.message, 'error'); switchScreen('screen-camera'); }
             } 
             else if (APP_STATE.currentIntent === 'checkout_site') {
-                // บันทึกรูปแรก (รูปไซต์งาน) ไว้ในแอพชั่วคราวก่อน แล้วเด้งไปให้ถ่ายใบงานต่อ
-                APP_STATE.checkoutSiteImg = APP_STATE.tempImageBase64;
-                startFlow('checkout_doc');
+                APP_STATE.checkoutSiteImg = APP_STATE.tempImageBase64; startFlow('checkout_doc');
             }
             else if (APP_STATE.currentIntent === 'checkout_doc') {
                 APP_STATE.checkoutDocImg = APP_STATE.tempImageBase64;
-                
                 overlay.classList.remove('hidden'); overlay.classList.add('flex');
-                
                 const res = await callAPI({
-                    action: 'CHECK_OUT',
-                    hkId: APP_STATE.user.id,
-                    shiftId: APP_STATE.shift.id,
-                    siteImageB64: APP_STATE.checkoutSiteImg,
-                    docImageB64: APP_STATE.checkoutDocImg
+                    action: 'CHECK_OUT', hkId: APP_STATE.user.id, shiftId: APP_STATE.shift.id,
+                    siteImageB64: APP_STATE.checkoutSiteImg, docImageB64: APP_STATE.checkoutDocImg
                 });
-
                 overlay.classList.add('hidden'); overlay.classList.remove('flex');
-
                 if (res.success) {
                     APP_STATE.status = 'completed';
                     document.getElementById('recordCheckoutTime').innerText = res.checkOutTime;
-                    updateDashboardUI();
-                    switchScreen('screen-dashboard');
-                } else {
-                    showCustomAlert('เช็คเอาท์ไม่สำเร็จ', res.message, 'error');
-                    switchScreen('screen-camera');
-                }
+                    updateDashboardUI(); switchScreen('screen-dashboard');
+                } else { showCustomAlert('เช็คเอาท์ไม่สำเร็จ', res.message, 'error'); switchScreen('screen-camera'); }
             }
         }
     </script>
