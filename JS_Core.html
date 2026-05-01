@@ -46,19 +46,15 @@
 
     function previewImage(url, title) {
         if(typeof showCustomDialog === 'function') {
-            showCustomDialog({ title: title || 'รูปโปรไฟล์', message: '', type: 'info', buttons: [{ text: 'ปิดหน้าต่าง', style: 'cancel' }] });
+            showCustomDialog({ title: title || 'รูปภาพ', message: '', type: 'info', buttons: [{ text: 'ปิดหน้าต่าง', style: 'cancel' }] });
             var iconEl = document.getElementById('customDialogIcon');
             if(iconEl) {
-                iconEl.className = 'w-24 h-24 rounded-full flex items-center justify-center mb-4 shadow-inner overflow-hidden border-2 border-gray-100 bg-gray-50';
+                iconEl.className = 'w-32 h-32 rounded-xl flex items-center justify-center mb-4 shadow-inner overflow-hidden border-2 border-gray-100 bg-gray-50';
                 iconEl.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover">';
             }
         } else {
-            // Fallback ใช้ Lightbox ถ้ามี
-            if(typeof openLightbox === 'function') {
-                openLightbox(url, [url]);
-            } else {
-                window.open(url, '_blank');
-            }
+            if(typeof openLightbox === 'function') { openLightbox(url, [url]); } 
+            else { window.open(url, '_blank'); }
         }
     }
 
@@ -71,6 +67,9 @@
     var MOCK_SITE_ACTIVITIES = []; 
     var MOCK_NOTIFICATIONS = []; 
     var MOCK_ATTENDANCE = []; 
+    // 💡 เพิ่มตัวแปรที่ขาดหายไปสำหรับเก็บข้อมูลรายงานและประเมิน
+    var MOCK_INSPECTIONS = []; 
+    var MOCK_EVALUATIONS = [];
 
     var currentDate = new Date(); 
     var currentWeekStart = getStartOfWeek(currentDate);
@@ -89,9 +88,7 @@
             try {
                 CURRENT_USER = JSON.parse(cachedUserData);
                 applyUserRoleAndStart(); 
-            } catch(e) {
-                showLoginScreen();
-            }
+            } catch(e) { showLoginScreen(); }
         } else {
             showLoginScreen();
         }
@@ -138,10 +135,7 @@
                         localStorage.setItem('mari_login_date', new Date().toDateString());
                         localStorage.setItem('mari_user_data', JSON.stringify(CURRENT_USER));
                         
-                        if (loginScreen) {
-                            loginScreen.style.display = 'none';
-                        }
-                        
+                        if (loginScreen) loginScreen.style.display = 'none';
                         var overlay = document.getElementById('loadingOverlay');
                         if (overlay) { overlay.style.display = 'flex'; overlay.style.opacity = '1'; }
                         
@@ -161,7 +155,6 @@
                 })
                 .verifyUserLogin();
         } else {
-            // โหมดทดสอบ (เมื่อไม่ได้เปิดผ่าน Google Apps Script)
             CURRENT_USER = { email: 'test@mariservices.com', name: 'Test Admin', role: 'Admin / Supervisor' };
             if (loginScreen) loginScreen.style.display = 'none';
             var overlay = document.getElementById('loadingOverlay');
@@ -190,21 +183,17 @@
         var menuDatabase = document.getElementById('menu-manage');
         var menuSystem = document.getElementById('menu-users');
 
-        // จัดการสิทธิ์การมองเห็นเมนูเบื้องต้น
         if (CURRENT_USER.role === 'Viewer') {
             if(menuDatabase) menuDatabase.style.display = 'none';
             if(menuSystem) menuSystem.style.display = 'none';
         } else if (CURRENT_USER.role === 'AE/หัวหน้าแม่บ้าน' || CURRENT_USER.role === 'Supervisor') {
             if(menuDatabase) menuDatabase.style.display = 'flex';
             if(menuSystem) menuSystem.style.display = 'none';
-            
             var systemHeader = document.querySelector('#menu-section-system p');
             if (systemHeader) systemHeader.style.display = 'none';
         } else {
-            // Admin, DEV เห็นทุกอย่าง
             if(menuDatabase) menuDatabase.style.display = 'flex';
             if(menuSystem) menuSystem.style.display = 'flex';
-            
             var systemHeader = document.querySelector('#menu-section-system p');
             if (systemHeader) systemHeader.style.display = 'block';
         }
@@ -214,7 +203,6 @@
         if(typeof loadThaiAddressData === 'function') loadThaiAddressData(); 
         if(typeof initAddressListeners === 'function') initAddressListeners();
         
-        // ดึงข้อมูลหลักจาก Backend
         if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
                 .withSuccessHandler(function(response) {
@@ -352,6 +340,7 @@
         }
     }
 
+    // 💡 ฟังก์ชันสลับหน้าจอ
     function switchMainView(viewId, menuId) {
         // 1. ล้างไฮไลต์เมนูเก่า และไฮไลต์เมนูใหม่
         document.querySelectorAll('.sidebar-menu').forEach(function(el) {
@@ -360,6 +349,10 @@
         var activeMenu = document.getElementById(menuId);
         if(activeMenu) {
             activeMenu.className = "sidebar-menu flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-bold transition-all text-brand bg-brandLight";
+            
+            if(menuId === 'menu-attendance') {
+                activeMenu.className = "sidebar-menu flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-bold transition-all text-emerald-600 bg-emerald-50";
+            }
         }
 
         // 2. ซ่อนทุกหน้าจอ และแสดงเฉพาะหน้าจอที่เลือก
@@ -374,16 +367,17 @@
         }
 
         // 3. เปลี่ยนชื่อ Title ด้านบน
-        var titleEl = document.getElementById('mainTitle') || document.getElementById('globalPageTitle');
+        var titleEl = document.getElementById('globalPageTitle');
         if (titleEl) {
-            if (viewId === 'view-schedule') titleEl.innerHTML = 'ตารางงาน<br><span class="text-[14px] font-medium text-gray-500">(Schedule)</span>';
-            else if (viewId === 'view-attendance') titleEl.innerHTML = 'เวลาเข้า-ออก<br><span class="text-[14px] font-medium text-gray-500">(Attendance)</span>';
-            else if (viewId === 'view-inspection') titleEl.innerHTML = 'แผนตรวจงาน<br><span class="text-[14px] font-medium text-gray-500">(Inspection)</span>';
-            else if (viewId === 'view-issues') titleEl.innerHTML = 'แจ้งปัญหา<br><span class="text-[14px] font-medium text-gray-500">(Issues)</span>';
-            else if (viewId === 'view-manage') titleEl.innerHTML = 'ข้อมูลหลัก<br><span class="text-[14px] font-medium text-gray-500">(Manage Data)</span>';
-            else if (viewId === 'view-users') titleEl.innerHTML = 'ตั้งค่าสิทธิ์<br><span class="text-[14px] font-medium text-gray-500">(Users)</span>';
-            else if (viewId === 'view-report') titleEl.innerHTML = 'รายงาน<br><span class="text-[14px] font-medium text-gray-500">(Reports)</span>';
-            else if (viewId === 'view-inventory') titleEl.innerHTML = 'เบิกนับสต๊อค<br><span class="text-[14px] font-medium text-gray-500">(Inventory)</span>';
+            if (viewId === 'view-schedule') titleEl.innerHTML = 'ตารางงาน (Schedule)';
+            else if (viewId === 'view-attendance') titleEl.innerHTML = 'เวลาเข้า-ออก (Attendance)';
+            else if (viewId === 'view-inspection') titleEl.innerHTML = 'แผนตรวจงาน (Site Inspection)';
+            else if (viewId === 'view-issues') titleEl.innerHTML = 'แจ้งปัญหาคุณภาพ (Issues)';
+            else if (viewId === 'view-evaluation') titleEl.innerHTML = 'คะแนนประเมินลูกค้า (CSI)'; // 💡 สำหรับหน้าประเมิน
+            else if (viewId === 'view-manage') titleEl.innerHTML = 'ข้อมูลหลัก (Manage Data)';
+            else if (viewId === 'view-users') titleEl.innerHTML = 'ตั้งค่าสิทธิ์ (Users)';
+            else if (viewId === 'view-report') titleEl.innerHTML = 'รายงาน (Reports)';
+            else if (viewId === 'view-inventory') titleEl.innerHTML = 'เบิกนับสต๊อค (Inventory)';
         }
 
         // 4. สั่งโหลดข้อมูลตามหน้าจอที่กด
@@ -397,6 +391,9 @@
         
         if(viewId === 'view-inspection' && typeof initInspectionView === 'function') initInspectionView();
         if(viewId === 'view-issues' && typeof initIssuesView === 'function') initIssuesView();
+        
+        // 💡 เพิ่มการโหลดหน้าประเมิน
+        if(viewId === 'view-evaluation' && typeof initEvaluationView === 'function') initEvaluationView();
         
         if(viewId === 'view-manage' && typeof renderStaffTable === 'function') {
             renderStaffTable();
@@ -568,6 +565,7 @@
         }
     }
 
+    // 💡 ฟังก์ชันประมวลผลข้อมูลจาก Backend (ดึงข้อมูลให้ครบทุกตาราง)
     function processBackendData(data) {
         if (!data) { useFallbackMockData(); return; }
 
@@ -578,7 +576,6 @@
                 type: c.type || 'b2b', color: c.color_hex || '#e2e8f0', reqStaff: c.required_hk_per_day || 1,
                 contact: c.contact_person, phone: c.phone, status: c.status || 'Active', contractHours: c.contract_hours || 0,
                 serviceDays: c.service_days || '',frequency: c.frequency || '',startDate: c.start_date || '',endDate: c.end_date || '',
-                // 💡 พิกัด
                 lat: c.lat || '', lng: c.lng || ''
             };
         });
@@ -593,7 +590,6 @@
                 skills: h.special_skills || '', zones: h.zones || '', maxHoursWeek: h.max_hours_week || 48,
                 startDate: h.start_date || '', endDate: h.end_date || '',
                 avatar: validAvatar, color: h.color || '#3b82f6',
-                // 💡 รหัส PIN
                 pin: h.pin || ''
             };
         });
@@ -613,15 +609,10 @@
         if(data.siteActivities) {
             MOCK_SITE_ACTIVITIES = data.siteActivities.map(function(a) {
                 return {
-                    id: a.act_id, 
-                    clientId: a.client_id, 
-                    date: a.date, 
-                    type: a.type, 
-                    remark: a.remark, 
-                    actionBy: a.action_by
+                    id: a.act_id, clientId: a.client_id, date: a.date, type: a.type, remark: a.remark, actionBy: a.action_by
                 };
             });
-        }
+        } else { MOCK_SITE_ACTIVITIES = []; }
 
         // MOCK_ISSUES
         if(data.issues) {
@@ -631,11 +622,10 @@
                     source: i.source || 'housekeeper', providerId: i.provider_id || '',
                     category: i.category, description: i.description, status: i.status || 'Pending',
                     assignedTo: i.assigned_to || '', dueDate: i.due_date || '', 
-                    actionTaken: i.action_taken || '', 
-                    resolutionNote: i.resolution_note || ''
+                    actionTaken: i.action_taken || '', resolutionNote: i.resolution_note || ''
                 };
             });
-        }
+        } else { MOCK_ISSUES = []; }
 
         // MOCK_ATTENDANCE
         if(data.attendance) {
@@ -648,9 +638,28 @@
                     checkOutDocImg: a.check_out_doc_img, status: a.status
                 };
             });
-        }
+        } else { MOCK_ATTENDANCE = []; }
 
-        // จำลองการแจ้งเตือน (ลบออกหรือแทนที่ด้วยข้อมูลจริงจาก Backend ได้ในอนาคต)
+        // 💡 แมพปิ้งข้อมูลรายงานตรวจงานและประเมินผล (ที่หายไป ผมใส่คืนให้แล้วครับ)
+        if(data.inspections) {
+            MOCK_INSPECTIONS = data.inspections.map(function(ins) {
+                return {
+                    inspection_id: ins.inspection_id, client_id: ins.client_id, ae_id: ins.ae_id, date: ins.date,
+                    quality_score: ins.quality_score, follow_up_date: ins.follow_up_date, interview_note: ins.interview_note,
+                    signature_url: ins.signature_url, checklist_data: ins.checklist_data, issues_data: ins.issues_data
+                };
+            });
+        } else { MOCK_INSPECTIONS = []; }
+
+        if(data.evaluations) {
+            MOCK_EVALUATIONS = data.evaluations.map(function(ev) {
+                return {
+                    eval_id: ev.eval_id, client_id: ev.client_id, eval_month: ev.eval_month, 
+                    hk_scores: ev.hk_scores, comment: ev.comment, created_at: ev.created_at
+                };
+            });
+        } else { MOCK_EVALUATIONS = []; }
+
         MOCK_NOTIFICATIONS = [
             { id: 'N1', title: 'ต้อนรับสู่ระบบ MARI', message: 'ตรวจสอบตารางงานและแจ้งเตือนได้ที่นี่', type: 'System', isRead: false, linkId: null, timestamp: new Date() }
         ];
@@ -667,6 +676,8 @@
         MOCK_ISSUES = []; 
         MOCK_SITE_ACTIVITIES = []; 
         MOCK_ATTENDANCE = [];
+        MOCK_INSPECTIONS = [];
+        MOCK_EVALUATIONS = [];
         MOCK_NOTIFICATIONS = [];
         
         refreshAllViews();
@@ -715,7 +726,6 @@
         var dropdown = document.getElementById('notiDropdown');
         if(dropdown) dropdown.classList.add('invisible', 'opacity-0');
 
-        // เมื่อคลิกการแจ้งเตือนให้ลิงก์ไปหน้าต่างๆ
         if (type && type.includes('Issue') && typeof switchMainView === 'function') {
             switchMainView('view-issues', 'menu-issues');
             if (linkId && typeof editIssue === 'function') {
@@ -766,7 +776,6 @@
         container.innerHTML = html;
     }
 
-    // คลิกหน้าจอส่วนอื่นแล้วปิด Dropdown แจ้งเตือน
     document.addEventListener('click', function(e) {
         var dropdown = document.getElementById('notiDropdown');
         if (dropdown && !dropdown.classList.contains('invisible')) {
@@ -787,13 +796,14 @@
         if(typeof renderIssuesTable === 'function') renderIssuesTable(); 
 
         if(typeof renderInspectionMatrix === 'function') renderInspectionMatrix();
-        
         if(typeof renderAttendanceTable === 'function') renderAttendanceTable();
+        
+        // 💡 สั่งรีเฟรชหน้าประเมิน
+        if(typeof renderEvaluations === 'function') renderEvaluations(); 
     }
 
     function closeModal(id) { 
         var modal = document.getElementById(id);
         if (modal) modal.classList.add('hidden'); 
     }
-
 </script>
