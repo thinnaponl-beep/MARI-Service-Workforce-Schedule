@@ -138,7 +138,8 @@
             </div>
             
             <div class="flex items-center gap-4">
-                <button onclick="openShiftModal()" class="h-[42px] px-6 bg-brand text-white rounded-full text-[13px] font-bold hover:bg-brandDark transition flex items-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                <!-- 💡 เพิ่ม ID และใส่ Style ตรงๆ เพื่อการควบคุมที่ชัวร์ขึ้น -->
+                <button id="btnGlobalCreateShift" onclick="openShiftModal()" style="display: flex;" class="h-[42px] px-6 bg-brand text-white rounded-full text-[13px] font-bold hover:bg-brandDark transition flex items-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-plus"></i> สร้างตารางงานใหม่
                 </button>
 
@@ -338,7 +339,7 @@
                 <p class="text-sm text-gray-500 font-medium">จัดการสิทธิ์การเข้าถึงระบบของพนักงานออฟฟิศ</p>
                 <button onclick="openUserModal()" class="px-4 py-2 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-user-plus text-xs"></i> เพิ่มผู้ใช้งาน</button>
             </div>
-            <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar"><table class="w-full data-table"><thead><tr><th class="min-w-[180px]">ชื่อผู้ใช้ (Name)</th><th class="min-w-[200px]">อีเมล (Email)</th><th class="w-40 whitespace-nowrap text-center">บทบาท (Role)</th><th class="w-24 whitespace-nowrap text-center">สถานะ</th><th class="w-16 text-right whitespace-nowrap">จัดการ</th></tr></thead><tbody id="userTableBody"></tbody></table></div>
+            <div class="flex-grow overflow-auto border border-gray-200 rounded-xl shadow-sm custom-scrollbar"><table class="w-full data-table"><thead><tr><th class="min-w-[180px]">ชื่อผู้ใช้ (Name)</th><th class="min-w-[200px]">อีเมล (Email) / รหัสเข้าแอป</th><th class="w-40 whitespace-nowrap text-center">บทบาท (Role)</th><th class="w-24 whitespace-nowrap text-center">สถานะ</th><th class="w-16 text-right whitespace-nowrap">จัดการ</th></tr></thead><tbody id="userTableBody"></tbody></table></div>
         </div>
 
         <!-- ======================================= -->
@@ -407,6 +408,16 @@
         <!-- [NEW] ดึงหน้า ISSUES (แจ้งปัญหาคุณภาพ) มาวางที่นี่ด้วย Component -->
         <!-- ======================================= -->
         <?!= include('Page_Issues'); ?>
+        
+        <!-- ======================================= -->
+        <!-- [NEW] ดึงหน้า ATTENDANCE (เวลาเข้า-ออก) มาวางที่นี่ด้วย Component -->
+        <!-- ======================================= -->
+        <?!= include('Page_Attendance'); ?>
+
+        <!-- ======================================= -->
+        <!-- [NEW] ดึงหน้า EVALUATION (คะแนนประเมินลูกค้า) -->
+        <!-- ======================================= -->
+        <?!= include('JS_Evaluation'); ?>
 
     </main>
 
@@ -656,6 +667,22 @@
                                 <input type="text" id="clientZipcode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand bg-gray-100 shadow-sm" readonly>
                             </div>
                         </div>
+                        
+                        <div class="flex flex-col gap-2 mt-1">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-[12px] font-bold text-gray-600">พิกัด GPS สำหรับเช็คอิน <span class="text-brand font-normal">(ระยะ 200ม.)</span></label>
+                                <button type="button" onclick="getCurrentLocationForClient()" class="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition flex items-center gap-1 shadow-sm"><i class="fa-solid fa-location-crosshairs"></i> ดึงพิกัดปัจจุบัน</button>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-1/2">
+                                    <input type="text" id="clientLat" placeholder="ละติจูด (Lat) เช่น 18.7953" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-blue-50/30">
+                                </div>
+                                <div class="w-1/2">
+                                    <input type="text" id="clientLng" placeholder="ลองจิจูด (Lng) เช่น 98.9620" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm bg-blue-50/30">
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-gray-400">นำพิกัดจาก Google Maps มาใส่ หรือกดปุ่มดึงพิกัดหากอยู่หน้าไซต์งาน</p>
+                        </div>
                     </div>
 
                     <div class="flex flex-col gap-4">
@@ -719,125 +746,6 @@
         </div>
     </div>
 
-    <!-- Modal: Staff -->
-    <div id="staffModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="px-7 py-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
-                <h3 class="text-lg font-black text-brand" id="modalStaffTitle">ข้อมูลพนักงาน</h3>
-                <button onclick="closeModal('staffModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="p-7 flex-grow overflow-y-auto bg-gray-50/30 custom-scrollbar">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <input type="hidden" id="staffIdHidden">
-                    
-                    <div class="flex flex-col gap-4">
-                        <div class="pb-2 border-b border-gray-200">
-                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-user mr-1"></i> ข้อมูลส่วนบุคคล</h4>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รหัสพนักงาน <span class="text-brand">(Auto)</span></label>
-                            <input type="text" id="staffId" class="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-bold text-brand bg-gray-100 outline-none cursor-not-allowed shadow-sm" readonly>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
-                            <input type="text" id="staffName" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ชื่อเล่น</label>
-                                <input type="text" id="staffNickname" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand font-medium shadow-sm">
-                            </div>
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1">สีประจำตัว</label>
-                                <input type="color" id="staffColor" value="#3b82f6" class="w-full h-[38px] border border-gray-300 rounded-md cursor-pointer p-1 shadow-sm">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">รูปโปรไฟล์พนักงาน</label>
-                            <input type="file" id="staffImageFile" accept="image/*" onchange="uploadStaffImage()" class="w-full text-[12px] font-medium text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-bold file:bg-brandLight file:text-brand hover:file:bg-gray-200 outline-none">
-                            <input type="hidden" id="staffImage">
-                            <span id="uploadStatusText" class="text-[11px] text-gray-500 font-bold mt-1 block"></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col gap-4">
-                        <div class="pb-2 border-b border-gray-200">
-                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-address-card mr-1"></i> การติดต่อ & สถานะ</h4>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
-                            <input type="text" id="staffPhone" placeholder="0XXXXXXXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-brand outline-none focus:border-brand shadow-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">LINE ID</label>
-                            <input type="text" id="staffLine" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
-                            <select id="staffStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                                <option value="Active">Active (ทำงานปกติ)</option>
-                                <option value="Inactive">Inactive (ลาออก/พักงาน)</option>
-                                <option value="On Leave">On Leave (ลางาน)</option>
-                            </select>
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทงาน</label>
-                                <select id="staffJobType" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                                    <option value="Full-time">Full-time</option>
-                                    <option value="Part-time">Part-time</option>
-                                </select>
-                            </div>
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1" title="ชั่วโมงทำงานสูงสุด/สัปดาห์">ชม.สูงสุด/สัปดาห์</label>
-                                <input type="number" id="staffMaxHours" value="48" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold text-center outline-none focus:border-brand shadow-sm">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col gap-4">
-                        <div class="pb-2 border-b border-gray-200">
-                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-briefcase mr-1"></i> พื้นที่ & ทักษะ</h4>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">โซน/พื้นที่ปฏิบัติงาน (เลือกได้หลายพื้นที่)</label>
-                            <select id="staffZones" multiple="multiple" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand shadow-sm">
-                                <option value="โซนตัวเมือง">โซนตัวเมือง</option>
-                                <option value="โซนหางดง">โซนหางดง</option>
-                                <option value="โซนสันทราย">โซนสันทราย</option>
-                                <option value="โซนแม่ริม">โซนแม่ริม</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[12px] font-bold text-gray-600 mb-1">ทักษะพิเศษ</label>
-                            <input type="text" id="staffSkills" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เริ่มงาน</label>
-                                <input type="date" id="staffStartDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                            </div>
-                            <div class="w-1/2">
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1">วันหมดสัญญา</label>
-                                <input type="date" id="staffEndDate" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-medium outline-none focus:border-brand shadow-sm">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="staffHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
-                    <label class="block text-[13px] font-bold text-gray-600 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการแก้ไขข้อมูล (Audit Log)</label>
-                    <div id="staffHistoryContainer" class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm max-h-48 overflow-y-auto custom-scrollbar text-[12px]"></div>
-                </div>
-
-            </div>
-            <div class="px-7 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white shrink-0">
-                <button onclick="closeModal('staffModal')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
-                <button onclick="saveStaff()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-md transition transform hover:-translate-y-0.5">บันทึกพนักงาน</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal: User -->
     <div id="userModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
@@ -855,6 +763,22 @@
                     <label class="block text-[12px] font-bold text-gray-600 mb-1">อีเมล (Google Account) <span class="text-red-500">*</span></label>
                     <input type="email" id="userEmail" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
                 </div>
+                
+                <!-- 💡 เพิ่มช่องตั้งค่ารหัสเข้าแอปมือถือสำหรับ AE / Admin -->
+                <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-mobile-screen mr-1"></i> สำหรับเข้าแอปมือถือ (AE)</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">เบอร์โทร (รหัสผู้ใช้)</label>
+                            <input type="text" id="userPhone" placeholder="08XXXXXXXX" maxlength="10" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">PIN 4 หลัก</label>
+                            <input type="text" id="userPin" placeholder="ตัวเลข 4 หลัก" maxlength="4" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-brand text-center tracking-widest bg-blue-50/30">
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-[12px] font-bold text-gray-600 mb-1">ระดับสิทธิ์ (Role)</label>
                     <select id="userRole" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
@@ -901,15 +825,96 @@
                 lblDate.innerHTML = 'เริ่มตั้งแต่วันที่ <span class="text-red-500">*</span>';
             }
         }
+
+        // 💡 อัปเดตฟังก์ชันบันทึกผู้ใช้งาน (รับค่าโทรศัพท์และ PIN)
+        function saveUser() {
+            var id = document.getElementById('userId').value;
+            var name = document.getElementById('userName').value;
+            var email = document.getElementById('userEmail').value;
+            if(!name || !email) { if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อและอีเมล', type: 'warning' }); return; }
+            
+            var userData = { 
+                id: id || 'U' + new Date().getTime(), 
+                name: name, 
+                email: email, 
+                role: document.getElementById('userRole').value, 
+                status: document.getElementById('userStatus').value,
+                phone: document.getElementById('userPhone').value,
+                pin: document.getElementById('userPin').value 
+            };
+            
+            var idx = MOCK_USERS.findIndex(function(u) { return u.id === userData.id; }); 
+            if(idx > -1) { MOCK_USERS[idx] = userData; } else { MOCK_USERS.push(userData); }
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) { google.script.run.saveUserToBackend(userData); }
+            
+            closeModal('userModal'); 
+            if(typeof renderUserTable === 'function') renderUserTable(); 
+            showToast('บันทึกสิทธิ์ผู้ใช้งานสำเร็จ');
+        }
+
+        function openUserModal() {
+            setInputValue('userId', ''); 
+            setInputValue('userName', ''); 
+            setInputValue('userEmail', ''); 
+            setInputValue('userPhone', ''); 
+            setInputValue('userPin', ''); 
+            setInputValue('userRole', 'Viewer'); 
+            setInputValue('userStatus', 'Active');
+            
+            var modal = document.getElementById('userModal');
+            if(modal) modal.classList.remove('hidden');
+        }
+
+        function editUser(id) {
+            var u = MOCK_USERS.find(function(x) { return x.id === id; }); 
+            if(!u) return;
+            
+            setInputValue('userId', u.id); 
+            setInputValue('userName', u.name); 
+            setInputValue('userEmail', u.email); 
+            setInputValue('userPhone', u.phone || ''); 
+            setInputValue('userPin', u.pin || ''); 
+            setInputValue('userRole', u.role); 
+            setInputValue('userStatus', u.status);
+            
+            var modal = document.getElementById('userModal');
+            if(modal) modal.classList.remove('hidden');
+        }
+
+        // 💡 อัปเดตตารางแสดงผลสิทธิ์ผู้ใช้งาน (แสดงเบอร์โทรด้วยถ้ามี)
+        function renderUserTable() {
+            var tbody = document.getElementById('userTableBody');
+            if (!tbody) return;
+            var html = '';
+            MOCK_USERS.forEach(function(u) {
+                var statusBadge = u.status === 'Active' ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">Active</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold">Inactive</span>';
+                var roleClass = (u.role === 'Admin / Supervisor' || u.role === 'Admin' || u.role === 'DEV') ? 'text-purple-600 bg-purple-50 border-purple-100' : ((u.role === 'AE/หัวหน้าแม่บ้าน' || u.role === 'Supervisor') ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-gray-600 bg-gray-50 border-gray-200');
+                
+                var phoneText = u.phone ? '<div class="text-[10px] font-medium text-brand mt-0.5"><i class="fa-solid fa-mobile-screen mr-1"></i>เข้าแอปมือถือ: ' + u.phone + '</div>' : '';
+                
+                html += '<tr class="hover:bg-gray-50 transition-colors">' +
+                        '<td class="font-bold text-gray-900">' + u.name + '</td>' +
+                        '<td class="text-gray-600 text-sm">' + u.email + phoneText + '</td>' +
+                        '<td class="text-center"><span class="px-2 py-1 rounded text-[11px] font-bold border ' + roleClass + '">' + u.role + '</span></td>' +
+                        '<td class="text-center">' + statusBadge + '</td>' +
+                        '<td class="text-right pr-6">' +
+                        '<button onclick="editUser(\'' + u.id + '\')" class="text-gray-400 hover:text-brand px-2 transition bg-white border border-gray-200 hover:border-brand/30 shadow-sm hover:bg-brandLight w-8 h-8 rounded-md"><i class="fa-solid fa-pen-to-square"></i></button>' +
+                        '</td></tr>';
+            });
+            tbody.innerHTML = html;
+        }
     </script>
 
     <!-- 🔌 ดึงไฟล์ JS -->
-        <?!= include('JS_Core'); ?>
+    <?!= include('JS_Core'); ?>
     <?!= include('JS_Schedule'); ?>
     <?!= include('Page_Manage'); ?>
     <?!= include('JS_Auth'); ?>
     <?!= include('JS_Report'); ?>
     <?!= include('JS_Inspection'); ?>
+    <?!= include('Page_Attendance'); ?>
+    <?!= include('JS_Evaluation'); ?>
 
 </body>
 </html>
