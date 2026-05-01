@@ -241,6 +241,10 @@
             startDate: document.getElementById('clientStartDate') ? document.getElementById('clientStartDate').value : '',
             endDate: document.getElementById('clientEndDate') ? document.getElementById('clientEndDate').value : '',
             
+            // 💡 บันทึกพิกัด GPS ลง Backend ด้วย
+            lat: document.getElementById('clientLat') ? document.getElementById('clientLat').value : '',
+            lng: document.getElementById('clientLng') ? document.getElementById('clientLng').value : '',
+
             actionBy: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) ? CURRENT_USER.email : 'Unknown'
         };
         
@@ -284,6 +288,10 @@
             maxHoursWeek: document.getElementById('staffMaxHours').value || 48,
             startDate: document.getElementById('staffStartDate').value, endDate: document.getElementById('staffEndDate').value,
             avatar: inputAvatar ? inputAvatar : defaultAvatar, color: document.getElementById('staffColor').value,
+            
+            // 💡 บันทึกรหัส PIN ลง Backend
+            pin: document.getElementById('staffPin') ? document.getElementById('staffPin').value : '',
+
             actionBy: CURRENT_USER ? CURRENT_USER.email : 'Unknown'
         };
         
@@ -1338,6 +1346,7 @@
         
         setInputValue('staffColor', typeof getRandomColor === 'function' ? getRandomColor() : '#3b82f6'); 
         setInputValue('staffPhone', ''); 
+        setInputValue('staffPin', ''); // 💡 ล้างค่า PIN เมื่อกดเพิ่มพนักงานใหม่
         setInputValue('staffLine', ''); 
         setInputValue('staffJobType', 'Full-time'); 
         setInputValue('staffStatus', 'Active'); 
@@ -1379,6 +1388,7 @@
         
         setInputValue('staffColor', h.color || '#3b82f6'); 
         setInputValue('staffPhone', h.phone || ''); 
+        setInputValue('staffPin', h.pin || ''); // 💡 ดึงค่า PIN จากฐานข้อมูลมาแสดง
         setInputValue('staffLine', h.lineId || ''); 
         setInputValue('staffJobType', h.type || 'Full-time'); 
         setInputValue('staffStatus', h.status || 'Active'); 
@@ -1439,6 +1449,48 @@
                 clientSelect.appendChild(opt); 
             });
             if (window.jQuery && $.fn.select2) $('#modalClient').trigger('change.select2');
+        }
+    }
+
+    // 💡 Helper: แสดง/ซ่อน รหัสผ่าน (PIN)
+    function togglePinVisibility() {
+        var pinInput = document.getElementById('staffPin');
+        var icon = document.getElementById('pinEyeIcon');
+        if (pinInput && icon) {
+            if (pinInput.type === 'password') {
+                pinInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                pinInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    }
+
+    // 💡 Helper: ดึงพิกัด GPS ปัจจุบันลงในฟอร์มไซต์งาน
+    function getCurrentLocationForClient() {
+        if (navigator.geolocation) {
+            document.getElementById('clientLat').value = 'กำลังดึงพิกัด...';
+            document.getElementById('clientLng').value = 'กำลังดึงพิกัด...';
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    document.getElementById('clientLat').value = position.coords.latitude;
+                    document.getElementById('clientLng').value = position.coords.longitude;
+                    if(typeof showToast === 'function') showToast('ดึงพิกัดปัจจุบันสำเร็จ');
+                },
+                function(error) {
+                    document.getElementById('clientLat').value = '';
+                    document.getElementById('clientLng').value = '';
+                    if(typeof showCustomDialog === 'function') {
+                        showCustomDialog({ title: 'ข้อผิดพลาด', message: 'ไม่สามารถดึงพิกัดได้ กรุณาอนุญาตให้สิทธิ์เข้าถึงตำแหน่ง (Location)', type: 'warning' });
+                    } else { alert('ไม่สามารถดึงพิกัดได้'); }
+                },
+                { enableHighAccuracy: true }
+            );
+        } else {
+            alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการดึงพิกัด GPS");
         }
     }
 </script>
