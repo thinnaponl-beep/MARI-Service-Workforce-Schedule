@@ -14,11 +14,13 @@ function setupDatabase() {
     'Housekeepers': ['hk_id', 'name', 'nickname', 'phone', 'pin', 'line_id', 'status', 'job_type', 'special_skills', 'zones', 'max_hours_week', 'avatar_url', 'color_hex', 'start_date', 'end_date', 'created_at'],
     'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at', 'lat', 'lng'],
     'Shifts': ['shift_id', 'client_id', 'date', 'start_time', 'end_time', 'assigned_hk_ids', 'status', 'recurring_group_id', 'notes', 'created_by', 'updated_at'],
-    'Users': ['email', 'name', 'role', 'is_active'],
+    'Users': ['email', 'name', 'role', 'is_active', 'phone', 'pin'], // 💡 เพิ่ม phone และ pin สำหรับให้ AE ล็อกอินมือถือ
     'Site_Activities': ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'],
     'Issues': ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'],
+    'Inspections': ['inspection_id', 'client_id', 'ae_id', 'date', 'quality_score', 'follow_up_date', 'interview_note', 'signature_url', 'checklist_data', 'issues_data', 'pdf_url', 'created_at'],
     'ChangeLog': ['log_id', 'timestamp', 'user_email', 'action', 'table_name', 'record_id', 'old_data', 'new_data'],
-    'Time_Attendance': ['record_id', 'shift_id', 'hk_id', 'client_id', 'date', 'check_in_time', 'check_in_img', 'check_in_lat', 'check_in_lng', 'check_out_time', 'check_out_site_img', 'check_out_doc_img', 'status']
+    'Time_Attendance': ['record_id', 'shift_id', 'hk_id', 'client_id', 'date', 'check_in_time', 'check_in_img', 'check_in_lat', 'check_in_lng', 'check_out_time', 'check_out_site_img', 'check_out_doc_img', 'status'],
+    'Evaluations': ['eval_id', 'client_id', 'eval_month', 'hk_scores', 'comment', 'created_at'] 
   };
 
   for (const [sheetName, headers] of Object.entries(sheetsConfig)) {
@@ -27,7 +29,7 @@ function setupDatabase() {
       sheet = ss.insertSheet(sheetName);
     }
     
-    // อัปเดต Header
+    // อัปเดต Header ให้เป็นปัจจุบันเสมอ
     const headerRange = sheet.getRange(1, 1, 1, headers.length);
     headerRange.setValues([headers]);
     headerRange.setFontWeight('bold');
@@ -36,13 +38,12 @@ function setupDatabase() {
     sheet.setFrozenRows(1);
   }
 
-  // ใช้ Logger แทน getUi() เพื่อไม่ให้ติด Error เวลาเรียกใช้งานแบบไม่ผ่านหน้าจอ
   Logger.log('✅ โครงสร้างฐานข้อมูลอัปเดตเรียบร้อย!');
   return "Database Setup Completed.";
 }
 
 // ==========================================
-// 2. WEB APP ROUTING (Frontend)
+// 2. WEB APP ROUTING (Frontend Admin)
 // ==========================================
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
@@ -75,7 +76,7 @@ function verifyUserLogin() {
 
   if (data.length === 1 || (data.length === 2 && data[1][0] === '')) {
     if(data.length === 2 && data[1][0] === '') sheet.deleteRow(2);
-    sheet.appendRow([email, 'System Admin', 'Admin / Supervisor', true]);
+    sheet.appendRow([email, 'System Admin', 'Admin / Supervisor', true, '', '']);
     return { status: 'success', user: { email: email, name: 'System Admin', role: 'Admin / Supervisor' } };
   }
 
@@ -100,7 +101,9 @@ function getAppData() {
     users: getSheetDataAsObjects('Users'),
     siteActivities: getSheetDataAsObjects('Site_Activities'),
     issues: getSheetDataAsObjects('Issues'),
-    attendance: getSheetDataAsObjects('Time_Attendance')
+    attendance: getSheetDataAsObjects('Time_Attendance'),
+    inspections: getSheetDataAsObjects('Inspections'),
+    evaluations: getSheetDataAsObjects('Evaluations')
   };
 }
 
@@ -243,6 +246,7 @@ function saveStaffToBackend(staffData) {
   return { success: true, message: 'บันทึกข้อมูลพนักงานสำเร็จ' };
 }
 
+// 💡 อัปเดตฟังก์ชันบันทึก Users ให้รองรับ Phone และ PIN
 function saveUserToBackend(userData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
   if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Users' };
@@ -253,12 +257,16 @@ function saveUserToBackend(userData) {
   let isFound = false;
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][emailIdx] === userData.email || data[i][emailIdx] === userData.id) {
+    if (data[i][emailIdx] === userData.email || (userData.id && data[i][0] === userData.id)) {
       const rowNum = i + 1;
       let updatedRow = [...data[i]];
-      updatedRow[headers.indexOf('name')] = userData.name || '';
-      updatedRow[headers.indexOf('role')] = userData.role || 'Viewer';
-      updatedRow[headers.indexOf('is_active')] = (userData.status === 'Active') ? true : false;
+      if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = userData.name || '';
+      if(headers.indexOf('role') > -1) updatedRow[headers.indexOf('role')] = userData.role || 'Viewer';
+      if(headers.indexOf('is_active') > -1) updatedRow[headers.indexOf('is_active')] = (userData.status === 'Active') ? true : false;
+      
+      // อัปเดตเบอร์โทร และรหัสผ่านแอปมือถือ
+      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = userData.phone || '';
+      if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = userData.pin || '';
 
       sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
       isFound = true;
@@ -268,7 +276,16 @@ function saveUserToBackend(userData) {
 
   if (!isFound) {
     const isActive = (userData.status === 'Active') ? true : false;
-    sheet.appendRow([ userData.email, userData.name || '', userData.role || 'Viewer', isActive ]);
+    let newRow = new Array(headers.length).fill('');
+    if(headers.indexOf('email') > -1) newRow[headers.indexOf('email')] = userData.email;
+    if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = userData.name || '';
+    if(headers.indexOf('role') > -1) newRow[headers.indexOf('role')] = userData.role || 'Viewer';
+    if(headers.indexOf('is_active') > -1) newRow[headers.indexOf('is_active')] = isActive;
+    
+    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = userData.phone || '';
+    if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = userData.pin || '';
+    
+    sheet.appendRow(newRow);
   }
   return { success: true, message: 'บันทึกข้อมูลผู้ใช้งานสำเร็จ' };
 }
@@ -297,14 +314,14 @@ function saveMultipleShiftsToBackend(shiftsArray) {
         for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
         let updatedRow = [...data[i]];
-        updatedRow[headers.indexOf('client_id')] = shiftData.clientId;
-        updatedRow[headers.indexOf('date')] = "'" + shiftData.date; 
-        updatedRow[headers.indexOf('start_time')] = shiftData.start;
-        updatedRow[headers.indexOf('end_time')] = shiftData.end;
-        updatedRow[headers.indexOf('assigned_hk_ids')] = hkString;
-        updatedRow[headers.indexOf('status')] = shiftData.status;
-        updatedRow[headers.indexOf('notes')] = notesStr;
-        updatedRow[headers.indexOf('updated_at')] = now;
+        if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = shiftData.clientId;
+        if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + shiftData.date; 
+        if(headers.indexOf('start_time') > -1) updatedRow[headers.indexOf('start_time')] = shiftData.start;
+        if(headers.indexOf('end_time') > -1) updatedRow[headers.indexOf('end_time')] = shiftData.end;
+        if(headers.indexOf('assigned_hk_ids') > -1) updatedRow[headers.indexOf('assigned_hk_ids')] = hkString;
+        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = shiftData.status;
+        if(headers.indexOf('notes') > -1) updatedRow[headers.indexOf('notes')] = notesStr;
+        if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = now;
 
         sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
         isFound = true;
@@ -317,17 +334,17 @@ function saveMultipleShiftsToBackend(shiftsArray) {
 
     if (!isFound) {
        let newRow = new Array(headers.length).fill('');
-       newRow[headers.indexOf('shift_id')] = shiftData.id;
-       newRow[headers.indexOf('client_id')] = shiftData.clientId;
-       newRow[headers.indexOf('date')] = "'" + shiftData.date;
-       newRow[headers.indexOf('start_time')] = shiftData.start;
-       newRow[headers.indexOf('end_time')] = shiftData.end;
-       newRow[headers.indexOf('assigned_hk_ids')] = hkString;
-       newRow[headers.indexOf('status')] = shiftData.status;
-       newRow[headers.indexOf('recurring_group_id')] = groupIdStr;
-       newRow[headers.indexOf('notes')] = notesStr;
-       newRow[headers.indexOf('created_by')] = shiftData.actionBy || 'Unknown';
-       newRow[headers.indexOf('updated_at')] = now;
+       if(headers.indexOf('shift_id') > -1) newRow[headers.indexOf('shift_id')] = shiftData.id;
+       if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = shiftData.clientId;
+       if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + shiftData.date;
+       if(headers.indexOf('start_time') > -1) newRow[headers.indexOf('start_time')] = shiftData.start;
+       if(headers.indexOf('end_time') > -1) newRow[headers.indexOf('end_time')] = shiftData.end;
+       if(headers.indexOf('assigned_hk_ids') > -1) newRow[headers.indexOf('assigned_hk_ids')] = hkString;
+       if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = shiftData.status;
+       if(headers.indexOf('recurring_group_id') > -1) newRow[headers.indexOf('recurring_group_id')] = groupIdStr;
+       if(headers.indexOf('notes') > -1) newRow[headers.indexOf('notes')] = notesStr;
+       if(headers.indexOf('created_by') > -1) newRow[headers.indexOf('created_by')] = shiftData.actionBy || 'Unknown';
+       if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = now;
        
        newRows.push(newRow);
        logChange('CREATE', 'Shifts', shiftData.id, null, shiftData, shiftData.actionBy);
@@ -355,9 +372,9 @@ function updateShiftDragAndDrop(shiftId, targetClientId, targetDateStr, actionBy
       let oldDataObj = {};
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
-      sheet.getRange(rowNum, headers.indexOf('client_id') + 1).setValue(targetClientId);
-      sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue("'" + targetDateStr);
-      sheet.getRange(rowNum, headers.indexOf('updated_at') + 1).setValue(new Date());
+      if(headers.indexOf('client_id') > -1) sheet.getRange(rowNum, headers.indexOf('client_id') + 1).setValue(targetClientId);
+      if(headers.indexOf('date') > -1) sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue("'" + targetDateStr);
+      if(headers.indexOf('updated_at') > -1) sheet.getRange(rowNum, headers.indexOf('updated_at') + 1).setValue(new Date());
       
       logChange('UPDATE_DRAG', 'Shifts', shiftId, oldDataObj, {clientId: targetClientId, date: targetDateStr}, actionBy);
       return { success: true, message: 'อัปเดตตำแหน่งสำเร็จ' };
@@ -378,7 +395,7 @@ function deleteShiftToBackend(shiftId, deleteType = 'single', groupId = null, ac
 
   for (let i = data.length - 1; i >= 1; i--) {
     let shouldDelete = false;
-    if (deleteType === 'group' && groupId && data[i][groupIdIdx] === groupId) shouldDelete = true;
+    if (deleteType === 'group' && groupId && groupIdIdx > -1 && data[i][groupIdIdx] === groupId) shouldDelete = true;
     else if (data[i][shiftIdIdx] === shiftId) shouldDelete = true;
 
     if (shouldDelete) {
@@ -403,7 +420,7 @@ function deleteStaffToBackend(staffId, actionBy) {
   const headers = data[0];
   
   for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][headers.indexOf('hk_id')] === staffId) {
+    if (headers.indexOf('hk_id') > -1 && data[i][headers.indexOf('hk_id')] === staffId) {
       let oldDataObj = {};
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
       sheet.deleteRow(i + 1);
@@ -421,7 +438,7 @@ function deleteClientToBackend(clientId, actionBy) {
   const headers = data[0];
   
   for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][headers.indexOf('client_id')] === clientId) {
+    if (headers.indexOf('client_id') > -1 && data[i][headers.indexOf('client_id')] === clientId) {
       let oldDataObj = {};
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
       sheet.deleteRow(i + 1);
@@ -586,7 +603,7 @@ function deleteIssueToBackend(issueId, actionBy) {
   const headers = data[0];
   
   for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][headers.indexOf('issue_id')] === issueId) {
+    if (headers.indexOf('issue_id') > -1 && data[i][headers.indexOf('issue_id')] === issueId) {
       let oldDataObj = {};
       for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
       sheet.deleteRow(i + 1);
@@ -709,7 +726,8 @@ function getRecordHistory(tableName, recordId) {
   const result = [];
   
   for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][headers.indexOf('table_name')]) === String(tableName) && 
+    if (headers.indexOf('table_name') > -1 && headers.indexOf('record_id') > -1 && 
+        String(data[i][headers.indexOf('table_name')]) === String(tableName) && 
         String(data[i][headers.indexOf('record_id')]) === String(recordId)) {
       
       let ts = data[i][headers.indexOf('timestamp')];
@@ -730,7 +748,6 @@ function getRecordHistory(tableName, recordId) {
 function uploadImageToDrive(base64Data, fileName) {
   try {
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", fileName);
-    // โฟลเดอร์ของระบบ
     var FOLDER_ID = '1VF9cq_puxvjrw9NZx53BnLraRk3w28Vx'; 
     var folder = DriveApp.getFolderById(FOLDER_ID);
     var file = folder.createFile(blob);
@@ -781,8 +798,16 @@ function exportToGoogleSheets(shiftsData) {
   }
 }
 
+// ==========================================
+// 6. NOTIFICATION HELPER
+// ==========================================
+function sendSlackNotificationFromBackend(payload) {
+  console.log("Mock Send Notification: ", payload);
+  return { success: true };
+}
+
 // =========================================================================
-// 🚀 API FOR HOUSEKEEPER APP (ระบบแอปพลิเคชันสำหรับแม่บ้านบนมือถือ)
+// 🚀 API FOR HOUSEKEEPER APP (ระบบแอปพลิเคชันสำหรับแม่บ้านและ AE บนมือถือ)
 // =========================================================================
 
 function doPost(e) {
@@ -797,75 +822,123 @@ function doPost(e) {
       result = mobileApiCheckIn(data.hkId, data.shiftId, data.clientId, data.imageB64, data.lat, data.lng);
     } else if (action === 'CHECK_OUT') {
       result = mobileApiCheckOut(data.hkId, data.shiftId, data.siteImageB64, data.docImageB64);
+    } else if (action === 'SUBMIT_INSPECTION') {
+      result = mobileApiSubmitInspection(data.inspectionData);
+    } else if (action === 'GET_CLIENT_EVAL_INFO') { 
+      result = getClientEvalInfo(data.clientId, data.month);
+    } else if (action === 'SUBMIT_EVALUATION') { 
+      result = submitEvaluation(data.clientId, data.month, data.scores, data.comment);
     }
 
-    // ส่งคืนข้อมูลเป็น JSON
     return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(ContentService.MimeType.TEXT);
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({success: false, message: err.toString()}))
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(ContentService.MimeType.TEXT);
   }
 }
 
 // API: ล็อกอิน (ตรวจสอบด้วยเบอร์และ PIN)
 function mobileApiLogin(phone, pin) {
-  const hks = getSheetDataAsObjects('Housekeepers');
+  // 💡 ตรวจสอบสิทธิ์จากตาราง Users ก่อน (สำหรับ AE / แอดมิน)
+  const users = getSheetDataAsObjects('Users');
+  const adminUser = users.find(u => String(u.phone) === String(phone) && u.is_active === true);
   
-  // ค้นหาพนักงานจากเบอร์โทรศัพท์ และตรวจสอบสถานะ Active
-  const hk = hks.find(h => h.phone === phone && h.status === 'Active');
-  if (!hk) return { success: false, message: 'ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือบัญชีถูกระงับการใช้งาน' };
-  
-  // ตรวจสอบ PIN (เปรียบเทียบกับค่าในฐานข้อมูล)
-  const expectedPin = hk.pin ? String(hk.pin) : phone.substring(phone.length - 4);
-  if (String(pin) !== expectedPin && pin !== '1234') { 
-     return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
+  if (adminUser) {
+      const expectedAdminPin = adminUser.pin ? String(adminUser.pin) : phone.substring(phone.length - 4);
+      if (String(pin) !== expectedAdminPin && pin !== '1234') { 
+          return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
+      }
+      return { 
+          success: true, 
+          message: 'Welcome AE', 
+          user: { id: adminUser.email, name: adminUser.name, avatar: '', role: adminUser.role }, 
+          shift: null, 
+          status: 'pending_checkin', 
+          upcomingShifts: [] 
+      };
   }
 
-  // ดึงกะงานของวันนี้
+  // 💡 ถ้าไม่ใช่ AE ให้ตรวจสอบตาราง Housekeepers (สำหรับแม่บ้าน)
+  const hks = getSheetDataAsObjects('Housekeepers');
+  
+  const hk = hks.find(h => String(h.phone) === String(phone) && h.status === 'Active');
+  if (!hk) return { success: false, message: 'ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือบัญชีถูกระงับการใช้งาน' };
+  
+  const expectedPin = hk.pin ? String(hk.pin) : phone.substring(phone.length - 4);
+  if (String(pin) !== expectedPin && pin !== '1234') { 
+      return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
+  }
+
   const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   const shifts = getSheetDataAsObjects('Shifts');
   
   const todayShift = shifts.find(s => s.date === todayStr && String(s.assigned_hk_ids).includes(hk.hk_id) && s.status !== 'cancelled' && s.status !== 'absent');
 
+  let upcomingShifts = [];
+  let endLimitDate = new Date();
+  endLimitDate.setDate(endLimitDate.getDate() + 7);
+  const limitStr = Utilities.formatDate(endLimitDate, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const clients = getSheetDataAsObjects('Clients');
+
+  shifts.forEach(s => {
+       if (s.date > todayStr && s.date <= limitStr && s.status !== 'cancelled') {
+           let hksList = s.assigned_hk_ids ? s.assigned_hk_ids.toString().split(',').map(id => id.trim()) : [];
+           if (hksList.includes(hk.hk_id)) {
+               const client = clients.find(c => c.client_id === s.client_id);
+               let d = new Date(s.date);
+               let days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+               let months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+               let dStr = "วัน" + days[d.getDay()];
+               if(s.date === Utilities.formatDate(new Date(new Date().getTime() + 86400000), Session.getScriptTimeZone(), "yyyy-MM-dd")) dStr = "พรุ่งนี้";
+               
+               upcomingShifts.push({
+                   date: dStr, dateFull: d.getDate() + " " + months[d.getMonth()] + " " + (d.getFullYear()+543),
+                   start: s.start_time, end: s.end_time, site: client ? client.client_name : '-', status: s.status
+               });
+           }
+       }
+  });
+  upcomingShifts.sort((a,b) => new Date(a.dateFull) - new Date(b.dateFull));
+
   if (!todayShift) {
-     return { success: true, user: { id: hk.hk_id, name: hk.name }, shift: null, status: 'no_shift' };
+      return { success: true, user: { id: hk.hk_id, name: hk.name, avatar: hk.avatar_url || '' }, shift: null, status: 'no_shift', upcomingShifts: upcomingShifts };
   }
 
-  // ดึงข้อมูลไซต์งาน
-  const clients = getSheetDataAsObjects('Clients');
   const client = clients.find(c => c.client_id === todayShift.client_id);
-
-  // ตรวจสอบว่าวันนี้เช็คอินไปแล้วหรือยัง
   const attendances = getSheetDataAsObjects('Time_Attendance');
   const att = attendances.find(a => a.shift_id === todayShift.shift_id && a.hk_id === hk.hk_id);
 
   let currentStatus = 'pending_checkin';
   let record = null;
   if (att) {
-     currentStatus = att.status; // จะเป็น 'working' หรือ 'completed'
-     record = {
-        checkInTime: att.check_in_time ? Utilities.formatDate(new Date(att.check_in_time), Session.getScriptTimeZone(), "HH:mm") : null,
-        checkOutTime: att.check_out_time ? Utilities.formatDate(new Date(att.check_out_time), Session.getScriptTimeZone(), "HH:mm") : null
-     };
+      if (att.check_out_time) {
+          currentStatus = 'completed';
+      } else if (att.check_in_time) {
+          currentStatus = 'working';
+      }
+      record = {
+         checkInTime: att.check_in_time ? att.check_in_time : null,
+         checkOutTime: att.check_out_time ? att.check_out_time : null
+      };
   }
 
   return {
-     success: true,
-     user: { id: hk.hk_id, name: hk.name },
-     shift: {
-        id: todayShift.shift_id,
-        clientId: todayShift.client_id,
-        date: todayShift.date,
-        dateThai: "วันที่ " + todayShift.date, 
-        startTime: todayShift.start_time,
-        endTime: todayShift.end_time,
-        siteName: client ? client.client_name : 'ไม่ระบุไซต์งาน',
-        targetLat: client && client.lat ? parseFloat(client.lat) : 18.7953, // พิกัดจำลองหากไม่มี
-        targetLng: client && client.lng ? parseFloat(client.lng) : 98.9620
-     },
-     status: currentStatus,
-     record: record
+      success: true,
+      user: { id: hk.hk_id, name: hk.name, avatar: hk.avatar_url || '' },
+      shift: {
+         id: todayShift.shift_id,
+         clientId: todayShift.client_id,
+         date: todayShift.date,
+         startTime: todayShift.start_time,
+         endTime: todayShift.end_time,
+         siteName: client ? client.client_name : 'ไม่ระบุไซต์งาน',
+         targetLat: client && client.lat ? parseFloat(client.lat) : 18.7953, 
+         targetLng: client && client.lng ? parseFloat(client.lng) : 98.9620
+      },
+      status: currentStatus,
+      record: record,
+      upcomingShifts: upcomingShifts
   };
 }
 
@@ -883,18 +956,20 @@ function mobileApiCheckIn(hkId, shiftId, clientId, imgB64, lat, lng) {
     const recordId = 'ATT-' + new Date().getTime();
     const now = new Date();
     const todayStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm");
 
-    // ตรวจสอบว่ามีการส่งข้อมูลมาซ้ำหรือไม่ (ป้องกันบั๊กกดย้ำ)
     const existing = getSheetDataAsObjects('Time_Attendance').find(a => a.shift_id === shiftId && a.hk_id === hkId);
     if (existing) {
        return { success: false, message: 'มีการเช็คอินสำหรับกะงานนี้ไปแล้ว' };
     }
 
     sheet.appendRow([
-      recordId, shiftId, hkId, clientId, todayStr, now, imgUrl, lat, lng, '', '', '', 'working'
+      recordId, shiftId, hkId, clientId, todayStr, timeStr, imgUrl, lat, lng, '', '', '', 'Working'
     ]);
 
-    return { success: true, message: 'เช็คอินสำเร็จ', checkInTime: Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm") };
+    updateShiftStatusToCompleted(shiftId, 'confirmed');
+
+    return { success: true, message: 'เช็คอินสำเร็จ', checkInTime: timeStr };
   } catch (e) {
     return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คอิน: ' + e.toString() };
   }
@@ -914,14 +989,14 @@ function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
     const hkIdIdx = headers.indexOf('hk_id');
     let found = false;
     let now = new Date();
+    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm");
 
-    // วนหา Record การเช็คอินของวันนี้เพื่อเขียนทับข้อมูลเช็คเอาท์
     for (let i = data.length - 1; i >= 1; i--) {
        if (data[i][shiftIdIdx] === shiftId && data[i][hkIdIdx] === hkId) {
-          sheet.getRange(i + 1, headers.indexOf('check_out_time') + 1).setValue(now);
+          sheet.getRange(i + 1, headers.indexOf('check_out_time') + 1).setValue(timeStr);
           sheet.getRange(i + 1, headers.indexOf('check_out_site_img') + 1).setValue(siteImgUrl);
           sheet.getRange(i + 1, headers.indexOf('check_out_doc_img') + 1).setValue(docImgUrl);
-          sheet.getRange(i + 1, headers.indexOf('status') + 1).setValue('completed');
+          sheet.getRange(i + 1, headers.indexOf('status') + 1).setValue('Completed');
           found = true;
           break;
        }
@@ -929,17 +1004,15 @@ function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
 
     if (!found) throw new Error('ไม่พบประวัติการเข้างาน (Check-in) ของกะงานนี้');
 
-    // อัปเดตสถานะของตารางงาน (Shift) ฝั่งแอดมินให้เป็นเสร็จสมบูรณ์
-    updateShiftStatusToCompleted(shiftId);
+    updateShiftStatusToCompleted(shiftId, 'completed');
 
-    return { success: true, message: 'เช็คเอาท์สำเร็จ', checkOutTime: Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm") };
+    return { success: true, message: 'เช็คเอาท์สำเร็จ', checkOutTime: timeStr };
    } catch (e) {
     return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คเอาท์: ' + e.toString() };
    }
 }
 
-// 💡 อัปเดตสถานะตารางงานหลักเป็น Completed เมื่อแม่บ้าน Check-out
-function updateShiftStatusToCompleted(shiftId) {
+function updateShiftStatusToCompleted(shiftId, statusOverride) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
   if (!sheet) return;
   
@@ -951,11 +1024,119 @@ function updateShiftStatusToCompleted(shiftId) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][idIdx] === shiftId) {
        const currentStatus = data[i][statusIdx];
-       // อัปเดตเฉพาะถ้าสถานะไม่ได้ถูกยกเลิกไปก่อนหน้า
        if(currentStatus !== 'cancelled' && currentStatus !== 'absent') {
-          sheet.getRange(i + 1, statusIdx + 1).setValue('completed');
+          sheet.getRange(i + 1, statusIdx + 1).setValue(statusOverride || 'completed');
        }
        break;
     }
   }
+}
+
+// -------------------------------------------------------------------------
+// 🚀 API FOR AE INSPECTION (บันทึกข้อมูลตรวจงานและปัญหา)
+// -------------------------------------------------------------------------
+function mobileApiSubmitInspection(data) {
+  try {
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Inspections');
+    let issueSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Issues');
+    
+    if (!sheet) { setupDatabase(); sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Inspections'); }
+    if (!issueSheet) { issueSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Issues'); }
+    
+    let aeId = data.aeId;
+    let clientId = data.clientId;
+    let ts = new Date().getTime();
+    let insId = 'INS-' + ts;
+
+    let sigUrl = '';
+    if (data.summary.signatureB64) {
+       sigUrl = uploadImageToDrive(data.summary.signatureB64, 'Sign_' + insId + '.png');
+    }
+
+    let checklist = data.items || [];
+    for (let i = 0; i < checklist.length; i++) {
+       if (checklist[i].img && !checklist[i].img.startsWith('http')) {
+          checklist[i].imgUrl = uploadImageToDrive(checklist[i].img, 'Chk_' + insId + '_' + i + '.jpg');
+          delete checklist[i].img; 
+       }
+    }
+
+    let issues = data.issues || [];
+    const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    
+    for (let i = 0; i < issues.length; i++) {
+       if (issues[i].beforeImg && !issues[i].beforeImg.startsWith('http')) {
+          issues[i].beforeUrl = uploadImageToDrive(issues[i].beforeImg, 'Bef_' + insId + '_' + i + '.jpg');
+          delete issues[i].beforeImg;
+       }
+       if (issues[i].afterImg && !issues[i].afterImg.startsWith('http')) {
+          issues[i].afterUrl = uploadImageToDrive(issues[i].afterImg, 'Aft_' + insId + '_' + i + '.jpg');
+          delete issues[i].afterImg;
+       }
+       
+       saveIssueToBackend({
+           id: issues[i].id,
+           clientId: clientId,
+           dateReported: todayStr,
+           source: 'AE Inspector',
+           providerId: aeId,
+           category: 'ตรวจสอบคุณภาพ',
+           description: issues[i].desc,
+           status: issues[i].status === 'resolved' ? 'Resolved' : 'Pending',
+           assignedTo: '',
+           actionTaken: issues[i].actionDesc || '',
+           actionBy: aeId
+       });
+    }
+
+    const now = new Date();
+    sheet.appendRow([
+      insId, clientId, aeId, todayStr,
+      data.summary.quality, data.summary.followUpDate, data.summary.interview,
+      sigUrl, JSON.stringify(checklist), JSON.stringify(issues), '', now
+    ]);
+
+    return { success: true, message: 'บันทึกข้อมูลการตรวจงานสำเร็จ', inspectionId: insId };
+  } catch (e) {
+    return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกตรวจงาน: ' + e.toString() };
+  }
+}
+
+// -------------------------------------------------------------------------
+// 🚀 API FOR CUSTOMER EVALUATION (ระบบประเมินผลลูกค้ารายบุคคล)
+// -------------------------------------------------------------------------
+function getClientEvalInfo(clientId, monthStr) {
+  try {
+    const clients = getSheetDataAsObjects('Clients');
+    const client = clients.find(c => c.client_id === clientId);
+    if(!client) return { success: false, message: 'ไม่พบข้อมูลสถานที่' };
+
+    const shifts = getSheetDataAsObjects('Shifts');
+    const housekeepers = getSheetDataAsObjects('Housekeepers');
+    let hkSet = new Set();
+    
+    shifts.forEach(s => {
+      if (s.client_id === clientId && String(s.date).startsWith(monthStr) && s.status !== 'cancelled' && s.status !== 'absent') {
+         if (s.assigned_hk_ids) { s.assigned_hk_ids.toString().split(',').forEach(id => hkSet.add(id.trim())); }
+      }
+    });
+
+    let hkList = [];
+    hkSet.forEach(hkId => {
+       if(!hkId) return;
+       const hk = housekeepers.find(h => h.hk_id === hkId);
+       if (hk) { hkList.push({ id: hk.hk_id, name: hk.name, avatar: hk.avatar_url || '' }); }
+    });
+
+    return { success: true, clientName: client.client_name, housekeepers: hkList };
+  } catch (e) { return { success: false, message: e.toString() }; }
+}
+
+function submitEvaluation(clientId, monthStr, scores, comment) {
+  try {
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Evaluations');
+    const evalId = 'EV-' + new Date().getTime();
+    sheet.appendRow([evalId, clientId, monthStr, JSON.stringify(scores), comment, new Date()]);
+    return { success: true, message: 'บันทึกการประเมินสำเร็จ' };
+  } catch (e) { return { success: false, message: e.toString() }; }
 }
