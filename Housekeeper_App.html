@@ -175,7 +175,7 @@
                                     <i class="fa-solid fa-location-dot mt-0.5"></i>
                                     <div>
                                         <span class="font-bold block">อยู่นอกระยะที่กำหนด</span>
-                                        <span class="text-gray-500 text-[10px] mt-0.5 inline-block">กรุณาเข้าใกล้สถานที่แล้ว <button onclick="checkGPS()" class="font-bold text-brand underline">ลองใหม่</button></span>
+                                        <span class="text-gray-500 text-[10px] mt-0.5 inline-block" id="gpsWarningText">กรุณาเข้าใกล้สถานที่แล้ว <button onclick="checkGPS()" class="font-bold text-brand underline">ลองใหม่</button></span>
                                     </div>
                                 </div>
                                 <div id="gpsLoading" class="text-[11px] font-bold text-brand mb-3 flex items-center justify-center gap-2 bg-brandLight py-2.5 rounded-xl">
@@ -219,7 +219,7 @@
         <!-- ========================================== -->
         <div id="screen-schedule" class="h-full w-full hidden flex-col p-5 bg-[#f8fafb] overflow-y-auto custom-scrollbar pb-8 fade-in">
             <h2 class="text-lg font-bold text-gray-900 mb-1">ตารางงานของฉัน</h2>
-            <p class="text-[11px] text-gray-500 mb-4 border-b border-gray-200 pb-3">รายการปฏิบัติงานที่ได้รับมอบหมายใน 7 วันข้างหน้า</p>
+            <p class="text-[11px] text-gray-500 mb-4 border-b border-gray-200 pb-3">รายการปฏิบัติงานที่ได้รับมอบหมายใน 14 วันข้างหน้า</p>
             <div id="scheduleListContainer" class="flex flex-col gap-3"></div>
         </div>
 
@@ -366,8 +366,8 @@
                         <p class="text-[10px] text-gray-500 mb-4">กรุณาให้คะแนนพนักงานแต่ละท่านตามความพึงพอใจ</p>
                     </div>
 
-                    <!-- 💡 คอนเทนเนอร์รายการแม่บ้าน (จะถูกสร้างจาก JS ทีละคน) -->
                     <div id="evalHkListContainer" class="w-full flex flex-col gap-3 mb-5">
+                        <!-- รายการพนักงานจะถูกสร้างจาก JS ทีละคน -->
                     </div>
 
                     <div class="w-full mb-5">
@@ -497,7 +497,7 @@
             <div class="p-6 flex flex-col items-center text-center pt-8">
                 <div id="customAlertIcon" class="w-14 h-14 rounded-full flex items-center justify-center mb-4"></div>
                 <h3 id="customAlertTitle" class="text-[16px] font-bold text-gray-900 mb-2">Title</h3>
-                <p id="customAlertMessage" class="text-[12px] text-gray-500 font-medium mb-5 leading-relaxed">Message</p>
+                <p id="customAlertMessage" class="text-[12px] text-gray-500 font-medium mb-5 leading-relaxed whitespace-pre-wrap">Message</p>
                 <button onclick="closeCustomAlert()" class="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-md hover:bg-brandDark active:scale-95 transition-transform text-[13px]">
                     ตกลง
                 </button>
@@ -509,9 +509,9 @@
 
     <script>
         // -------------------------------------------------------------
-        // 🚀 URL ของ Google Apps Script
+        // 🚀 URL ของ Google Apps Script (สำคัญ: อัปเดตหลัง Deploy ด้วยนะครับ!)
         // -------------------------------------------------------------
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs_2fkSEdyfm182Huf3LSimTRhm0ayPZXFor9ASuCviqwNkpvy8JXmbCjyah_ouAzP/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxp3xdYMYnZIYsrk7Q0bynbxRBhi3RENrn-jbKsKPADh1JZWjnOo0IBprcAPqDuQr5K/exec';
         
         var APP_STATE = {
             user: null, shift: null, status: 'pending_checkin', currentIntent: '', 
@@ -519,34 +519,58 @@
             aeRole: false, upcomingInspections: [], currentInspection: null, currentItemId: null,
             tempImageBase64: null, checkoutSiteImg: null, checkoutDocImg: null,
             currentLat: null, currentLng: null, clockInterval: null,
-            // 💡 State สำหรับประเมิน
             evalClientId: null, evalMonth: null, evalScores: {} 
         };
 
-        // 💡 ตรวจจับ URL ตอนเปิดแอป
+        // 💡 1. ฟังก์ชันควบคุมนาฬิกา Realtime (แก้ไขเวลาไม่เดิน)
+        function startRealtimeClock() {
+            if (APP_STATE.clockInterval) clearInterval(APP_STATE.clockInterval);
+            
+            const tick = () => {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const clockHk = document.getElementById('realtimeClock');
+                const clockAe = document.getElementById('realtimeClockAE');
+                if (clockHk) clockHk.innerText = timeString;
+                if (clockAe) clockAe.innerText = timeString;
+            };
+            
+            tick(); 
+            APP_STATE.clockInterval = setInterval(tick, 1000); 
+        }
+
+        // 💡 2. สูตรคำนวณระยะทาง GPS (Haversine Formula) เป็นเมตร
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            var R = 6371e3; // รัศมีโลกเป็นเมตร
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLon = (lon2 - lon1) * Math.PI / 180;
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; 
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             const evaluateId = urlParams.get('evaluate');
-            const evalMonth = urlParams.get('month'); // รับเดือนจาก URL เช่น 2026-05
+            const evalMonth = urlParams.get('month');
 
             if (evaluateId) {
-                // ถ้าสแกน QR เข้ามา ให้เข้าสู่โหมดประเมินผล
                 APP_STATE.evalClientId = evaluateId;
                 APP_STATE.evalMonth = evalMonth || new Date().toISOString().substring(0, 7);
                 initEvaluationMode();
             } else {
                 autoLoginCheck();
-                startRealtimeClock();
+                startRealtimeClock(); 
             }
         });
 
         // -------------------------------------------------------------
-        // 💡 ฟังก์ชันสำหรับโหมดประเมินความพึงพอใจลูกค้า (รายบุคคล/เดือน)
+        // ฟังก์ชันสำหรับโหมดประเมินความพึงพอใจลูกค้า
         // -------------------------------------------------------------
         async function initEvaluationMode() {
             switchScreen('screen-evaluate');
-            
-            // แปลงเดือนเป็นภาษาไทย
             let parts = APP_STATE.evalMonth.split('-');
             let mthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
             if(parts.length === 2) {
@@ -555,20 +579,16 @@
             }
 
             const res = await callAPI({ action: 'GET_CLIENT_EVAL_INFO', clientId: APP_STATE.evalClientId, month: APP_STATE.evalMonth });
-            
             document.getElementById('evalLoading').classList.add('hidden');
             
             if (res.success) {
                 document.getElementById('evalSiteName').innerText = res.clientName;
                 renderEvalHousekeepers(res.housekeepers);
             } else {
-                // 💡 จำลองระบบให้คุณทดสอบได้ทันที (Mock Data) ถ้ายังไม่ได้ต่อ API
                 if(APP_STATE.evalClientId) {
+                     // หาก API ยังเป็นตัวเก่า ให้ใช้ Mock เพื่อเทสหน้าตาไปก่อน
                      document.getElementById('evalSiteName').innerText = "Inno Store @Wmall (ทดสอบ)";
-                     renderEvalHousekeepers([
-                         { id: 'HK-001', name: 'สมใจ รักสะอาด', avatar: '' },
-                         { id: 'HK-002', name: 'สมศรี ขยันดี', avatar: '' }
-                     ]);
+                     renderEvalHousekeepers([ { id: 'HK-001', name: 'สมใจ รักสะอาด', avatar: '' }, { id: 'HK-002', name: 'สมศรี ขยันดี', avatar: '' } ]);
                 } else {
                     document.getElementById('evalSiteName').innerText = "ไม่ทราบชื่อสถานที่";
                     if(res.message) showCustomAlert('แจ้งเตือน', res.message, 'warning');
@@ -576,7 +596,6 @@
             }
         }
 
-        // 💡 ฟังก์ชันสร้างรายการแม่บ้านที่เข้างานในเดือนนั้นๆ
         function renderEvalHousekeepers(housekeepers) {
             APP_STATE.evalScores = {};
             const container = document.getElementById('evalHkListContainer');
@@ -588,7 +607,7 @@
 
             let html = '';
             housekeepers.forEach(hk => {
-                APP_STATE.evalScores[hk.id] = 0; // ค่าเริ่มต้นคือ 0 ดาว
+                APP_STATE.evalScores[hk.id] = 0;
                 let avatar = hk.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(hk.name)}&background=f0f4f8&color=3d5a6c`;
                 
                 html += `
@@ -609,7 +628,6 @@
             });
             container.innerHTML = html;
 
-            // ผูก Event ให้ดาว
             document.querySelectorAll('.hk-stars').forEach(group => {
                 let hkId = group.getAttribute('data-hkid');
                 let stars = group.querySelectorAll('i');
@@ -638,7 +656,6 @@
         }
 
         async function submitCustomerEvaluation() {
-            // เช็คว่ากดดาวให้ครบทุกคนหรือยัง
             let allRated = true;
             let hks = Object.keys(APP_STATE.evalScores);
             if (hks.length > 0) {
@@ -650,34 +667,21 @@
             }
 
             const comment = document.getElementById('evalComment').value;
-            
             const overlay = document.getElementById('uploadingOverlay');
             overlay.querySelector('p.text-base').innerText = "กำลังส่งแบบประเมิน...";
             overlay.classList.remove('hidden'); overlay.classList.add('flex'); overlay.style.zIndex = '99999';
 
-            const payload = {
-                action: 'SUBMIT_EVALUATION',
-                clientId: APP_STATE.evalClientId,
-                month: APP_STATE.evalMonth,
-                scores: APP_STATE.evalScores,
-                comment: comment
-            };
-
+            const payload = { action: 'SUBMIT_EVALUATION', clientId: APP_STATE.evalClientId, month: APP_STATE.evalMonth, scores: APP_STATE.evalScores, comment: comment };
             const res = await callAPI(payload);
             
             overlay.classList.add('hidden'); overlay.classList.remove('flex');
-
-            if (res.success) {
-                switchScreen('screen-evaluate-success');
-            } else {
-                showCustomAlert('เกิดข้อผิดพลาด', 'ไม่สามารถส่งแบบประเมินได้: ' + res.message, 'error');
-            }
+            if (res.success) switchScreen('screen-evaluate-success');
+            else showCustomAlert('เกิดข้อผิดพลาด', 'ไม่สามารถส่งแบบประเมินได้: ' + res.message, 'error');
         }
 
         // -------------------------------------------------------------
         // ฟังก์ชันระบบหลักเดิม (Login / Dashboard / AE / Camera)
         // -------------------------------------------------------------
-
         function autoLoginCheck() {
             var savedDataStr = localStorage.getItem('mari_hk_remember');
             if (savedDataStr) {
@@ -752,9 +756,17 @@
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
-                return await res.json();
+                const jsonData = await res.json();
+                
+                // 💡 3. ดักจับ Unknown Action กรณี URL ของ GAS เป็นตัวเก่า
+                if (jsonData.message && jsonData.message.includes('Unknown action')) {
+                    showCustomAlert('แอปพลิเคชันล้าสมัย', 'ระบบมีคำสั่งใหม่ กรุณาไปที่ Google Apps Script กด Deploy ให้เป็น "New Version" แล้วนำ URL อันใหม่มาใส่ในไฟล์ Housekeeper_App ครับ', 'error');
+                    return { success: false, message: 'URL API ล้าสมัย' };
+                }
+                
+                return jsonData;
             } catch (error) {
-                showCustomAlert('ข้อผิดพลาดการเชื่อมต่อ', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง', 'error');
+                showCustomAlert('ข้อผิดพลาดการเชื่อมต่อ', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ URL ของระบบ', 'error');
                 return { success: false };
             }
         }
@@ -813,25 +825,28 @@
             var pin = document.getElementById('loginPin').value;
             var isRemember = document.getElementById('rememberMe').checked;
             
-            if(phone.length < 10 || pin.length < 4) {
-                showCustomAlert('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกเบอร์โทรศัพท์และรหัส PIN ให้ครบถ้วน', 'warning');
+            // 💡 4. คลีนข้อมูลก่อนส่ง เพื่อให้ตรงกับ Backend 100%
+            var cleanPhone = String(phone).replace(/[^0-9]/g, '');
+            var cleanPin = String(pin).trim();
+            
+            if(cleanPhone.length < 10 || cleanPin.length < 4) {
+                showCustomAlert('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกเบอร์โทรศัพท์ 10 หลักและรหัส PIN 4 หลัก', 'warning');
                 return;
             }
 
-            if (phone === '0999999999') {
+            // Mockup สำหรับการทดสอบหน้า AE โดยเฉพาะ
+            if (cleanPhone === '0999999999') {
                 document.getElementById('loginLoading').classList.add('hidden');
                 document.getElementById('loginLoading').classList.remove('flex');
                 
-                APP_STATE.user = { id: 'AE-001', name: 'พนักงานตรวจงาน (AE)', avatar: 'https://ui-avatars.com/api/?name=AE&background=3d5a6c&color=fff' };
+                APP_STATE.user = { id: 'AE-001', name: 'ผู้ประเมิน ทดสอบ', avatar: 'https://ui-avatars.com/api/?name=AE&background=3d5a6c&color=fff' };
                 APP_STATE.aeRole = true;
                 
                 APP_STATE.upcomingInspections = [
-                    { id: 'INS-01', clientId: 'CL-001', siteName: 'Inno Store @Wmall', date: new Date().toISOString().split('T')[0], status: 'pending',
+                    { id: 'INS-01', clientId: 'CL-001', siteName: 'Inno Store @Wmall (Mock)', date: new Date().toISOString().split('T')[0], status: 'pending',
                       items: [
-                          { id: 'i1', area: 'ชั้น 2', name: 'ผนังกระจก', status: 'pending', img: null },
-                          { id: 'i2', area: 'ชั้น 2', name: 'โต๊ะเก้าอี้รับรองลูกค้า', status: 'pending', img: null },
-                          { id: 'i3', area: 'ชั้น 1', name: 'พื้นทางเดิน', status: 'pending', img: null },
-                          { id: 'i4', area: 'ชั้น 1', name: 'ห้องครัว', status: 'pending', img: null }
+                          { id: 'i1', area: 'จุดตรวจทั่วไป', name: 'พื้นและทางเดิน', status: 'pending', img: null },
+                          { id: 'i2', area: 'จุดตรวจทั่วไป', name: 'ห้องน้ำลูกค้า', status: 'pending', img: null }
                       ],
                       issues: [] 
                     }
@@ -843,26 +858,39 @@
             document.getElementById('loginLoading').classList.remove('hidden');
             document.getElementById('loginLoading').classList.add('flex');
 
-            const res = await callAPI({ action: 'LOGIN', phone: phone, pin: pin });
+            // ใช้ค่าที่ Clean แล้วส่งไป Backend
+            const res = await callAPI({ action: 'LOGIN', phone: cleanPhone, pin: cleanPin });
             
             document.getElementById('loginLoading').classList.add('hidden');
             document.getElementById('loginLoading').classList.remove('flex');
 
             if (res.success) {
-                if(isRemember) localStorage.setItem('mari_hk_remember', JSON.stringify({phone: phone, pin: pin}));
+                if(isRemember) localStorage.setItem('mari_hk_remember', JSON.stringify({phone: cleanPhone, pin: cleanPin}));
                 else localStorage.removeItem('mari_hk_remember');
 
                 APP_STATE.user = res.user;
-                APP_STATE.shift = res.shift;
-                APP_STATE.status = res.status;
-                APP_STATE.aeRole = false;
-                APP_STATE.upcomingShifts = res.upcomingShifts || []; 
                 
-                if(res.record) {
-                    if(res.record.checkInTime) document.getElementById('recordCheckinTime').innerText = res.record.checkInTime;
-                    if(res.record.checkOutTime) document.getElementById('recordCheckoutTime').innerText = res.record.checkOutTime;
+                // ตรวจสอบว่าเป็น AE หรือไม่
+                if (res.user.role && (res.user.role.includes('AE') || res.user.role.includes('Admin') || res.user.role.includes('Supervisor'))) {
+                    APP_STATE.aeRole = true;
+                    // Mock การดึง Checklist สำหรับ AE (ถ้า API ยังไม่พร้อมส่งมา)
+                    APP_STATE.upcomingInspections = res.upcomingInspections || [
+                        { id: 'INS-TEST', clientId: 'CL-001', siteName: 'ไซต์งานทดสอบ (รอผูกข้อมูลจริง)', date: new Date().toISOString().split('T')[0], status: 'pending',
+                          items: [ { id: 'i1', area: 'จุดตรวจที่ 1', name: 'ความสะอาด', status: 'pending', img: null } ], issues: [] }
+                    ];
+                    initAEDashboard();
+                } else {
+                    APP_STATE.aeRole = false;
+                    APP_STATE.shift = res.shift;
+                    APP_STATE.status = res.status;
+                    APP_STATE.upcomingShifts = res.upcomingShifts || []; 
+                    
+                    if(res.record) {
+                        if(res.record.checkInTime) document.getElementById('recordCheckinTime').innerText = res.record.checkInTime;
+                        if(res.record.checkOutTime) document.getElementById('recordCheckoutTime').innerText = res.record.checkOutTime;
+                    }
+                    initDashboard();
                 }
-                initDashboard();
             } else {
                 if (res.message) showCustomAlert('เข้าสู่ระบบไม่สำเร็จ', res.message, 'error');
             }
@@ -936,7 +964,7 @@
                             <i class="fa-regular fa-calendar-xmark text-xl"></i>
                         </div>
                         <p class="text-[13px] font-bold text-gray-500">ไม่มีตารางงานล่วงหน้า</p>
-                        <p class="text-[10px] text-gray-400 mt-1">คุณยังไม่ได้รับมอบหมายงานในสัปดาห์นี้</p>
+                        <p class="text-[10px] text-gray-400 mt-1">คุณยังไม่ได้รับมอบหมายงานในช่วงนี้</p>
                     </div>`;
                 return;
             }
@@ -1220,7 +1248,6 @@
         function showQRCode(siteName, clientId) {
             document.getElementById('qrSiteName').innerText = siteName;
             
-            // 💡 สร้างลิงก์ที่มี Parameter evaluate และ month เพื่อเข้าสู่โหมด Customer Rating แบบรายเดือน
             let d = new Date();
             let monthStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
             
@@ -1246,15 +1273,35 @@
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
-                        APP_STATE.currentLat = position.coords.latitude; APP_STATE.currentLng = position.coords.longitude;
+                        APP_STATE.currentLat = position.coords.latitude; 
+                        APP_STATE.currentLng = position.coords.longitude;
                         load.classList.add('hidden'); load.classList.remove('flex');
-                        coordDisplay.innerText = "GPS: " + APP_STATE.currentLat.toFixed(4) + ", " + APP_STATE.currentLng.toFixed(4);
-                        coordDisplay.classList.remove('hidden');
-                        enableCheckinBtn(); 
+                        
+                        var tLat = APP_STATE.shift ? APP_STATE.shift.targetLat : 0;
+                        var tLng = APP_STATE.shift ? APP_STATE.shift.targetLng : 0;
+                        
+                        // 💡 5. คำนวณระยะทาง GPS แบบ Haversine (ห่างเกิน 200m เช็คอินไม่ได้)
+                        if (!tLat || !tLng || (tLat === 0 && tLng === 0)) {
+                            coordDisplay.innerText = "GPS: " + APP_STATE.currentLat.toFixed(4) + ", " + APP_STATE.currentLng.toFixed(4) + " (ไม่ได้ตั้งพิกัดไซต์งาน)";
+                            coordDisplay.classList.remove('hidden');
+                            enableCheckinBtn(); 
+                            return;
+                        }
+
+                        var distance = calculateDistance(APP_STATE.currentLat, APP_STATE.currentLng, tLat, tLng);
+
+                        if (distance <= 200) {
+                            coordDisplay.innerText = "GPS: " + APP_STATE.currentLat.toFixed(4) + ", " + APP_STATE.currentLng.toFixed(4) + " (ห่าง " + Math.round(distance) + "ม.)";
+                            coordDisplay.classList.remove('hidden');
+                            enableCheckinBtn();
+                        } else {
+                            warn.innerHTML = '<i class="fa-solid fa-location-dot mt-0.5"></i><div><span class="font-bold block text-red-600">อยู่นอกระยะที่กำหนด</span><span class="text-gray-500 font-medium text-[10px] mt-0.5 inline-block">คุณอยู่ห่างจากสถานที่ ' + Math.round(distance) + ' เมตร (ต้องไม่เกิน 200 ม.) <button onclick="checkGPS()" class="font-bold text-brand underline ml-1">ลองใหม่</button></span></div>';
+                            warn.classList.remove('hidden'); warn.classList.add('flex');
+                        }
                     },
                     function(error) {
                         load.classList.add('hidden'); load.classList.remove('flex');
-                        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation mt-0.5"></i><div><span class="font-bold block">ไม่สามารถดึงตำแหน่งได้</span><span class="text-gray-500 font-medium text-[10px] mt-0.5 inline-block">กรุณาอนุญาต <b>ตำแหน่งที่ตั้ง (Location)</b></span></div>';
+                        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation mt-0.5"></i><div><span class="font-bold block">ไม่สามารถดึงตำแหน่งได้</span><span class="text-gray-500 font-medium text-[10px] mt-0.5 inline-block">กรุณาเปิด GPS และอนุญาตการเข้าถึง Location</span></div>';
                         warn.classList.remove('hidden'); warn.classList.add('flex');
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -1271,7 +1318,7 @@
             document.getElementById('gpsWarning').classList.add('hidden'); document.getElementById('gpsWarning').classList.remove('flex');
             APP_STATE.currentLat = 18.7953; APP_STATE.currentLng = 98.9620;
             var cd = document.getElementById('gpsCoordsDisplay');
-            cd.innerText = "GPS: " + APP_STATE.currentLat + ", " + APP_STATE.currentLng; cd.classList.remove('hidden');
+            cd.innerText = "GPS: " + APP_STATE.currentLat + ", " + APP_STATE.currentLng + " (Mock)"; cd.classList.remove('hidden');
             enableCheckinBtn();
         }
 
