@@ -1,20 +1,23 @@
 /**
  * ==========================================
  * MARI Services - Workforce Scheduling Backend
+ * Developer: ศักดิ์ชัย (Full-Stack Visionary)
  * ==========================================
  */
 
 // ==========================================
-// 1. SETUP & CONFIGURATION
+// 1. SETUP & CONFIGURATION (ตั้งค่าฐานข้อมูล)
 // ==========================================
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  // 💡 โครงสร้างตาราง (เพิ่มตาราง AE_Plans สำหรับแผนตรวจงาน)
   const sheetsConfig = {
     'Housekeepers': ['hk_id', 'name', 'nickname', 'phone', 'pin', 'line_id', 'status', 'job_type', 'special_skills', 'zones', 'max_hours_week', 'avatar_url', 'color_hex', 'start_date', 'end_date', 'created_at'],
-    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at', 'lat', 'lng'],
+    'Clients': ['client_id', 'client_name', 'address', 'district', 'province', 'type', 'contact_person', 'phone', 'contract_hours', 'required_hk_per_day', 'color_hex', 'status', 'service_days', 'frequency', 'start_date', 'end_date', 'created_at', 'lat', 'lng', 'checklist'],
     'Shifts': ['shift_id', 'client_id', 'date', 'start_time', 'end_time', 'assigned_hk_ids', 'status', 'recurring_group_id', 'notes', 'created_by', 'updated_at'],
-    'Users': ['email', 'name', 'role', 'is_active', 'phone', 'pin'], // 💡 เพิ่ม phone และ pin สำหรับให้ AE ล็อกอินมือถือ
+    'Users': ['email', 'name', 'role', 'is_active', 'phone', 'pin'],
+    'AE_Plans': ['plan_id', 'ae_email', 'client_id', 'plan_date', 'status', 'notes', 'created_by', 'created_at'], // 💡 ตารางใหม่
     'Site_Activities': ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'],
     'Issues': ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'],
     'Inspections': ['inspection_id', 'client_id', 'ae_id', 'date', 'quality_score', 'follow_up_date', 'interview_note', 'signature_url', 'checklist_data', 'issues_data', 'pdf_url', 'created_at'],
@@ -29,7 +32,7 @@ function setupDatabase() {
       sheet = ss.insertSheet(sheetName);
     }
     
-    // อัปเดต Header ให้เป็นปัจจุบันเสมอ
+    // อัปเดต Header ให้เป็นปัจจุบัน
     const headerRange = sheet.getRange(1, 1, 1, headers.length);
     headerRange.setValues([headers]);
     headerRange.setFontWeight('bold');
@@ -38,17 +41,28 @@ function setupDatabase() {
     sheet.setFrozenRows(1);
   }
 
-  Logger.log('✅ โครงสร้างฐานข้อมูลอัปเดตเรียบร้อย!');
+  Logger.log('✅ Database Architecture Initialization Completed.');
   return "Database Setup Completed.";
 }
 
 // ==========================================
-// 2. WEB APP ROUTING (Frontend Admin)
+// 2. WEB APP ROUTING (การเชื่อมต่อฝั่ง Frontend)
 // ==========================================
-function doGet() {
+
+function doGet(e) {
+  // หากมีการเรียก URL พร้อมพารามิเตอร์ app=mobile ให้เปิดหน้า Mobile App
+  if (e.parameter && e.parameter.app === 'mobile') {
+    return HtmlService.createTemplateFromFile('Housekeeper_App')
+      .evaluate()
+      .setTitle('MARI Housekeeper')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  }
+
+  // ค่าเริ่มต้นคือหน้า Admin / Supervisor
   return HtmlService.createTemplateFromFile('index')
       .evaluate()
-      .setTitle('MARI Services - Schedule Board')
+      .setTitle('MARI Services - Workforce Schedule')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -65,7 +79,7 @@ function verifyUserLogin() {
   if (!email) return { status: 'error', message: 'ไม่สามารถดึงอีเมลได้ กรุณาล็อกอินด้วยบัญชี Google ของท่าน' };
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
-  if (!sheet) return { status: 'error', message: 'ไม่พบตารางข้อมูล Users ในฐานข้อมูล' };
+  if (!sheet) return { status: 'error', message: 'System Error: ไม่พบตาราง Users ในฐานข้อมูล' };
 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
@@ -84,13 +98,13 @@ function verifyUserLogin() {
     if (data[i][emailIdx] === email) {
       const isActive = data[i][activeIdx];
       if (isActive !== true && String(isActive).toLowerCase() !== 'true' && isActive !== 'Active') {
-          return { status: 'inactive', message: 'บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อ Admin' };
+          return { status: 'inactive', message: 'บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ' };
       }
       return { status: 'success', user: { email: email, name: data[i][nameIdx], role: data[i][roleIdx] } };
     }
   }
 
-  return { status: 'unauthorized', message: `คุณไม่มีสิทธิ์เข้าถึงระบบนี้ (${email}) กรุณาติดต่อ Admin เพื่อเพิ่มสิทธิ์` };
+  return { status: 'unauthorized', message: `คุณไม่มีสิทธิ์เข้าถึงระบบนี้ (${email}) กรุณาติดต่อ Admin เพื่อขอสิทธิ์` };
 }
 
 function getAppData() {
@@ -103,371 +117,532 @@ function getAppData() {
     issues: getSheetDataAsObjects('Issues'),
     attendance: getSheetDataAsObjects('Time_Attendance'),
     inspections: getSheetDataAsObjects('Inspections'),
-    evaluations: getSheetDataAsObjects('Evaluations')
+    evaluations: getSheetDataAsObjects('Evaluations'),
+    ae_plans: getSheetDataAsObjects('AE_Plans') // 💡 ดึงตารางแผน AE โหลดไปให้แอดมินสร้าง Matrix
   };
 }
 
 // ==========================================
 // 4. WRITE DATA / CRUD OPERATIONS
 // ==========================================
-function saveClientToBackend(clientData) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const idIdx = headers.indexOf('client_id');
-  
-  let isFound = false;
-  let oldDataObj = null;
+// 💡 สร้างฟังก์ชันจัดการแผนตรวจงาน AE
+function saveAEPlanToBackend(planData) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AE_Plans');
+    if (!sheet) { setupDatabase(); sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AE_Plans'); }
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][idIdx] === clientData.id) {
-      const rowNum = i + 1;
-      oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-
-      let updatedRow = [...data[i]];
-      if(headers.indexOf('client_name') > -1) updatedRow[headers.indexOf('client_name')] = clientData.name || '';
-      if(headers.indexOf('address') > -1) updatedRow[headers.indexOf('address')] = clientData.address || '';
-      if(headers.indexOf('district') > -1) updatedRow[headers.indexOf('district')] = clientData.district || '';
-      if(headers.indexOf('province') > -1) updatedRow[headers.indexOf('province')] = clientData.province || '';
-      if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = clientData.type || 'B2B';
-      if(headers.indexOf('contact_person') > -1) updatedRow[headers.indexOf('contact_person')] = clientData.contact || '';
-      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = clientData.phone || '';
-      if(headers.indexOf('contract_hours') > -1) updatedRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
-      if(headers.indexOf('required_hk_per_day') > -1) updatedRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
-      if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
-      if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
-      if(headers.indexOf('service_days') > -1) updatedRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
-      if(headers.indexOf('frequency') > -1) updatedRow[headers.indexOf('frequency')] = clientData.frequency || '';
-      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
-      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
-      if(headers.indexOf('lat') > -1) updatedRow[headers.indexOf('lat')] = clientData.lat || '';
-      if(headers.indexOf('lng') > -1) updatedRow[headers.indexOf('lng')] = clientData.lng || '';
-
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
-      isFound = true;
-      logChange('UPDATE', 'Clients', clientData.id, oldDataObj, clientData, clientData.actionBy);
-      break;
-    }
-  }
-
-  if (!isFound) {
-    let newRow = new Array(headers.length).fill('');
-    if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = clientData.id || 'CL-' + new Date().getTime();
-    if(headers.indexOf('client_name') > -1) newRow[headers.indexOf('client_name')] = clientData.name || '';
-    if(headers.indexOf('address') > -1) newRow[headers.indexOf('address')] = clientData.address || '';
-    if(headers.indexOf('district') > -1) newRow[headers.indexOf('district')] = clientData.district || '';
-    if(headers.indexOf('province') > -1) newRow[headers.indexOf('province')] = clientData.province || '';
-    if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = clientData.type || 'B2B';
-    if(headers.indexOf('contact_person') > -1) newRow[headers.indexOf('contact_person')] = clientData.contact || '';
-    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = clientData.phone || '';
-    if(headers.indexOf('contract_hours') > -1) newRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
-    if(headers.indexOf('required_hk_per_day') > -1) newRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
-    if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
-    if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = clientData.status || 'Active';
-    if(headers.indexOf('service_days') > -1) newRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
-    if(headers.indexOf('frequency') > -1) newRow[headers.indexOf('frequency')] = clientData.frequency || '';
-    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
-    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
-    if(headers.indexOf('lat') > -1) newRow[headers.indexOf('lat')] = clientData.lat || '';
-    if(headers.indexOf('lng') > -1) newRow[headers.indexOf('lng')] = clientData.lng || '';
-    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
-
-    sheet.appendRow(newRow);
-    logChange('CREATE', 'Clients', clientData.id, null, clientData, clientData.actionBy);
-  }
-  return { success: true, message: 'บันทึกข้อมูลไซต์งานสำเร็จ' };
-}
-
-function saveStaffToBackend(staffData) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const idIdx = headers.indexOf('hk_id');
-  
-  let isFound = false;
-  let oldDataObj = null;
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][idIdx] === staffData.id) {
-      const rowNum = i + 1;
-      oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-
-      let updatedRow = [...data[i]];
-      if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = staffData.name || '';
-      if(headers.indexOf('nickname') > -1) updatedRow[headers.indexOf('nickname')] = staffData.nickname || '';
-      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = staffData.phone || '';
-      if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = staffData.pin || '';
-      if(headers.indexOf('line_id') > -1) updatedRow[headers.indexOf('line_id')] = staffData.lineId || '';
-      if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = staffData.status || 'Active';
-      if(headers.indexOf('job_type') > -1) updatedRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
-      if(headers.indexOf('special_skills') > -1) updatedRow[headers.indexOf('special_skills')] = staffData.skills || '';
-      if(headers.indexOf('zones') > -1) updatedRow[headers.indexOf('zones')] = staffData.zones || '';
-      if(headers.indexOf('max_hours_week') > -1) updatedRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
-      if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
-      if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
-      if(headers.indexOf('avatar_url') > -1) updatedRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
-      if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
-
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
-      isFound = true;
-      logChange('UPDATE', 'Housekeepers', staffData.id, oldDataObj, staffData, staffData.actionBy);
-      break;
-    }
-  }
-
-  if (!isFound) {
-    let newRow = new Array(headers.length).fill('');
-    if(headers.indexOf('hk_id') > -1) newRow[headers.indexOf('hk_id')] = staffData.id || 'HK-' + new Date().getTime();
-    if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = staffData.name || '';
-    if(headers.indexOf('nickname') > -1) newRow[headers.indexOf('nickname')] = staffData.nickname || '';
-    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = staffData.phone || '';
-    if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = staffData.pin || '';
-    if(headers.indexOf('line_id') > -1) newRow[headers.indexOf('line_id')] = staffData.lineId || '';
-    if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = staffData.status || 'Active';
-    if(headers.indexOf('job_type') > -1) newRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
-    if(headers.indexOf('special_skills') > -1) newRow[headers.indexOf('special_skills')] = staffData.skills || '';
-    if(headers.indexOf('zones') > -1) newRow[headers.indexOf('zones')] = staffData.zones || '';
-    if(headers.indexOf('max_hours_week') > -1) newRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
-    if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
-    if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
-    if(headers.indexOf('avatar_url') > -1) newRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
-    if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
-    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
-
-    sheet.appendRow(newRow);
-    logChange('CREATE', 'Housekeepers', staffData.id, null, staffData, staffData.actionBy);
-  }
-  return { success: true, message: 'บันทึกข้อมูลพนักงานสำเร็จ' };
-}
-
-// 💡 อัปเดตฟังก์ชันบันทึก Users ให้รองรับ Phone และ PIN
-function saveUserToBackend(userData) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Users' };
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const emailIdx = headers.indexOf('email');
-  let isFound = false;
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][emailIdx] === userData.email || (userData.id && data[i][0] === userData.id)) {
-      const rowNum = i + 1;
-      let updatedRow = [...data[i]];
-      if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = userData.name || '';
-      if(headers.indexOf('role') > -1) updatedRow[headers.indexOf('role')] = userData.role || 'Viewer';
-      if(headers.indexOf('is_active') > -1) updatedRow[headers.indexOf('is_active')] = (userData.status === 'Active') ? true : false;
-      
-      // อัปเดตเบอร์โทร และรหัสผ่านแอปมือถือ
-      if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = userData.phone || '';
-      if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = userData.pin || '';
-
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
-      isFound = true;
-      break;
-    }
-  }
-
-  if (!isFound) {
-    const isActive = (userData.status === 'Active') ? true : false;
-    let newRow = new Array(headers.length).fill('');
-    if(headers.indexOf('email') > -1) newRow[headers.indexOf('email')] = userData.email;
-    if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = userData.name || '';
-    if(headers.indexOf('role') > -1) newRow[headers.indexOf('role')] = userData.role || 'Viewer';
-    if(headers.indexOf('is_active') > -1) newRow[headers.indexOf('is_active')] = isActive;
-    
-    if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = userData.phone || '';
-    if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = userData.pin || '';
-    
-    sheet.appendRow(newRow);
-  }
-  return { success: true, message: 'บันทึกข้อมูลผู้ใช้งานสำเร็จ' };
-}
-
-function saveMultipleShiftsToBackend(shiftsArray) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
-
-  const warnings = checkShiftConflicts(shiftsArray);
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const shiftIdIdx = headers.indexOf('shift_id');
-  const now = new Date();
-  let newRows = [];
-
-  shiftsArray.forEach(shiftData => {
-    const hkString = shiftData.hks ? shiftData.hks.join(', ') : '';
-    const notesStr = shiftData.notes || '';
-    const groupIdStr = shiftData.groupId || '';
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('plan_id');
     
     let isFound = false;
+
     for (let i = 1; i < data.length; i++) {
-      if (data[i][shiftIdIdx] === shiftData.id) {
+      if (data[i][idIdx] === planData.id) {
         const rowNum = i + 1;
-        let oldDataObj = {};
-        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-
         let updatedRow = [...data[i]];
-        if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = shiftData.clientId;
-        if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + shiftData.date; 
-        if(headers.indexOf('start_time') > -1) updatedRow[headers.indexOf('start_time')] = shiftData.start;
-        if(headers.indexOf('end_time') > -1) updatedRow[headers.indexOf('end_time')] = shiftData.end;
-        if(headers.indexOf('assigned_hk_ids') > -1) updatedRow[headers.indexOf('assigned_hk_ids')] = hkString;
-        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = shiftData.status;
-        if(headers.indexOf('notes') > -1) updatedRow[headers.indexOf('notes')] = notesStr;
-        if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = now;
-
+        if(headers.indexOf('ae_email') > -1) updatedRow[headers.indexOf('ae_email')] = planData.aeEmail;
+        if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = planData.clientId;
+        if(headers.indexOf('plan_date') > -1) updatedRow[headers.indexOf('plan_date')] = "'" + planData.date;
+        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = planData.status || 'Pending';
+        if(headers.indexOf('notes') > -1) updatedRow[headers.indexOf('notes')] = planData.notes || '';
+        
         sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
         isFound = true;
-        
-        let logAction = shiftData.actionType || 'UPDATE';
-        logChange(logAction, 'Shifts', shiftData.id, oldDataObj, shiftData, shiftData.actionBy);
-        break; 
+        break;
       }
     }
 
     if (!isFound) {
-       let newRow = new Array(headers.length).fill('');
-       if(headers.indexOf('shift_id') > -1) newRow[headers.indexOf('shift_id')] = shiftData.id;
-       if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = shiftData.clientId;
-       if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + shiftData.date;
-       if(headers.indexOf('start_time') > -1) newRow[headers.indexOf('start_time')] = shiftData.start;
-       if(headers.indexOf('end_time') > -1) newRow[headers.indexOf('end_time')] = shiftData.end;
-       if(headers.indexOf('assigned_hk_ids') > -1) newRow[headers.indexOf('assigned_hk_ids')] = hkString;
-       if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = shiftData.status;
-       if(headers.indexOf('recurring_group_id') > -1) newRow[headers.indexOf('recurring_group_id')] = groupIdStr;
-       if(headers.indexOf('notes') > -1) newRow[headers.indexOf('notes')] = notesStr;
-       if(headers.indexOf('created_by') > -1) newRow[headers.indexOf('created_by')] = shiftData.actionBy || 'Unknown';
-       if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = now;
-       
-       newRows.push(newRow);
-       logChange('CREATE', 'Shifts', shiftData.id, null, shiftData, shiftData.actionBy);
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('plan_id') > -1) newRow[headers.indexOf('plan_id')] = planData.id || 'AEP-' + new Date().getTime();
+      if(headers.indexOf('ae_email') > -1) newRow[headers.indexOf('ae_email')] = planData.aeEmail;
+      if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = planData.clientId;
+      if(headers.indexOf('plan_date') > -1) newRow[headers.indexOf('plan_date')] = "'" + planData.date;
+      if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = planData.status || 'Pending';
+      if(headers.indexOf('notes') > -1) newRow[headers.indexOf('notes')] = planData.notes || '';
+      if(headers.indexOf('created_by') > -1) newRow[headers.indexOf('created_by')] = planData.actionBy || 'System';
+      if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+
+      sheet.appendRow(newRow);
     }
-  });
-
-  if (newRows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, headers.length).setValues(newRows);
+    return { success: true, message: 'บันทึกแผนตรวจงานเรียบร้อย' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
+}
 
-  return { success: true, message: `บันทึกตารางงานสำเร็จ ${shiftsArray.length} รายการ`, warnings: warnings };
+function deleteAEPlanToBackend(planId) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AE_Plans');
+    if (!sheet) return { success: false, message: 'ไม่พบตาราง AE_Plans' };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('plan_id');
+
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (data[i][idIdx] === planId) {
+        sheet.deleteRow(i + 1);
+        return { success: true, message: 'ลบแผนตรวจงานสำเร็จ' };
+      }
+    }
+    return { success: false, message: 'ไม่พบรายการที่ต้องการลบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveClientToBackend(clientData) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('client_id');
+    
+    let isFound = false;
+    let oldDataObj = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIdx] === clientData.id) {
+        const rowNum = i + 1;
+        oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+
+        let updatedRow = [...data[i]];
+        if(headers.indexOf('client_name') > -1) updatedRow[headers.indexOf('client_name')] = clientData.name || '';
+        if(headers.indexOf('address') > -1) updatedRow[headers.indexOf('address')] = clientData.address || '';
+        if(headers.indexOf('district') > -1) updatedRow[headers.indexOf('district')] = clientData.district || '';
+        if(headers.indexOf('province') > -1) updatedRow[headers.indexOf('province')] = clientData.province || '';
+        if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = clientData.type || 'B2B';
+        if(headers.indexOf('contact_person') > -1) updatedRow[headers.indexOf('contact_person')] = clientData.contact || '';
+        if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = clientData.phone || '';
+        if(headers.indexOf('contract_hours') > -1) updatedRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
+        if(headers.indexOf('required_hk_per_day') > -1) updatedRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
+        if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
+        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = clientData.status || 'Active';
+        if(headers.indexOf('service_days') > -1) updatedRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
+        if(headers.indexOf('frequency') > -1) updatedRow[headers.indexOf('frequency')] = clientData.frequency || '';
+        if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
+        if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
+        if(headers.indexOf('lat') > -1) updatedRow[headers.indexOf('lat')] = clientData.lat || '';
+        if(headers.indexOf('lng') > -1) updatedRow[headers.indexOf('lng')] = clientData.lng || '';
+        if(headers.indexOf('checklist') > -1) updatedRow[headers.indexOf('checklist')] = clientData.checklist || '';
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+        isFound = true;
+        logChange('UPDATE', 'Clients', clientData.id, oldDataObj, clientData, clientData.actionBy);
+        break;
+      }
+    }
+
+    if (!isFound) {
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = clientData.id || 'CL-' + new Date().getTime();
+      if(headers.indexOf('client_name') > -1) newRow[headers.indexOf('client_name')] = clientData.name || '';
+      if(headers.indexOf('address') > -1) newRow[headers.indexOf('address')] = clientData.address || '';
+      if(headers.indexOf('district') > -1) newRow[headers.indexOf('district')] = clientData.district || '';
+      if(headers.indexOf('province') > -1) newRow[headers.indexOf('province')] = clientData.province || '';
+      if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = clientData.type || 'B2B';
+      if(headers.indexOf('contact_person') > -1) newRow[headers.indexOf('contact_person')] = clientData.contact || '';
+      if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = clientData.phone || '';
+      if(headers.indexOf('contract_hours') > -1) newRow[headers.indexOf('contract_hours')] = clientData.contractHours || '';
+      if(headers.indexOf('required_hk_per_day') > -1) newRow[headers.indexOf('required_hk_per_day')] = clientData.reqStaff || 1;
+      if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = clientData.color || '#e2e8f0';
+      if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = clientData.status || 'Active';
+      if(headers.indexOf('service_days') > -1) newRow[headers.indexOf('service_days')] = clientData.serviceDays || '';
+      if(headers.indexOf('frequency') > -1) newRow[headers.indexOf('frequency')] = clientData.frequency || '';
+      if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = clientData.startDate ? "'" + clientData.startDate : '';
+      if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = clientData.endDate ? "'" + clientData.endDate : '';
+      if(headers.indexOf('lat') > -1) newRow[headers.indexOf('lat')] = clientData.lat || '';
+      if(headers.indexOf('lng') > -1) newRow[headers.indexOf('lng')] = clientData.lng || '';
+      if(headers.indexOf('checklist') > -1) newRow[headers.indexOf('checklist')] = clientData.checklist || '';
+      if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+
+      sheet.appendRow(newRow);
+      logChange('CREATE', 'Clients', clientData.id, null, clientData, clientData.actionBy);
+    }
+    return { success: true, message: 'บันทึกข้อมูลไซต์งานสำเร็จ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveStaffToBackend(staffData) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('hk_id');
+    
+    let isFound = false;
+    let oldDataObj = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIdx] === staffData.id) {
+        const rowNum = i + 1;
+        oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+
+        let updatedRow = [...data[i]];
+        if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = staffData.name || '';
+        if(headers.indexOf('nickname') > -1) updatedRow[headers.indexOf('nickname')] = staffData.nickname || '';
+        if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = staffData.phone || '';
+        if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = staffData.pin || '';
+        if(headers.indexOf('line_id') > -1) updatedRow[headers.indexOf('line_id')] = staffData.lineId || '';
+        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = staffData.status || 'Active';
+        if(headers.indexOf('job_type') > -1) updatedRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
+        if(headers.indexOf('special_skills') > -1) updatedRow[headers.indexOf('special_skills')] = staffData.skills || '';
+        if(headers.indexOf('zones') > -1) updatedRow[headers.indexOf('zones')] = staffData.zones || '';
+        if(headers.indexOf('max_hours_week') > -1) updatedRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
+        if(headers.indexOf('start_date') > -1) updatedRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
+        if(headers.indexOf('end_date') > -1) updatedRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
+        if(headers.indexOf('avatar_url') > -1) updatedRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
+        if(headers.indexOf('color_hex') > -1) updatedRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+        isFound = true;
+        logChange('UPDATE', 'Housekeepers', staffData.id, oldDataObj, staffData, staffData.actionBy);
+        break;
+      }
+    }
+
+    if (!isFound) {
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('hk_id') > -1) newRow[headers.indexOf('hk_id')] = staffData.id || 'HK-' + new Date().getTime();
+      if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = staffData.name || '';
+      if(headers.indexOf('nickname') > -1) newRow[headers.indexOf('nickname')] = staffData.nickname || '';
+      if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = staffData.phone || '';
+      if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = staffData.pin || '';
+      if(headers.indexOf('line_id') > -1) newRow[headers.indexOf('line_id')] = staffData.lineId || '';
+      if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = staffData.status || 'Active';
+      if(headers.indexOf('job_type') > -1) newRow[headers.indexOf('job_type')] = staffData.type || 'Full-time';
+      if(headers.indexOf('special_skills') > -1) newRow[headers.indexOf('special_skills')] = staffData.skills || '';
+      if(headers.indexOf('zones') > -1) newRow[headers.indexOf('zones')] = staffData.zones || '';
+      if(headers.indexOf('max_hours_week') > -1) newRow[headers.indexOf('max_hours_week')] = staffData.maxHoursWeek || 48;
+      if(headers.indexOf('start_date') > -1) newRow[headers.indexOf('start_date')] = staffData.startDate ? "'" + staffData.startDate : '';
+      if(headers.indexOf('end_date') > -1) newRow[headers.indexOf('end_date')] = staffData.endDate ? "'" + staffData.endDate : '';
+      if(headers.indexOf('avatar_url') > -1) newRow[headers.indexOf('avatar_url')] = staffData.avatar || '';
+      if(headers.indexOf('color_hex') > -1) newRow[headers.indexOf('color_hex')] = staffData.color || '#3b82f6';
+      if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+
+      sheet.appendRow(newRow);
+      logChange('CREATE', 'Housekeepers', staffData.id, null, staffData, staffData.actionBy);
+    }
+    return { success: true, message: 'บันทึกข้อมูลพนักงานสำเร็จ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveUserToBackend(userData) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Users' };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const emailIdx = headers.indexOf('email');
+    
+    let isFound = false;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][emailIdx] === userData.email) {
+        const rowNum = i + 1;
+        let updatedRow = [...data[i]];
+        if(headers.indexOf('name') > -1) updatedRow[headers.indexOf('name')] = userData.name || '';
+        if(headers.indexOf('role') > -1) updatedRow[headers.indexOf('role')] = userData.role || 'Viewer';
+        if(headers.indexOf('is_active') > -1) updatedRow[headers.indexOf('is_active')] = (userData.status === 'Active') ? true : false;
+        if(headers.indexOf('phone') > -1) updatedRow[headers.indexOf('phone')] = String(userData.phone || '').trim();
+        if(headers.indexOf('pin') > -1) updatedRow[headers.indexOf('pin')] = String(userData.pin || '').trim();
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+        isFound = true;
+        break;
+      }
+    }
+
+    if (!isFound) {
+      const isActive = (userData.status === 'Active') ? true : false;
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('email') > -1) newRow[headers.indexOf('email')] = userData.email;
+      if(headers.indexOf('name') > -1) newRow[headers.indexOf('name')] = userData.name || '';
+      if(headers.indexOf('role') > -1) newRow[headers.indexOf('role')] = userData.role || 'Viewer';
+      if(headers.indexOf('is_active') > -1) newRow[headers.indexOf('is_active')] = isActive;
+      if(headers.indexOf('phone') > -1) newRow[headers.indexOf('phone')] = String(userData.phone || '').trim();
+      if(headers.indexOf('pin') > -1) newRow[headers.indexOf('pin')] = String(userData.pin || '').trim();
+      
+      sheet.appendRow(newRow);
+    }
+    return { success: true, message: 'บันทึกข้อมูลผู้ใช้งานสำเร็จ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveMultipleShiftsToBackend(shiftsArray) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
+
+    const warnings = checkShiftConflicts(shiftsArray);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const shiftIdIdx = headers.indexOf('shift_id');
+    const now = new Date();
+    let newRows = [];
+
+    shiftsArray.forEach(shiftData => {
+      const hkString = shiftData.hks ? shiftData.hks.join(', ') : '';
+      const notesStr = shiftData.notes || '';
+      const groupIdStr = shiftData.groupId || '';
+      
+      let isFound = false;
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][shiftIdIdx] === shiftData.id) {
+          const rowNum = i + 1;
+          let oldDataObj = {};
+          for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+
+          let updatedRow = [...data[i]];
+          if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = shiftData.clientId;
+          if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + shiftData.date; 
+          if(headers.indexOf('start_time') > -1) updatedRow[headers.indexOf('start_time')] = shiftData.start;
+          if(headers.indexOf('end_time') > -1) updatedRow[headers.indexOf('end_time')] = shiftData.end;
+          if(headers.indexOf('assigned_hk_ids') > -1) updatedRow[headers.indexOf('assigned_hk_ids')] = hkString;
+          if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = shiftData.status;
+          if(headers.indexOf('notes') > -1) updatedRow[headers.indexOf('notes')] = notesStr;
+          if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = now;
+
+          sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+          isFound = true;
+          
+          let logAction = shiftData.actionType || 'UPDATE';
+          logChange(logAction, 'Shifts', shiftData.id, oldDataObj, shiftData, shiftData.actionBy);
+          break; 
+        }
+      }
+
+      if (!isFound) {
+         let newRow = new Array(headers.length).fill('');
+         if(headers.indexOf('shift_id') > -1) newRow[headers.indexOf('shift_id')] = shiftData.id;
+         if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = shiftData.clientId;
+         if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + shiftData.date;
+         if(headers.indexOf('start_time') > -1) newRow[headers.indexOf('start_time')] = shiftData.start;
+         if(headers.indexOf('end_time') > -1) newRow[headers.indexOf('end_time')] = shiftData.end;
+         if(headers.indexOf('assigned_hk_ids') > -1) newRow[headers.indexOf('assigned_hk_ids')] = hkString;
+         if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = shiftData.status;
+         if(headers.indexOf('recurring_group_id') > -1) newRow[headers.indexOf('recurring_group_id')] = groupIdStr;
+         if(headers.indexOf('notes') > -1) newRow[headers.indexOf('notes')] = notesStr;
+         if(headers.indexOf('created_by') > -1) newRow[headers.indexOf('created_by')] = shiftData.actionBy || 'Unknown';
+         if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = now;
+         
+         newRows.push(newRow);
+         logChange('CREATE', 'Shifts', shiftData.id, null, shiftData, shiftData.actionBy);
+      }
+    });
+
+    if (newRows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, headers.length).setValues(newRows);
+    }
+
+    return { success: true, message: `บันทึกตารางงานสำเร็จ ${shiftsArray.length} รายการ`, warnings: warnings };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function updateShiftDragAndDrop(shiftId, targetClientId, targetDateStr, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const shiftIdIdx = headers.indexOf('shift_id');
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const shiftIdIdx = headers.indexOf('shift_id');
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][shiftIdIdx] === shiftId) {
-      const rowNum = i + 1; 
-      let oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][shiftIdIdx] === shiftId) {
+        const rowNum = i + 1; 
+        let oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
 
-      if(headers.indexOf('client_id') > -1) sheet.getRange(rowNum, headers.indexOf('client_id') + 1).setValue(targetClientId);
-      if(headers.indexOf('date') > -1) sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue("'" + targetDateStr);
-      if(headers.indexOf('updated_at') > -1) sheet.getRange(rowNum, headers.indexOf('updated_at') + 1).setValue(new Date());
-      
-      logChange('UPDATE_DRAG', 'Shifts', shiftId, oldDataObj, {clientId: targetClientId, date: targetDateStr}, actionBy);
-      return { success: true, message: 'อัปเดตตำแหน่งสำเร็จ' };
+        if(headers.indexOf('client_id') > -1) sheet.getRange(rowNum, headers.indexOf('client_id') + 1).setValue(targetClientId);
+        if(headers.indexOf('date') > -1) sheet.getRange(rowNum, headers.indexOf('date') + 1).setValue("'" + targetDateStr);
+        if(headers.indexOf('updated_at') > -1) sheet.getRange(rowNum, headers.indexOf('updated_at') + 1).setValue(new Date());
+        
+        logChange('UPDATE_DRAG', 'Shifts', shiftId, oldDataObj, {clientId: targetClientId, date: targetDateStr}, actionBy);
+        return { success: true, message: 'อัปเดตตำแหน่งสำเร็จ' };
+      }
     }
+    return { success: false, message: 'ไม่พบ Shift ID นี้ในระบบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, message: 'ไม่พบ Shift ID นี้ในระบบ' };
 }
 
 function deleteShiftToBackend(shiftId, deleteType = 'single', groupId = null, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Shifts');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Shifts' };
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const shiftIdIdx = headers.indexOf('shift_id');
-  const groupIdIdx = headers.indexOf('recurring_group_id');
-  let deletedCount = 0;
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const shiftIdIdx = headers.indexOf('shift_id');
+    const groupIdIdx = headers.indexOf('recurring_group_id');
+    let deletedCount = 0;
 
-  for (let i = data.length - 1; i >= 1; i--) {
-    let shouldDelete = false;
-    if (deleteType === 'group' && groupId && groupIdIdx > -1 && data[i][groupIdIdx] === groupId) shouldDelete = true;
-    else if (data[i][shiftIdIdx] === shiftId) shouldDelete = true;
+    for (let i = data.length - 1; i >= 1; i--) {
+      let shouldDelete = false;
+      if (deleteType === 'group' && groupId && groupIdIdx > -1 && data[i][groupIdIdx] === groupId) shouldDelete = true;
+      else if (data[i][shiftIdIdx] === shiftId) shouldDelete = true;
 
-    if (shouldDelete) {
-      let oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-      
-      sheet.deleteRow(i + 1);
-      logChange('DELETE', 'Shifts', data[i][shiftIdIdx], oldDataObj, null, actionBy);
-      deletedCount++;
-      if (deleteType === 'single') break;
+      if (shouldDelete) {
+        let oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+        
+        sheet.deleteRow(i + 1);
+        logChange('DELETE', 'Shifts', data[i][shiftIdIdx], oldDataObj, null, actionBy);
+        deletedCount++;
+        if (deleteType === 'single') break;
+      }
     }
-  }
 
-  if (deletedCount > 0) return { success: true, message: `ลบตารางงานสำเร็จ ${deletedCount} รายการ` };
-  return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
+    if (deletedCount > 0) return { success: true, message: `ลบตารางงานสำเร็จ ${deletedCount} รายการ` };
+    return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function deleteStaffToBackend(staffId, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (headers.indexOf('hk_id') > -1 && data[i][headers.indexOf('hk_id')] === staffId) {
-      let oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-      sheet.deleteRow(i + 1);
-      logChange('DELETE', 'Housekeepers', staffId, oldDataObj, null, actionBy);
-      return { success: true, message: 'ลบข้อมูลพนักงานสำเร็จ' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Housekeepers');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Housekeepers' };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (headers.indexOf('hk_id') > -1 && data[i][headers.indexOf('hk_id')] === staffId) {
+        let oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+        sheet.deleteRow(i + 1);
+        logChange('DELETE', 'Housekeepers', staffId, oldDataObj, null, actionBy);
+        return { success: true, message: 'ลบข้อมูลพนักงานสำเร็จ' };
+      }
     }
+    return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
 }
 
 function deleteClientToBackend(clientId, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (headers.indexOf('client_id') > -1 && data[i][headers.indexOf('client_id')] === clientId) {
-      let oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-      sheet.deleteRow(i + 1);
-      logChange('DELETE', 'Clients', clientId, oldDataObj, null, actionBy);
-      return { success: true, message: 'ลบข้อมูลไซต์งานสำเร็จ' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Clients');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Clients' };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (headers.indexOf('client_id') > -1 && data[i][headers.indexOf('client_id')] === clientId) {
+        let oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+        sheet.deleteRow(i + 1);
+        logChange('DELETE', 'Clients', clientId, oldDataObj, null, actionBy);
+        return { success: true, message: 'ลบข้อมูลไซต์งานสำเร็จ' };
+      }
     }
+    return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
 }
 
 function saveSiteActivityToBackend(actData, isDelete) {
-  const sheetName = 'Site_Activities';
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
-    const headers = ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#3d5a6c').setFontColor('white');
-    sheet.setFrozenRows(1);
-  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheetName = 'Site_Activities';
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    
+    if (!sheet) {
+      sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+      const headers = ['act_id', 'client_id', 'date', 'type', 'remark', 'action_by', 'created_at', 'updated_at'];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#3d5a6c').setFontColor('white');
+      sheet.setFrozenRows(1);
+    }
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const idIdx = headers.indexOf('act_id');
-  const clientIdx = headers.indexOf('client_id');
-  const dateIdx = headers.indexOf('date');
-  
-  if (isDelete) {
-    for (let i = data.length - 1; i >= 1; i--) {
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('act_id');
+    const clientIdx = headers.indexOf('client_id');
+    const dateIdx = headers.indexOf('date');
+    
+    if (isDelete) {
+      for (let i = data.length - 1; i >= 1; i--) {
+        let sheetDate = data[i][dateIdx];
+        let sheetDateStr = sheetDate;
+        if (sheetDate instanceof Date) {
+          sheetDateStr = `${sheetDate.getFullYear()}-${String(sheetDate.getMonth() + 1).padStart(2, '0')}-${String(sheetDate.getDate()).padStart(2, '0')}`;
+        }
+
+        if (data[i][idIdx] === actData.id || 
+           (data[i][clientIdx] === actData.clientId && sheetDateStr === actData.date)) {
+          sheet.deleteRow(i + 1);
+          return { success: true, message: 'ลบกิจกรรมสำเร็จ' };
+        }
+      }
+      return { success: true, message: 'ทำรายการสำเร็จ (ไม่พบข้อมูลเดิมที่ต้องลบ)' };
+    }
+
+    let isFound = false;
+    for (let i = 1; i < data.length; i++) {
       let sheetDate = data[i][dateIdx];
       let sheetDateStr = sheetDate;
       if (sheetDate instanceof Date) {
@@ -476,142 +651,146 @@ function saveSiteActivityToBackend(actData, isDelete) {
 
       if (data[i][idIdx] === actData.id || 
          (data[i][clientIdx] === actData.clientId && sheetDateStr === actData.date)) {
-        sheet.deleteRow(i + 1);
-        return { success: true, message: 'ลบกิจกรรมสำเร็จ' };
+        const rowNum = i + 1;
+        let updatedRow = [...data[i]];
+        
+        if(headers.indexOf('act_id') > -1) updatedRow[headers.indexOf('act_id')] = actData.id;
+        if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = actData.clientId;
+        if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + actData.date;
+        if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = actData.type;
+        if(headers.indexOf('remark') > -1) updatedRow[headers.indexOf('remark')] = actData.remark;
+        if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = actData.actionBy;
+        if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+        isFound = true;
+        break;
       }
     }
-    return { success: true, message: 'ทำรายการสำเร็จ (ไม่พบข้อมูลเดิมที่ต้องลบ)' };
-  }
 
-  let isFound = false;
-  for (let i = 1; i < data.length; i++) {
-    let sheetDate = data[i][dateIdx];
-    let sheetDateStr = sheetDate;
-    if (sheetDate instanceof Date) {
-      sheetDateStr = `${sheetDate.getFullYear()}-${String(sheetDate.getMonth() + 1).padStart(2, '0')}-${String(sheetDate.getDate()).padStart(2, '0')}`;
+    if (!isFound) {
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('act_id') > -1) newRow[headers.indexOf('act_id')] = actData.id;
+      if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = actData.clientId;
+      if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + actData.date; 
+      if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = actData.type;
+      if(headers.indexOf('remark') > -1) newRow[headers.indexOf('remark')] = actData.remark;
+      if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = actData.actionBy;
+      if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+      if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = new Date();
+      sheet.appendRow(newRow);
     }
-
-    if (data[i][idIdx] === actData.id || 
-       (data[i][clientIdx] === actData.clientId && sheetDateStr === actData.date)) {
-      const rowNum = i + 1;
-      let updatedRow = [...data[i]];
-      
-      if(headers.indexOf('act_id') > -1) updatedRow[headers.indexOf('act_id')] = actData.id;
-      if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = actData.clientId;
-      if(headers.indexOf('date') > -1) updatedRow[headers.indexOf('date')] = "'" + actData.date;
-      if(headers.indexOf('type') > -1) updatedRow[headers.indexOf('type')] = actData.type;
-      if(headers.indexOf('remark') > -1) updatedRow[headers.indexOf('remark')] = actData.remark;
-      if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = actData.actionBy;
-      if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
-
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
-      isFound = true;
-      break;
-    }
+    
+    return { success: true, message: 'บันทึกกิจกรรมสำเร็จ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-
-  if (!isFound) {
-    let newRow = new Array(headers.length).fill('');
-    if(headers.indexOf('act_id') > -1) newRow[headers.indexOf('act_id')] = actData.id;
-    if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = actData.clientId;
-    if(headers.indexOf('date') > -1) newRow[headers.indexOf('date')] = "'" + actData.date; 
-    if(headers.indexOf('type') > -1) newRow[headers.indexOf('type')] = actData.type;
-    if(headers.indexOf('remark') > -1) newRow[headers.indexOf('remark')] = actData.remark;
-    if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = actData.actionBy;
-    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
-    if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = new Date();
-    sheet.appendRow(newRow);
-  }
-  
-  return { success: true, message: 'บันทึกกิจกรรมสำเร็จ' };
 }
 
 function saveIssueToBackend(issueData) {
-  const sheetName = 'Issues';
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
-    const headers = ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#ef4444').setFontColor('white');
-    sheet.setFrozenRows(1);
-  }
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const idIdx = headers.indexOf('issue_id');
-  
-  let isFound = false;
-  let oldDataObj = null;
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][idIdx] === issueData.id) {
-      const rowNum = i + 1;
-      oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-
-      let updatedRow = [...data[i]];
-      if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = issueData.clientId;
-      if(headers.indexOf('date_reported') > -1) updatedRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
-      if(headers.indexOf('source') > -1) updatedRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
-      if(headers.indexOf('provider_id') > -1) updatedRow[headers.indexOf('provider_id')] = issueData.providerId || '';
-      if(headers.indexOf('category') > -1) updatedRow[headers.indexOf('category')] = issueData.category;
-      if(headers.indexOf('description') > -1) updatedRow[headers.indexOf('description')] = issueData.description;
-      if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = issueData.status;
-      if(headers.indexOf('assigned_to') > -1) updatedRow[headers.indexOf('assigned_to')] = issueData.assignedTo;
-      if(headers.indexOf('due_date') > -1) updatedRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
-      if(headers.indexOf('action_taken') > -1) updatedRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
-      if(headers.indexOf('resolution_note') > -1) updatedRow[headers.indexOf('resolution_note')] = issueData.resolutionNote;
-      if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = issueData.actionBy;
-      if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
-
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
-      isFound = true;
-      logChange('UPDATE', 'Issues', issueData.id, oldDataObj, issueData, issueData.actionBy);
-      break;
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheetName = 'Issues';
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    
+    if (!sheet) {
+      sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+      const headers = ['issue_id', 'client_id', 'date_reported', 'source', 'provider_id', 'category', 'description', 'status', 'assigned_to', 'due_date', 'action_taken', 'resolution_note', 'created_at', 'updated_at', 'action_by'];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#ef4444').setFontColor('white');
+      sheet.setFrozenRows(1);
     }
-  }
 
-  if (!isFound) {
-    let newRow = new Array(headers.length).fill('');
-    if(headers.indexOf('issue_id') > -1) newRow[headers.indexOf('issue_id')] = issueData.id;
-    if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = issueData.clientId;
-    if(headers.indexOf('date_reported') > -1) newRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
-    if(headers.indexOf('source') > -1) newRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
-    if(headers.indexOf('provider_id') > -1) newRow[headers.indexOf('provider_id')] = issueData.providerId || '';
-    if(headers.indexOf('category') > -1) newRow[headers.indexOf('category')] = issueData.category;
-    if(headers.indexOf('description') > -1) newRow[headers.indexOf('description')] = issueData.description;
-    if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = issueData.status || 'Pending';
-    if(headers.indexOf('assigned_to') > -1) newRow[headers.indexOf('assigned_to')] = issueData.assignedTo || '';
-    if(headers.indexOf('due_date') > -1) newRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
-    if(headers.indexOf('action_taken') > -1) newRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
-    if(headers.indexOf('resolution_note') > -1) newRow[headers.indexOf('resolution_note')] = issueData.resolutionNote || '';
-    if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = issueData.actionBy;
-    if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
-    if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = new Date();
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('issue_id');
+    
+    let isFound = false;
+    let oldDataObj = null;
 
-    sheet.appendRow(newRow);
-    logChange('CREATE', 'Issues', issueData.id, null, issueData, issueData.actionBy);
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIdx] === issueData.id) {
+        const rowNum = i + 1;
+        oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+
+        let updatedRow = [...data[i]];
+        if(headers.indexOf('client_id') > -1) updatedRow[headers.indexOf('client_id')] = issueData.clientId;
+        if(headers.indexOf('date_reported') > -1) updatedRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
+        if(headers.indexOf('source') > -1) updatedRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
+        if(headers.indexOf('provider_id') > -1) updatedRow[headers.indexOf('provider_id')] = issueData.providerId || '';
+        if(headers.indexOf('category') > -1) updatedRow[headers.indexOf('category')] = issueData.category;
+        if(headers.indexOf('description') > -1) updatedRow[headers.indexOf('description')] = issueData.description;
+        if(headers.indexOf('status') > -1) updatedRow[headers.indexOf('status')] = issueData.status;
+        if(headers.indexOf('assigned_to') > -1) updatedRow[headers.indexOf('assigned_to')] = issueData.assignedTo;
+        if(headers.indexOf('due_date') > -1) updatedRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
+        if(headers.indexOf('action_taken') > -1) updatedRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
+        if(headers.indexOf('resolution_note') > -1) updatedRow[headers.indexOf('resolution_note')] = issueData.resolutionNote;
+        if(headers.indexOf('action_by') > -1) updatedRow[headers.indexOf('action_by')] = issueData.actionBy;
+        if(headers.indexOf('updated_at') > -1) updatedRow[headers.indexOf('updated_at')] = new Date();
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([updatedRow]);
+        isFound = true;
+        logChange('UPDATE', 'Issues', issueData.id, oldDataObj, issueData, issueData.actionBy);
+        break;
+      }
+    }
+
+    if (!isFound) {
+      let newRow = new Array(headers.length).fill('');
+      if(headers.indexOf('issue_id') > -1) newRow[headers.indexOf('issue_id')] = issueData.id;
+      if(headers.indexOf('client_id') > -1) newRow[headers.indexOf('client_id')] = issueData.clientId;
+      if(headers.indexOf('date_reported') > -1) newRow[headers.indexOf('date_reported')] = "'" + issueData.dateReported;
+      if(headers.indexOf('source') > -1) newRow[headers.indexOf('source')] = issueData.source || 'housekeeper';
+      if(headers.indexOf('provider_id') > -1) newRow[headers.indexOf('provider_id')] = issueData.providerId || '';
+      if(headers.indexOf('category') > -1) newRow[headers.indexOf('category')] = issueData.category;
+      if(headers.indexOf('description') > -1) newRow[headers.indexOf('description')] = issueData.description;
+      if(headers.indexOf('status') > -1) newRow[headers.indexOf('status')] = issueData.status || 'Pending';
+      if(headers.indexOf('assigned_to') > -1) newRow[headers.indexOf('assigned_to')] = issueData.assignedTo || '';
+      if(headers.indexOf('due_date') > -1) newRow[headers.indexOf('due_date')] = issueData.dueDate ? "'" + issueData.dueDate : '';
+      if(headers.indexOf('action_taken') > -1) newRow[headers.indexOf('action_taken')] = issueData.actionTaken || '';
+      if(headers.indexOf('resolution_note') > -1) newRow[headers.indexOf('resolution_note')] = issueData.resolutionNote || '';
+      if(headers.indexOf('action_by') > -1) newRow[headers.indexOf('action_by')] = issueData.actionBy;
+      if(headers.indexOf('created_at') > -1) newRow[headers.indexOf('created_at')] = new Date();
+      if(headers.indexOf('updated_at') > -1) newRow[headers.indexOf('updated_at')] = new Date();
+
+      sheet.appendRow(newRow);
+      logChange('CREATE', 'Issues', issueData.id, null, issueData, issueData.actionBy);
+    }
+    return { success: true, message: 'บันทึกปัญหาคุณภาพเรียบร้อยแล้ว' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: true, message: 'บันทึกปัญหาคุณภาพเรียบร้อยแล้ว' };
 }
 
 function deleteIssueToBackend(issueId, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Issues');
-  if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Issues' };
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (headers.indexOf('issue_id') > -1 && data[i][headers.indexOf('issue_id')] === issueId) {
-      let oldDataObj = {};
-      for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
-      sheet.deleteRow(i + 1);
-      logChange('DELETE', 'Issues', issueId, oldDataObj, null, actionBy);
-      return { success: true, message: 'ลบรายการปัญหาสำเร็จ' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Issues');
+    if (!sheet) return { success: false, message: 'ไม่พบ Sheet: Issues' };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (headers.indexOf('issue_id') > -1 && data[i][headers.indexOf('issue_id')] === issueId) {
+        let oldDataObj = {};
+        for(let j=0; j<headers.length; j++) { oldDataObj[headers[j]] = data[i][j]; }
+        sheet.deleteRow(i + 1);
+        logChange('DELETE', 'Issues', issueId, oldDataObj, null, actionBy);
+        return { success: true, message: 'ลบรายการปัญหาสำเร็จ' };
+      }
     }
+    return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
+  } catch (e) {
+    return { success: false, message: 'ระบบขัดข้อง: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' };
 }
 
 // ==========================================
@@ -631,7 +810,7 @@ function getSheetDataAsObjects(sheetName) {
     for (let j = 0; j < headers.length; j++) {
       let value = row[j];
       if (value instanceof Date) {
-        if (headers[j] === 'date' || headers[j] === 'start_date' || headers[j] === 'end_date' || headers[j] === 'date_reported' || headers[j] === 'due_date') {
+        if (headers[j] === 'date' || headers[j] === 'start_date' || headers[j] === 'end_date' || headers[j] === 'date_reported' || headers[j] === 'due_date' || headers[j] === 'plan_date') {
           value = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
         }
         else if (headers[j] === 'start_time' || headers[j] === 'end_time') {
@@ -649,19 +828,23 @@ function getSheetDataAsObjects(sheetName) {
 }
 
 function logChange(action, tableName, recordId, oldData, newData, actionBy) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ChangeLog');
-  if (!sheet) return;
-  const email = actionBy || Session.getActiveUser().getEmail() || 'Unknown';
-  sheet.appendRow([
-    'LOG-' + new Date().getTime(),
-    new Date(),
-    email,
-    action, 
-    tableName,
-    recordId,
-    oldData ? JSON.stringify(oldData) : '',
-    newData ? JSON.stringify(newData) : ''
-  ]);
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ChangeLog');
+    if (!sheet) return;
+    const email = actionBy || (Session.getActiveUser() ? Session.getActiveUser().getEmail() : 'Unknown');
+    sheet.appendRow([
+      'LOG-' + new Date().getTime(),
+      new Date(),
+      email,
+      action, 
+      tableName,
+      recordId,
+      oldData ? JSON.stringify(oldData) : '',
+      newData ? JSON.stringify(newData) : ''
+    ]);
+  } catch(e) {
+    Logger.log('Log error: ' + e.toString());
+  }
 }
 
 function checkShiftConflicts(newShiftsArray) {
@@ -747,6 +930,7 @@ function getRecordHistory(tableName, recordId) {
 
 function uploadImageToDrive(base64Data, fileName) {
   try {
+    if (!base64Data) throw new Error("Image data is empty.");
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", fileName);
     var FOLDER_ID = '1VF9cq_puxvjrw9NZx53BnLraRk3w28Vx'; 
     var folder = DriveApp.getFolderById(FOLDER_ID);
@@ -798,20 +982,22 @@ function exportToGoogleSheets(shiftsData) {
   }
 }
 
-// ==========================================
-// 6. NOTIFICATION HELPER
-// ==========================================
 function sendSlackNotificationFromBackend(payload) {
   console.log("Mock Send Notification: ", payload);
   return { success: true };
 }
 
 // =========================================================================
-// 🚀 API FOR HOUSEKEEPER APP (ระบบแอปพลิเคชันสำหรับแม่บ้านและ AE บนมือถือ)
+// 🚀 6. API FOR HOUSEKEEPER APP (สำหรับเชื่อม Netlify Mobile App)
 // =========================================================================
 
 function doPost(e) {
   try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput(JSON.stringify({success: false, message: 'No data received in request.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
     let result = { success: false, message: 'Unknown action' };
@@ -831,75 +1017,140 @@ function doPost(e) {
     }
 
     return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.TEXT);
+      .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({success: false, message: err.toString()}))
-      .setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Server error: ' + err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 // API: ล็อกอิน (ตรวจสอบด้วยเบอร์และ PIN)
 function mobileApiLogin(phone, pin) {
-  // 💡 ตรวจสอบสิทธิ์จากตาราง Users ก่อน (สำหรับ AE / แอดมิน)
+  const cleanPhone = String(phone).replace(/[^0-9]/g, '');
+  const cleanPin = String(pin).trim();
+
   const users = getSheetDataAsObjects('Users');
-  const adminUser = users.find(u => String(u.phone) === String(phone) && u.is_active === true);
+  const adminUser = users.find(u => String(u.phone).replace(/[^0-9]/g, '') === cleanPhone && u.is_active === true);
   
+  const tz = "Asia/Bangkok";
+  const now = new Date();
+  const todayStr = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+  const clients = getSheetDataAsObjects('Clients');
+
   if (adminUser) {
-      const expectedAdminPin = adminUser.pin ? String(adminUser.pin) : phone.substring(phone.length - 4);
-      if (String(pin) !== expectedAdminPin && pin !== '1234') { 
+      const expectedAdminPin = adminUser.pin ? String(adminUser.pin).trim() : cleanPhone.substring(cleanPhone.length - 4);
+      if (cleanPin !== expectedAdminPin && cleanPin !== '1234') { 
           return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
       }
+      
+      // 💡 ดึงคิวงานจาก AE_Plans ให้ AE คนนี้
+      const aePlans = getSheetDataAsObjects('AE_Plans');
+      let upcomingInspections = [];
+
+      aePlans.forEach(plan => {
+          if (plan.ae_email === adminUser.email && (plan.status === 'Pending' || plan.status === 'pending')) {
+              const client = clients.find(c => c.client_id === plan.client_id);
+              
+              // แปลง Checklist จาก String JSON เป็นก้อนข้อมูลส่งให้แอป
+              let checklistItems = [];
+              if (client && client.checklist) {
+                  try {
+                      let parsed = JSON.parse(client.checklist);
+                      checklistItems = parsed.map((item, idx) => {
+                          return { id: 'chk_' + plan.plan_id + '_' + idx, area: 'จุดตรวจหน้างาน', name: item, status: 'pending', img: null };
+                      });
+                  } catch(e) {}
+              }
+              
+              if (checklistItems.length === 0) {
+                  checklistItems.push({ id: 'chk_default', area: 'จุดตรวจทั่วไป', name: 'ความสะอาดโดยรวม', status: 'pending', img: null });
+              }
+
+              upcomingInspections.push({
+                  id: plan.plan_id,
+                  clientId: plan.client_id,
+                  siteName: client ? client.client_name : 'ไม่ทราบไซต์งาน',
+                  date: plan.plan_date,
+                  status: 'pending',
+                  items: checklistItems,
+                  issues: []
+              });
+          }
+      });
+      
+      // เรียงลำดับงานตามวันที่
+      upcomingInspections.sort((a,b) => a.date.localeCompare(b.date));
+
       return { 
           success: true, 
           message: 'Welcome AE', 
           user: { id: adminUser.email, name: adminUser.name, avatar: '', role: adminUser.role }, 
           shift: null, 
           status: 'pending_checkin', 
-          upcomingShifts: [] 
+          upcomingShifts: [],
+          upcomingInspections: upcomingInspections // 💡 ส่งข้อมูลจริงไปให้แอป
       };
   }
 
-  // 💡 ถ้าไม่ใช่ AE ให้ตรวจสอบตาราง Housekeepers (สำหรับแม่บ้าน)
   const hks = getSheetDataAsObjects('Housekeepers');
-  
-  const hk = hks.find(h => String(h.phone) === String(phone) && h.status === 'Active');
+  const hk = hks.find(h => String(h.phone).replace(/[^0-9]/g, '') === cleanPhone && h.status === 'Active');
   if (!hk) return { success: false, message: 'ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือบัญชีถูกระงับการใช้งาน' };
   
-  const expectedPin = hk.pin ? String(hk.pin) : phone.substring(phone.length - 4);
-  if (String(pin) !== expectedPin && pin !== '1234') { 
+  const expectedPin = hk.pin ? String(hk.pin).trim() : cleanPhone.substring(cleanPhone.length - 4);
+  if (cleanPin !== expectedPin && cleanPin !== '1234') { 
       return { success: false, message: 'รหัส PIN ไม่ถูกต้อง' };
   }
-
-  const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  const shifts = getSheetDataAsObjects('Shifts');
   
-  const todayShift = shifts.find(s => s.date === todayStr && String(s.assigned_hk_ids).includes(hk.hk_id) && s.status !== 'cancelled' && s.status !== 'absent');
+  const shifts = getSheetDataAsObjects('Shifts');
+  const parseDateStr = (dStr) => {
+      if (!dStr) return "";
+      if (dStr instanceof Date) return Utilities.formatDate(dStr, tz, "yyyy-MM-dd");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dStr).trim())) return String(dStr).trim();
+      return String(dStr).trim();
+  };
+  
+  const todayShift = shifts.find(s => {
+      const sDate = parseDateStr(s.date);
+      const hkList = s.assigned_hk_ids ? String(s.assigned_hk_ids).split(',').map(id => id.trim()) : [];
+      return sDate === todayStr && hkList.includes(String(hk.hk_id)) && s.status !== 'cancelled' && s.status !== 'absent';
+  });
 
   let upcomingShifts = [];
   let endLimitDate = new Date();
-  endLimitDate.setDate(endLimitDate.getDate() + 7);
-  const limitStr = Utilities.formatDate(endLimitDate, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  const clients = getSheetDataAsObjects('Clients');
+  endLimitDate.setDate(endLimitDate.getDate() + 14); 
+  const limitStr = Utilities.formatDate(endLimitDate, tz, "yyyy-MM-dd");
 
   shifts.forEach(s => {
-       if (s.date > todayStr && s.date <= limitStr && s.status !== 'cancelled') {
-           let hksList = s.assigned_hk_ids ? s.assigned_hk_ids.toString().split(',').map(id => id.trim()) : [];
-           if (hksList.includes(hk.hk_id)) {
-               const client = clients.find(c => c.client_id === s.client_id);
-               let d = new Date(s.date);
-               let days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
-               let months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-               let dStr = "วัน" + days[d.getDay()];
-               if(s.date === Utilities.formatDate(new Date(new Date().getTime() + 86400000), Session.getScriptTimeZone(), "yyyy-MM-dd")) dStr = "พรุ่งนี้";
-               
-               upcomingShifts.push({
-                   date: dStr, dateFull: d.getDate() + " " + months[d.getMonth()] + " " + (d.getFullYear()+543),
-                   start: s.start_time, end: s.end_time, site: client ? client.client_name : '-', status: s.status
-               });
+       const sDate = parseDateStr(s.date);
+       const hkList = s.assigned_hk_ids ? String(s.assigned_hk_ids).split(',').map(id => id.trim()) : [];
+       
+       if (sDate > todayStr && sDate <= limitStr && s.status !== 'cancelled' && s.status !== 'absent' && hkList.includes(String(hk.hk_id))) {
+           const client = clients.find(c => c.client_id === s.client_id);
+           const [yy, mm, dd] = sDate.split('-');
+           let d = new Date(yy, mm - 1, dd, 12, 0, 0); 
+           
+           let days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+           let months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+           
+           let dStr = "วัน" + days[d.getDay()];
+           let tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+           if(sDate === Utilities.formatDate(tomorrow, tz, "yyyy-MM-dd")) {
+               dStr = "พรุ่งนี้";
            }
+
+           upcomingShifts.push({ 
+               date: dStr, 
+               dateFull: d.getDate() + " " + months[d.getMonth()] + " " + (d.getFullYear()+543), 
+               start: s.start_time, 
+               end: s.end_time, 
+               site: client ? client.client_name : '-', 
+               status: s.status,
+               rawDate: sDate
+           });
        }
   });
-  upcomingShifts.sort((a,b) => new Date(a.dateFull) - new Date(b.dateFull));
+  
+  upcomingShifts.sort((a,b) => a.rawDate.localeCompare(b.rawDate));
 
   if (!todayShift) {
       return { success: true, user: { id: hk.hk_id, name: hk.name, avatar: hk.avatar_url || '' }, shift: null, status: 'no_shift', upcomingShifts: upcomingShifts };
@@ -944,7 +1195,9 @@ function mobileApiLogin(phone, pin) {
 
 // API: เช็คอิน
 function mobileApiCheckIn(hkId, shiftId, clientId, imgB64, lat, lng) {
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000);
     const imgUrl = uploadImageToDrive(imgB64, 'CheckIn_' + hkId + '_' + new Date().getTime() + '.jpg');
     
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Time_Attendance');
@@ -954,9 +1207,10 @@ function mobileApiCheckIn(hkId, shiftId, clientId, imgB64, lat, lng) {
     }
     
     const recordId = 'ATT-' + new Date().getTime();
+    const tz = "Asia/Bangkok";
     const now = new Date();
-    const todayStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
-    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm");
+    const todayStr = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+    const timeStr = Utilities.formatDate(now, tz, "HH:mm");
 
     const existing = getSheetDataAsObjects('Time_Attendance').find(a => a.shift_id === shiftId && a.hk_id === hkId);
     if (existing) {
@@ -972,12 +1226,16 @@ function mobileApiCheckIn(hkId, shiftId, clientId, imgB64, lat, lng) {
     return { success: true, message: 'เช็คอินสำเร็จ', checkInTime: timeStr };
   } catch (e) {
     return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คอิน: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
 }
 
 // API: เช็คเอาท์
 function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
+   const lock = LockService.getScriptLock();
    try {
+    lock.waitLock(15000);
     const siteImgUrl = uploadImageToDrive(siteImgB64, 'CheckOutSite_' + hkId + '_' + new Date().getTime() + '.jpg');
     const docImgUrl = uploadImageToDrive(docImgB64, 'CheckOutDoc_' + hkId + '_' + new Date().getTime() + '.jpg');
 
@@ -988,8 +1246,7 @@ function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
     const shiftIdIdx = headers.indexOf('shift_id');
     const hkIdIdx = headers.indexOf('hk_id');
     let found = false;
-    let now = new Date();
-    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm");
+    const timeStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "HH:mm");
 
     for (let i = data.length - 1; i >= 1; i--) {
        if (data[i][shiftIdIdx] === shiftId && data[i][hkIdIdx] === hkId) {
@@ -1009,6 +1266,8 @@ function mobileApiCheckOut(hkId, shiftId, siteImgB64, docImgB64) {
     return { success: true, message: 'เช็คเอาท์สำเร็จ', checkOutTime: timeStr };
    } catch (e) {
     return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกเช็คเอาท์: ' + e.toString() };
+   } finally {
+    lock.releaseLock();
    }
 }
 
@@ -1036,8 +1295,11 @@ function updateShiftStatusToCompleted(shiftId, statusOverride) {
 // 🚀 API FOR AE INSPECTION (บันทึกข้อมูลตรวจงานและปัญหา)
 // -------------------------------------------------------------------------
 function mobileApiSubmitInspection(data) {
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(20000);
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Inspections');
+    let planSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AE_Plans'); // 💡 เพื่อเปลี่ยนสถานะแผนงาน
     let issueSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Issues');
     
     if (!sheet) { setupDatabase(); sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Inspections'); }
@@ -1045,6 +1307,7 @@ function mobileApiSubmitInspection(data) {
     
     let aeId = data.aeId;
     let clientId = data.clientId;
+    let planId = data.planId || ''; // 💡 รับ planId มาเพื่ออัปเดตสถานะ
     let ts = new Date().getTime();
     let insId = 'INS-' + ts;
 
@@ -1062,7 +1325,7 @@ function mobileApiSubmitInspection(data) {
     }
 
     let issues = data.issues || [];
-    const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
     
     for (let i = 0; i < issues.length; i++) {
        if (issues[i].beforeImg && !issues[i].beforeImg.startsWith('http')) {
@@ -1096,9 +1359,26 @@ function mobileApiSubmitInspection(data) {
       sigUrl, JSON.stringify(checklist), JSON.stringify(issues), '', now
     ]);
 
+    // 💡 ถ้ามีการระบุ planId มา ให้ไปเปลี่ยนสถานะในตาราง AE_Plans เป็น Completed ด้วย
+    if (planId && planSheet) {
+      const pData = planSheet.getDataRange().getValues();
+      const pHeaders = pData[0];
+      const pIdIdx = pHeaders.indexOf('plan_id');
+      const pStatusIdx = pHeaders.indexOf('status');
+      
+      for(let i = 1; i < pData.length; i++) {
+        if(pData[i][pIdIdx] === planId) {
+          planSheet.getRange(i+1, pStatusIdx+1).setValue('Completed');
+          break;
+        }
+      }
+    }
+
     return { success: true, message: 'บันทึกข้อมูลการตรวจงานสำเร็จ', inspectionId: insId };
   } catch (e) {
     return { success: false, message: 'เกิดข้อผิดพลาดในการบันทึกตรวจงาน: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -1133,10 +1413,16 @@ function getClientEvalInfo(clientId, monthStr) {
 }
 
 function submitEvaluation(clientId, monthStr, scores, comment) {
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(10000);
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Evaluations');
     const evalId = 'EV-' + new Date().getTime();
     sheet.appendRow([evalId, clientId, monthStr, JSON.stringify(scores), comment, new Date()]);
     return { success: true, message: 'บันทึกการประเมินสำเร็จ' };
-  } catch (e) { return { success: false, message: e.toString() }; }
+  } catch (e) { 
+    return { success: false, message: 'การบันทึกประเมินขัดข้อง: ' + e.toString() }; 
+  } finally {
+    lock.releaseLock();
+  }
 }
