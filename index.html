@@ -138,7 +138,6 @@
             </div>
             
             <div class="flex items-center gap-4">
-                <!-- 💡 เพิ่ม ID และใส่ Style ตรงๆ เพื่อการควบคุมที่ชัวร์ขึ้น -->
                 <button id="btnGlobalCreateShift" onclick="openShiftModal()" style="display: flex;" class="h-[42px] px-6 bg-brand text-white rounded-full text-[13px] font-bold hover:bg-brandDark transition flex items-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-plus"></i> สร้างตารางงานใหม่
                 </button>
@@ -306,28 +305,74 @@
         </div>
 
         <!-- ======================================= -->
-        <!-- [4] VIEW: INSPECTION (ตารางการเข้าตรวจงาน) -->
+        <!-- 💡 [4] VIEW: INSPECTION (ตารางการเข้าตรวจงาน + ประวัติรายงาน) -->
         <!-- ======================================= -->
         <div id="view-inspection" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
-            <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
-                <div class="flex items-center gap-3">
-                    <button onclick="changeInspectionMonth(-1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                    <input type="month" id="inspectionMonthPicker" onchange="setInspectionMonthFromPicker(this.value)" class="border border-gray-300 rounded px-3 py-1.5 text-sm font-bold text-brand outline-none focus:border-brand">
-                    <button onclick="changeInspectionMonth(1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-                </div>
-            </div>
-            
-            <div class="bg-white px-6 py-2 border-b border-gray-200 flex flex-wrap gap-4 text-[11px] font-medium shrink-0">
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-orange-400 rounded-sm"></div> วันเริ่มสัญญา</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-500 rounded-sm"></div> วันสิ้นสุดสัญญา</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 border border-gray-300 bg-white flex items-center justify-center text-[9px] font-bold">1</div> วันที่ปฏิบัติงาน (จำนวนคน)</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-green-500 rounded-sm"></div> เข้าตรวจสอบคุณภาพงาน</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-blue-500 rounded-sm"></div> วันส่งรายงาน</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-purple-400 rounded-sm"></div> วัน OJT</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-pink-300 rounded-sm"></div> ทำเรื่องเบิกค่าจ้าง</div>
+            <!-- 💡 New Tab UI for Inspection -->
+            <div class="flex items-center gap-2 px-6 pt-4 border-b border-gray-200 shrink-0 bg-white">
+                <button onclick="if(typeof switchInspectionTab === 'function') switchInspectionTab('matrix')" id="tab-insp-matrix" class="px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-brand text-brand transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-table-cells mr-2"></i> แผนตรวจงาน (Matrix)
+                </button>
+                <button onclick="if(typeof switchInspectionTab === 'function') switchInspectionTab('history')" id="tab-insp-history" class="px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-clock-rotate-left mr-2"></i> ประวัติรายงานการตรวจ (Reports)
+                </button>
             </div>
 
-            <div class="flex-grow overflow-auto bg-white custom-scrollbar p-4" id="inspectionTableContainer">
+            <!-- Content Area -->
+            <div class="flex-grow overflow-hidden relative">
+                <!-- Tab 1: Matrix Plan (Original Content) -->
+                <div id="content-insp-matrix" class="absolute inset-0 flex flex-col bg-[#f0f4f8]">
+                    <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
+                        <div class="flex items-center gap-3">
+                            <button onclick="if(typeof changeInspectionMonth === 'function') changeInspectionMonth(-1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                            <input type="month" id="inspectionMonthPicker" onchange="if(typeof setInspectionMonthFromPicker === 'function') setInspectionMonthFromPicker(this.value)" class="border border-gray-300 rounded px-3 py-1.5 text-sm font-bold text-brand outline-none focus:border-brand">
+                            <button onclick="if(typeof changeInspectionMonth === 'function') changeInspectionMonth(1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                        </div>
+                        <button onclick="if(typeof applyUserRoleAndStart === 'function') applyUserRoleAndStart()" class="px-4 py-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg text-[12px] font-bold hover:bg-white transition flex items-center gap-2">
+                            <i class="fa-solid fa-arrows-rotate"></i> อัปเดตข้อมูลล่าสุด
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white px-6 py-2 border-b border-gray-200 flex flex-wrap gap-4 text-[10px] font-bold shrink-0 uppercase tracking-wide">
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-orange-400 rounded-sm shadow-sm"></div> วันเริ่มสัญญา</div>
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-500 rounded-sm shadow-sm"></div> วันสิ้นสุดสัญญา</div>
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-green-500 rounded-sm shadow-sm"></div> กิจกรรม AE</div>
+                        <div class="flex items-center gap-1.5"><div class="w-4 h-4 text-brand flex items-center justify-center"><i class="fa-solid fa-file-circle-check text-sm"></i></div> มีรายงานตรวจงาน (จากมือถือ)</div>
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 border border-gray-300 bg-white flex items-center justify-center text-[9px] font-black">2</div> จำนวนพนักงานในกะ</div>
+                    </div>
+
+                    <div class="flex-grow overflow-auto bg-white custom-scrollbar p-4" id="inspectionTableContainer">
+                    </div>
+                </div>
+
+                <!-- Tab 2: Report History -->
+                <div id="content-insp-history" class="absolute inset-0 hidden flex-col bg-[#f0f4f8]">
+                    <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
+                        <div class="relative w-full md:w-64 shrink-0">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-[12px]"></i>
+                            <input type="text" id="inspHistorySearch" onkeyup="if(typeof renderInspectionHistoryTable === 'function') renderInspectionHistoryTable()" placeholder="ค้นหาชื่อไซต์งาน, ผู้ตรวจ..." class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-full text-[12px] focus:border-brand outline-none transition shadow-sm bg-gray-50 focus:bg-white">
+                        </div>
+                    </div>
+                    <div class="flex-grow overflow-auto p-6 custom-scrollbar">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <table class="w-full data-table text-[13px]">
+                                <thead>
+                                    <tr>
+                                        <th class="w-[15%] text-center">วันที่เข้าตรวจ</th>
+                                        <th class="w-[25%]">ไซต์งาน / ลูกค้า</th>
+                                        <th class="w-[20%]">ผู้ตรวจงาน (AE)</th>
+                                        <th class="w-[15%] text-center">คะแนนคุณภาพ</th>
+                                        <th class="w-[15%] text-center">ปัญหาที่พบ</th>
+                                        <th class="w-[10%] text-center">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inspectionHistoryTableBody">
+                                    <!-- Data injected by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -730,6 +775,22 @@
                             </div>
                         </div>
                     </div>
+                </div> <!-- End of grid-cols-3 -->
+
+                <!-- 💡 New Section: Checklist รายการจุดตรวจ -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex justify-between items-end mb-4">
+                        <div>
+                            <h4 class="text-sm font-black text-brand uppercase tracking-widest"><i class="fa-solid fa-list-check mr-1"></i> รายการจุดตรวจ (Checklist)</h4>
+                            <p class="text-[11px] text-gray-500 mt-1">กำหนดจุดที่ AE ต้องถ่ายรูปยืนยันเมื่อเข้าตรวจงานไซต์นี้</p>
+                        </div>
+                        <button type="button" onclick="if(typeof addClientChecklistItem === 'function') addClientChecklistItem()" class="px-3 py-1.5 bg-brandLight text-brand text-[11px] font-bold rounded-md hover:bg-brand hover:text-white transition shadow-sm flex items-center gap-1.5"><i class="fa-solid fa-plus"></i> เพิ่มจุดตรวจ</button>
+                    </div>
+                    
+                    <div id="clientChecklistContainer" class="flex flex-col gap-2">
+                        <!-- Checklist items will be injected here -->
+                    </div>
+                    <input type="hidden" id="clientChecklistData" value="[]">
                 </div>
 
                 <div id="clientHistorySection" class="mt-8 pt-6 border-t border-gray-200 hidden">
