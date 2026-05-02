@@ -44,18 +44,37 @@
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
+    // 💡 อัปเดต: ฟังก์ชัน Preview รูปภาพแบบเต็มหน้าจอ (Full-screen Overlay) สวยงาม
     function previewImage(url, title) {
-        if(typeof showCustomDialog === 'function') {
-            showCustomDialog({ title: title || 'รูปภาพ', message: '', type: 'info', buttons: [{ text: 'ปิดหน้าต่าง', style: 'cancel' }] });
-            var iconEl = document.getElementById('customDialogIcon');
-            if(iconEl) {
-                iconEl.className = 'w-32 h-32 rounded-xl flex items-center justify-center mb-4 shadow-inner overflow-hidden border-2 border-gray-100 bg-gray-50';
-                iconEl.innerHTML = '<img src="' + url + '" class="w-full h-full object-cover">';
-            }
-        } else {
-            if(typeof openLightbox === 'function') { openLightbox(url, [url]); } 
-            else { window.open(url, '_blank'); }
+        if (!url || url === '-' || url === '') return;
+        var overlay = document.getElementById('globalImagePreviewOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'globalImagePreviewOverlay';
+            overlay.className = 'fixed inset-0 bg-black/95 z-[999999] hidden flex flex-col items-center justify-center transition-opacity opacity-0';
+            overlay.innerHTML = `
+                <button onclick="document.getElementById('globalImagePreviewOverlay').classList.add('opacity-0'); setTimeout(function(){document.getElementById('globalImagePreviewOverlay').classList.add('hidden');}, 300);" class="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer z-10">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+                <img id="globalImagePreviewTarget" src="" class="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl transform transition-transform duration-300">
+                <p id="globalImagePreviewLabel" class="mt-4 text-white/90 text-[14px] font-bold tracking-wide bg-black/50 px-4 py-2 rounded-full hidden"></p>
+            `;
+            document.body.appendChild(overlay);
         }
+        var imgTarget = document.getElementById('globalImagePreviewTarget');
+        var lblTarget = document.getElementById('globalImagePreviewLabel');
+        
+        imgTarget.src = url;
+        if (title) {
+            lblTarget.innerText = title;
+            lblTarget.classList.remove('hidden');
+        } else {
+            lblTarget.classList.add('hidden');
+        }
+        
+        overlay.classList.remove('hidden');
+        void overlay.offsetWidth; // Trigger reflow
+        overlay.classList.remove('opacity-0');
     }
 
     // --- 1. Global State Variables ---
@@ -67,7 +86,6 @@
     var MOCK_SITE_ACTIVITIES = []; 
     var MOCK_NOTIFICATIONS = []; 
     var MOCK_ATTENDANCE = []; 
-    // 💡 เพิ่มตัวแปรที่ขาดหายไปสำหรับเก็บข้อมูลรายงานและประเมิน
     var MOCK_INSPECTIONS = []; 
     var MOCK_EVALUATIONS = [];
 
@@ -340,9 +358,7 @@
         }
     }
 
-    // 💡 ฟังก์ชันสลับหน้าจอ
     function switchMainView(viewId, menuId) {
-        // 1. ล้างไฮไลต์เมนูเก่า และไฮไลต์เมนูใหม่
         document.querySelectorAll('.sidebar-menu').forEach(function(el) {
             el.className = "sidebar-menu flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium text-gray-500 hover:text-brand hover:bg-gray-50 transition-all";
         });
@@ -355,7 +371,6 @@
             }
         }
 
-        // 2. ซ่อนทุกหน้าจอ และแสดงเฉพาะหน้าจอที่เลือก
         document.querySelectorAll('.view-container').forEach(function(el) {
             el.classList.add('hidden');
             el.classList.remove('flex');
@@ -366,21 +381,28 @@
             activeView.classList.add('flex');
         }
 
-        // 3. เปลี่ยนชื่อ Title ด้านบน
         var titleEl = document.getElementById('globalPageTitle');
+        var btnCreateShift = document.getElementById('btnGlobalCreateShift'); 
+
         if (titleEl) {
-            if (viewId === 'view-schedule') titleEl.innerHTML = 'ตารางงาน (Schedule)';
-            else if (viewId === 'view-attendance') titleEl.innerHTML = 'เวลาเข้า-ออก (Attendance)';
-            else if (viewId === 'view-inspection') titleEl.innerHTML = 'แผนตรวจงาน (Site Inspection)';
-            else if (viewId === 'view-issues') titleEl.innerHTML = 'แจ้งปัญหาคุณภาพ (Issues)';
-            else if (viewId === 'view-evaluation') titleEl.innerHTML = 'คะแนนประเมินลูกค้า (CSI)'; // 💡 สำหรับหน้าประเมิน
-            else if (viewId === 'view-manage') titleEl.innerHTML = 'ข้อมูลหลัก (Manage Data)';
-            else if (viewId === 'view-users') titleEl.innerHTML = 'ตั้งค่าสิทธิ์ (Users)';
-            else if (viewId === 'view-report') titleEl.innerHTML = 'รายงาน (Reports)';
-            else if (viewId === 'view-inventory') titleEl.innerHTML = 'เบิกนับสต๊อค (Inventory)';
+            if (viewId === 'view-schedule') {
+                titleEl.innerHTML = 'ตารางงาน (Schedule)';
+                if(btnCreateShift) btnCreateShift.style.display = 'flex'; 
+            }
+            else {
+                if (viewId === 'view-attendance') titleEl.innerHTML = 'เวลาเข้า-ออก (Attendance)';
+                else if (viewId === 'view-inspection') titleEl.innerHTML = 'แผนตรวจงาน (Site Inspection)';
+                else if (viewId === 'view-issues') titleEl.innerHTML = 'แจ้งปัญหาคุณภาพ (Issues)';
+                else if (viewId === 'view-evaluation') titleEl.innerHTML = 'คะแนนประเมินลูกค้า (CSI)'; 
+                else if (viewId === 'view-manage') titleEl.innerHTML = 'ข้อมูลหลัก (Manage Data)';
+                else if (viewId === 'view-users') titleEl.innerHTML = 'ตั้งค่าสิทธิ์ (Users)';
+                else if (viewId === 'view-report') titleEl.innerHTML = 'รายงาน (Reports)';
+                else if (viewId === 'view-inventory') titleEl.innerHTML = 'เบิกนับสต๊อค (Inventory)';
+
+                if(btnCreateShift) btnCreateShift.style.display = 'none'; 
+            }
         }
 
-        // 4. สั่งโหลดข้อมูลตามหน้าจอที่กด
         if(viewId === 'view-schedule' && typeof filterGridData === 'function') filterGridData();
         
         if(viewId === 'view-attendance' && typeof initAttendanceView === 'function') {
@@ -392,7 +414,6 @@
         if(viewId === 'view-inspection' && typeof initInspectionView === 'function') initInspectionView();
         if(viewId === 'view-issues' && typeof initIssuesView === 'function') initIssuesView();
         
-        // 💡 เพิ่มการโหลดหน้าประเมิน
         if(viewId === 'view-evaluation' && typeof initEvaluationView === 'function') initEvaluationView();
         
         if(viewId === 'view-manage' && typeof renderStaffTable === 'function') {
@@ -401,7 +422,6 @@
         }
         if(viewId === 'view-users' && typeof renderUserTable === 'function') renderUserTable();
 
-        // ปิด Sidebar บนมือถือ
         var sidebar = document.getElementById('mainSidebar');
         if(window.innerWidth < 1024 && sidebar && sidebar.classList.contains('mobile-open')) { 
             toggleSidebar(); 
@@ -565,104 +585,232 @@
         }
     }
 
-    // 💡 ฟังก์ชันประมวลผลข้อมูลจาก Backend (ดึงข้อมูลให้ครบทุกตาราง)
+    // 💡 ฟังก์ชันใหม่: ดึงข้อมูลอย่างปลอดภัย แม้ชื่อหัวคอลัมน์จาก DB จะเปลี่ยนเป็นตัวพิมพ์ใหญ่-เล็ก หรือมีช่องว่าง
+    function safeGet(obj, keys) {
+        if(!obj) return '';
+        // 1. หาแบบตรงตัวเป๊ะๆ ก่อน
+        for(var i=0; i<keys.length; i++) {
+            if(obj[keys[i]] !== undefined && obj[keys[i]] !== null && obj[keys[i]] !== '') return obj[keys[i]];
+        }
+        // 2. ถ้าไม่เจอ ให้ค้นหาแบบแปลงตัวเล็กทั้งหมด และตัดช่องว่างทิ้ง
+        for(var k in obj) {
+            for(var j=0; j<keys.length; j++) {
+                if(k.toLowerCase().trim() === keys[j].toLowerCase().trim() && obj[k] !== undefined && obj[k] !== null) return obj[k];
+            }
+        }
+        return '';
+    }
+
+    // 💡 ฟังก์ชันประมวลผลข้อมูลจาก Backend (สุดยอดระบบ Auto-Normalize Mapping)
     function processBackendData(data) {
         if (!data) { useFallbackMockData(); return; }
 
-        // MOCK_CLIENTS
-        MOCK_CLIENTS = data.clients.map(function(c) {
-            return {
-                id: c.client_id, name: c.client_name, address: c.address, district: c.district, province: c.province,
-                type: c.type || 'b2b', color: c.color_hex || '#e2e8f0', reqStaff: c.required_hk_per_day || 1,
-                contact: c.contact_person, phone: c.phone, status: c.status || 'Active', contractHours: c.contract_hours || 0,
-                serviceDays: c.service_days || '',frequency: c.frequency || '',startDate: c.start_date || '',endDate: c.end_date || '',
-                lat: c.lat || '', lng: c.lng || ''
-            };
-        });
+        // --- MOCK_CLIENTS ---
+        MOCK_CLIENTS = [];
+        if (data.clients && data.clients.length > 0) {
+            data.clients.forEach(function(c) {
+                MOCK_CLIENTS.push({
+                    id: safeGet(c, ['client_id', 'id']), 
+                    name: safeGet(c, ['client_name', 'name']), 
+                    address: safeGet(c, ['address']), 
+                    district: safeGet(c, ['district']), 
+                    province: safeGet(c, ['province']),
+                    type: safeGet(c, ['type']) || 'B2B', 
+                    color: safeGet(c, ['color_hex', 'color']) || '#e2e8f0', 
+                    reqStaff: safeGet(c, ['required_hk_per_day', 'reqStaff']) || 1,
+                    contact: safeGet(c, ['contact_person', 'contact']), 
+                    phone: safeGet(c, ['phone']), 
+                    status: safeGet(c, ['status']) || 'Active', 
+                    contractHours: safeGet(c, ['contract_hours', 'contractHours']) || 0,
+                    serviceDays: safeGet(c, ['service_days', 'serviceDays']) || '',
+                    frequency: safeGet(c, ['frequency']) || '',
+                    startDate: safeGet(c, ['start_date', 'startDate']) || '',
+                    endDate: safeGet(c, ['end_date', 'endDate']) || '',
+                    lat: safeGet(c, ['lat']) || '', 
+                    lng: safeGet(c, ['lng']) || '',
+                    checklist: safeGet(c, ['checklist']) || ''
+                });
+            });
+        }
         if(MOCK_CLIENTS.length === 0) MOCK_CLIENTS = [{ id: 'CL-001', name: 'งานรอจัดสรร (Unassigned)', type: 'system', color: '#e2e8f0', reqStaff: 1 }];
 
-        // MOCK_HOUSEKEEPERS
-        MOCK_HOUSEKEEPERS = data.housekeepers.map(function(h) {
-            var validAvatar = (h.avatar && h.avatar.trim() !== '') ? h.avatar : ('https://ui-avatars.com/api/?name=' + encodeURIComponent(h.name || 'User') + '&background=f0f4f8&color=3d5a6c');
-            return {
-                id: h.hk_id, name: h.name || 'ไม่มีชื่อ', nickname: h.nickname || '-',
-                phone: h.phone, lineId: h.line_id, type: h.job_type || 'Full-time', status: h.status || 'Active',
-                skills: h.special_skills || '', zones: h.zones || '', maxHoursWeek: h.max_hours_week || 48,
-                startDate: h.start_date || '', endDate: h.end_date || '',
-                avatar: validAvatar, color: h.color || '#3b82f6',
-                pin: h.pin || ''
-            };
-        });
+        // --- MOCK_HOUSEKEEPERS ---
+        MOCK_HOUSEKEEPERS = [];
+        if (data.housekeepers && data.housekeepers.length > 0) {
+            data.housekeepers.forEach(function(h) {
+                var hName = safeGet(h, ['name']) || 'ไม่มีชื่อ';
+                var rawAvatar = safeGet(h, ['avatar_url', 'avatar']);
+                var validAvatar = (rawAvatar && rawAvatar.trim() !== '') ? rawAvatar : ('https://ui-avatars.com/api/?name=' + encodeURIComponent(hName) + '&background=f0f4f8&color=3d5a6c');
+                MOCK_HOUSEKEEPERS.push({
+                    id: safeGet(h, ['hk_id', 'id']), 
+                    name: hName, 
+                    nickname: safeGet(h, ['nickname']) || '-',
+                    phone: safeGet(h, ['phone']), 
+                    lineId: safeGet(h, ['line_id', 'lineId']), 
+                    type: safeGet(h, ['job_type', 'type']) || 'Full-time', 
+                    status: safeGet(h, ['status']) || 'Active',
+                    skills: safeGet(h, ['special_skills', 'skills']) || '', 
+                    zones: safeGet(h, ['zones']) || '', 
+                    maxHoursWeek: safeGet(h, ['max_hours_week', 'maxHoursWeek']) || 48,
+                    startDate: safeGet(h, ['start_date', 'startDate']) || '', 
+                    endDate: safeGet(h, ['end_date', 'endDate']) || '',
+                    avatar: validAvatar, 
+                    color: safeGet(h, ['color_hex', 'color']) || '#3b82f6',
+                    pin: safeGet(h, ['pin']) || ''
+                });
+            });
+        }
 
-        // MOCK_SHIFTS
-        MOCK_SHIFTS = data.shifts.map(function(s) {
-            var hkArray = s.assigned_hk_ids ? s.assigned_hk_ids.toString().split(',').map(function(id) { return id.trim(); }).filter(function(id) { return id; }) : [];
-            return { id: s.shift_id, clientId: s.client_id, date: s.date, start: s.start_time, end: s.end_time, hks: hkArray, status: s.status || 'scheduled', notes: s.notes || '', groupId: s.recurring_group_id || '' };
-        });
+        // --- MOCK_SHIFTS ---
+        MOCK_SHIFTS = [];
+        if (data.shifts && data.shifts.length > 0) {
+            data.shifts.forEach(function(s) {
+                var rawHk = safeGet(s, ['assigned_hk_ids', 'hks']);
+                var hkArray = rawHk ? rawHk.toString().split(',').map(function(id) { return id.trim(); }).filter(function(id) { return id; }) : [];
+                MOCK_SHIFTS.push({ 
+                    id: safeGet(s, ['shift_id', 'id']), 
+                    clientId: safeGet(s, ['client_id', 'clientId']), 
+                    date: safeGet(s, ['date']), 
+                    start: safeGet(s, ['start_time', 'start']), 
+                    end: safeGet(s, ['end_time', 'end']), 
+                    hks: hkArray, 
+                    status: safeGet(s, ['status']) || 'scheduled', 
+                    notes: safeGet(s, ['notes']) || '', 
+                    groupId: safeGet(s, ['recurring_group_id', 'groupId']) || '' 
+                });
+            });
+        }
         
-        // MOCK_USERS
-        MOCK_USERS = data.users && data.users.length > 0 ? data.users.map(function(u) {
-            return { id: u.email, name: u.name || 'ไม่มีชื่อ', email: u.email, role: u.role || 'Viewer', status: u.is_active ? 'Active' : 'Inactive' };
-        }) : [ { id: 'U1', name: 'Admin User', email: 'admin@mariservices.com', role: 'Admin', status: 'Active' } ];
-
-        // MOCK_SITE_ACTIVITIES
-        if(data.siteActivities) {
-            MOCK_SITE_ACTIVITIES = data.siteActivities.map(function(a) {
-                return {
-                    id: a.act_id, clientId: a.client_id, date: a.date, type: a.type, remark: a.remark, actionBy: a.action_by
-                };
+        // --- MOCK_USERS ---
+        MOCK_USERS = [];
+        if (data.users && data.users.length > 0) {
+            data.users.forEach(function(u) {
+                var rawStatus = safeGet(u, ['is_active', 'status', 'Status', 'สถานะ']);
+                var isActive = (rawStatus === true || rawStatus === 'true' || rawStatus === 'Active' || rawStatus === 'เปิดใช้งาน' || rawStatus === 'Yes' || rawStatus === 1) ? 'Active' : 'Inactive';
+                MOCK_USERS.push({ 
+                    id: safeGet(u, ['email', 'อีเมล']), 
+                    name: safeGet(u, ['name', 'ชื่อ']) || 'ไม่มีชื่อ', 
+                    email: safeGet(u, ['email', 'อีเมล']), 
+                    role: safeGet(u, ['role', 'บทบาท']) || 'Viewer', 
+                    status: isActive,
+                    phone: safeGet(u, ['phone', 'เบอร์โทร']),
+                    pin: safeGet(u, ['pin', 'รหัส'])
+                });
             });
-        } else { MOCK_SITE_ACTIVITIES = []; }
+        }
+        if (MOCK_USERS.length === 0) { MOCK_USERS.push({ id: 'U1', name: 'Admin User', email: 'admin@mariservices.com', role: 'Admin', status: 'Active' }); }
 
-        // MOCK_ISSUES
-        if(data.issues) {
-            MOCK_ISSUES = data.issues.map(function(i) {
-                return {
-                    id: i.issue_id, clientId: i.client_id, dateReported: i.date_reported,
-                    source: i.source || 'housekeeper', providerId: i.provider_id || '',
-                    category: i.category, description: i.description, status: i.status || 'Pending',
-                    assignedTo: i.assigned_to || '', dueDate: i.due_date || '', 
-                    actionTaken: i.action_taken || '', resolutionNote: i.resolution_note || ''
-                };
+        // --- MOCK_SITE_ACTIVITIES & AE PLANS ---
+        MOCK_SITE_ACTIVITIES = [];
+        window.MOCK_AE_PLANS = [];
+        
+        if(data.siteActivities && data.siteActivities.length > 0) {
+            data.siteActivities.forEach(function(a) {
+                MOCK_SITE_ACTIVITIES.push({
+                    id: safeGet(a, ['act_id', 'id']), 
+                    clientId: safeGet(a, ['client_id', 'clientId']), 
+                    date: safeGet(a, ['date', 'Date']), 
+                    type: safeGet(a, ['type', 'Type']), 
+                    remark: safeGet(a, ['remark', 'Remark']), 
+                    actionBy: safeGet(a, ['action_by', 'actionBy'])
+                });
             });
-        } else { MOCK_ISSUES = []; }
-
-        // MOCK_ATTENDANCE
-        if(data.attendance) {
-            MOCK_ATTENDANCE = data.attendance.map(function(a) {
-                return {
-                    id: a.record_id, shiftId: a.shift_id, hkId: a.hk_id, clientId: a.client_id,
-                    date: a.date, checkInTime: a.check_in_time, checkInImg: a.check_in_img,
-                    checkInLat: a.check_in_lat, checkInLng: a.check_in_lng,
-                    checkOutTime: a.check_out_time, checkOutSiteImg: a.check_out_site_img,
-                    checkOutDocImg: a.check_out_doc_img, status: a.status
-                };
+        }
+        
+        // กู้คืนแผนที่เคยจัดไว้ในตารางใหม่ AE_Plans (ถ้าย้ายกลับมาตารางเดิม)
+        if(data.ae_plans && data.ae_plans.length > 0) {
+            data.ae_plans.forEach(function(p) {
+                MOCK_SITE_ACTIVITIES.push({
+                    id: safeGet(p, ['plan_id', 'id']), 
+                    clientId: safeGet(p, ['client_id', 'clientId']), 
+                    date: safeGet(p, ['plan_date', 'date']), 
+                    type: 'Inspection', 
+                    remark: safeGet(p, ['notes']) || safeGet(p, ['status']), 
+                    actionBy: safeGet(p, ['ae_email', 'aeEmail'])
+                });
             });
-        } else { MOCK_ATTENDANCE = []; }
+        }
+        window.MOCK_SITE_ACTIVITIES = MOCK_SITE_ACTIVITIES;
 
-        // 💡 แมพปิ้งข้อมูลรายงานตรวจงานและประเมินผล (ที่หายไป ผมใส่คืนให้แล้วครับ)
-        if(data.inspections) {
-            MOCK_INSPECTIONS = data.inspections.map(function(ins) {
-                return {
-                    inspection_id: ins.inspection_id, client_id: ins.client_id, ae_id: ins.ae_id, date: ins.date,
-                    quality_score: ins.quality_score, follow_up_date: ins.follow_up_date, interview_note: ins.interview_note,
-                    signature_url: ins.signature_url, checklist_data: ins.checklist_data, issues_data: ins.issues_data
-                };
+        // --- MOCK_ISSUES ---
+        MOCK_ISSUES = [];
+        if(data.issues && data.issues.length > 0) {
+            data.issues.forEach(function(i) {
+                MOCK_ISSUES.push({
+                    id: safeGet(i, ['issue_id', 'id']), 
+                    clientId: safeGet(i, ['client_id', 'clientId']), 
+                    dateReported: safeGet(i, ['date_reported', 'dateReported']),
+                    source: safeGet(i, ['source']) || 'housekeeper', 
+                    providerId: safeGet(i, ['provider_id', 'providerId']) || '',
+                    category: safeGet(i, ['category']), 
+                    description: safeGet(i, ['description']), 
+                    status: safeGet(i, ['status']) || 'Pending',
+                    assignedTo: safeGet(i, ['assigned_to', 'assignedTo']) || '', 
+                    dueDate: safeGet(i, ['due_date', 'dueDate']) || '', 
+                    actionTaken: safeGet(i, ['action_taken', 'actionTaken']) || '', 
+                    resolutionNote: safeGet(i, ['resolution_note', 'resolutionNote']) || ''
+                });
             });
-        } else { MOCK_INSPECTIONS = []; }
+        }
 
-        if(data.evaluations) {
-            MOCK_EVALUATIONS = data.evaluations.map(function(ev) {
-                return {
-                    eval_id: ev.eval_id, client_id: ev.client_id, eval_month: ev.eval_month, 
-                    hk_scores: ev.hk_scores, comment: ev.comment, created_at: ev.created_at
-                };
+        // --- MOCK_ATTENDANCE ---
+        MOCK_ATTENDANCE = [];
+        if(data.attendance && data.attendance.length > 0) {
+            data.attendance.forEach(function(a) {
+                MOCK_ATTENDANCE.push({
+                    id: safeGet(a, ['record_id', 'id']), 
+                    shiftId: safeGet(a, ['shift_id', 'shiftId']), 
+                    hkId: safeGet(a, ['hk_id', 'hkId']), 
+                    clientId: safeGet(a, ['client_id', 'clientId']),
+                    date: safeGet(a, ['date']), 
+                    checkInTime: safeGet(a, ['check_in_time', 'checkInTime']), 
+                    checkInImg: safeGet(a, ['check_in_img', 'checkInImg']),
+                    checkInLat: safeGet(a, ['check_in_lat', 'checkInLat']), 
+                    checkInLng: safeGet(a, ['check_in_lng', 'checkInLng']),
+                    checkOutTime: safeGet(a, ['check_out_time', 'checkOutTime']), 
+                    checkOutSiteImg: safeGet(a, ['check_out_site_img', 'checkOutSiteImg']),
+                    checkOutDocImg: safeGet(a, ['check_out_doc_img', 'checkOutDocImg']), 
+                    status: safeGet(a, ['status'])
+                });
             });
-        } else { MOCK_EVALUATIONS = []; }
+        }
 
-        MOCK_NOTIFICATIONS = [
-            { id: 'N1', title: 'ต้อนรับสู่ระบบ MARI', message: 'ตรวจสอบตารางงานและแจ้งเตือนได้ที่นี่', type: 'System', isRead: false, linkId: null, timestamp: new Date() }
-        ];
+        // --- MOCK_INSPECTIONS ---
+        MOCK_INSPECTIONS = [];
+        if(data.inspections && data.inspections.length > 0) {
+            data.inspections.forEach(function(ins) {
+                MOCK_INSPECTIONS.push({
+                    id: safeGet(ins, ['inspection_id', 'id']), 
+                    clientId: safeGet(ins, ['client_id', 'clientId']), 
+                    aeId: safeGet(ins, ['ae_id', 'aeId']), 
+                    date: safeGet(ins, ['date']),
+                    quality: safeGet(ins, ['quality_score', 'quality']), 
+                    followUpDate: safeGet(ins, ['follow_up_date', 'followUpDate']), 
+                    interviewNote: safeGet(ins, ['interview_note', 'interviewNote']),
+                    signatureUrl: safeGet(ins, ['signature_url', 'signatureUrl']), 
+                    checklist: safeGet(ins, ['checklist_data', 'checklist']), 
+                    issues: safeGet(ins, ['issues_data', 'issues'])
+                });
+            });
+        }
+        window.MOCK_INSPECTIONS = MOCK_INSPECTIONS;
+
+        // --- MOCK_EVALUATIONS ---
+        MOCK_EVALUATIONS = [];
+        if(data.evaluations && data.evaluations.length > 0) {
+            data.evaluations.forEach(function(ev) {
+                MOCK_EVALUATIONS.push({
+                    id: safeGet(ev, ['eval_id', 'id']), 
+                    clientId: safeGet(ev, ['client_id', 'clientId']), 
+                    month: safeGet(ev, ['eval_month', 'month']), 
+                    scores: safeGet(ev, ['hk_scores', 'scores']), 
+                    comment: safeGet(ev, ['comment']), 
+                    createdAt: safeGet(ev, ['created_at', 'createdAt'])
+                });
+            });
+        }
+
+        MOCK_NOTIFICATIONS = [];
 
         refreshAllViews();
         renderNotifications(); 
@@ -678,6 +826,9 @@
         MOCK_ATTENDANCE = [];
         MOCK_INSPECTIONS = [];
         MOCK_EVALUATIONS = [];
+        window.MOCK_AE_PLANS = []; 
+        window.MOCK_INSPECTIONS = MOCK_INSPECTIONS;
+        window.MOCK_SITE_ACTIVITIES = MOCK_SITE_ACTIVITIES;
         MOCK_NOTIFICATIONS = [];
         
         refreshAllViews();
@@ -798,7 +949,6 @@
         if(typeof renderInspectionMatrix === 'function') renderInspectionMatrix();
         if(typeof renderAttendanceTable === 'function') renderAttendanceTable();
         
-        // 💡 สั่งรีเฟรชหน้าประเมิน
         if(typeof renderEvaluations === 'function') renderEvaluations(); 
     }
 
