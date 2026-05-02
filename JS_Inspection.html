@@ -1,348 +1,593 @@
-<!-- ======================================= -->
-<!-- [PAGE COMPONENT]: INSPECTION (ตารางแผนและการเข้าตรวจงาน) -->
-<!-- ======================================= -->
+<!-- ============================================== -->
+<!-- MODALS สำหรับระบบแผนตรวจงาน (INSPECTION) -->
+<!-- ============================================== -->
 
-<div id="view-inspection" class="view-container hidden flex-grow flex-col overflow-hidden bg-[#f0f4f8]">
-    <div class="bg-white px-6 py-3 flex flex-wrap items-center justify-between shrink-0 border-b border-gray-200 shadow-sm gap-4">
-        <div class="flex items-center gap-3">
-            <button onclick="changeInspectionMonth(-1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-            <input type="month" id="inspectionMonthPicker" onchange="setInspectionMonthFromPicker(this.value)" class="border border-gray-300 rounded px-3 py-1.5 text-sm font-bold text-brand outline-none focus:border-brand">
-            <button onclick="changeInspectionMonth(1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-brand hover:text-white transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+<!-- 1. Modal: มอบหมายแผนตรวจงานให้ AE (AE Plan Modal) -->
+<div id="aePlanModal" class="fixed inset-0 bg-gray-900 bg-opacity-40 z-[100] hidden flex items-center justify-center backdrop-blur-[2px] transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-transform">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+            <h3 class="text-lg font-black text-brand"><i class="fa-solid fa-calendar-plus mr-2 text-green-500"></i>มอบหมายงานตรวจคุณภาพ</h3>
+            <button onclick="closeModal('aePlanModal')" class="text-gray-400 hover:text-gray-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
         </div>
         
-        <!-- 💡 แก้ไขปุ่มรีเฟรช ให้เรียกใช้ฟังก์ชันดึงข้อมูลที่ถูกต้อง -->
-        <button onclick="if(typeof applyUserRoleAndStart === 'function') applyUserRoleAndStart()" class="px-4 py-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg text-[12px] font-bold hover:bg-white transition flex items-center gap-2">
-            <i class="fa-solid fa-arrows-rotate"></i> อัปเดตข้อมูลล่าสุด
-        </button>
-    </div>
-    
-    <div class="bg-white px-6 py-2 border-b border-gray-200 flex flex-wrap gap-4 text-[10px] font-bold shrink-0 uppercase tracking-wide">
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-orange-400 rounded-sm shadow-sm"></div> วันเริ่มสัญญา</div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-500 rounded-sm shadow-sm"></div> วันสิ้นสุดสัญญา</div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-green-500 rounded-sm shadow-sm"></div> กิจกรรม AE</div>
-        <div class="flex items-center gap-1.5"><div class="w-4 h-4 text-brand flex items-center justify-center"><i class="fa-solid fa-file-circle-check text-sm"></i></div> มีรายงานตรวจงาน (จากมือถือ)</div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 border border-gray-300 bg-white flex items-center justify-center text-[9px] font-black">2</div> จำนวนพนักงานในกะ</div>
-    </div>
-
-    <div class="flex-grow overflow-auto bg-white custom-scrollbar p-4" id="inspectionTableContainer">
-    </div>
-</div>
-
-<!-- MODAL บันทึกกิจกรรม AE (Manual) -->
-<div id="inspectionModalOverlay" class="fixed inset-0 bg-gray-900/60 z-[99999] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transform scale-100 transition-transform duration-200 border border-gray-100">
-        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-brandLight/30">
-            <h3 class="text-md font-black text-brand"><i class="fa-solid fa-list-check mr-2"></i> บันทึกกิจกรรม AE</h3>
-            <button onclick="document.getElementById('inspectionModalOverlay').classList.add('hidden')" class="text-gray-400 hover:text-gray-800"><i class="fa-solid fa-xmark"></i></button>
-        </div>
         <div class="p-6 flex flex-col gap-4">
-            <input type="hidden" id="inspActId">
-            <input type="hidden" id="inspClientId">
-            <input type="hidden" id="inspDate">
-            <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <p class="text-[12px] text-gray-500 font-medium mb-1">ลูกค้า: <span class="font-bold text-gray-800" id="inspClientNameDisplay">-</span></p>
-                <p class="text-[12px] text-gray-500 font-medium">วันที่: <span class="font-bold text-brand" id="inspDateDisplay">-</span></p>
+            <input type="hidden" id="planId">
+            
+            <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
+                <div class="flex flex-col gap-1">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">สถานที่ตรวจ (Client)</span>
+                    <span class="text-[14px] font-black text-brand" id="planClientName">ชื่อไซต์งาน</span>
+                    <input type="hidden" id="planClientId">
+                </div>
             </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">วันที่เข้าตรวจ <span class="text-red-500">*</span></label>
+                    <input type="date" id="planDate" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand transition shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-[12px] font-bold text-gray-600 mb-1">สถานะ</label>
+                    <select id="planStatus" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand transition shadow-sm">
+                        <option value="Pending">รอดำเนินการ (Pending)</option>
+                        <option value="Completed" disabled>ตรวจแล้ว (Completed)</option>
+                    </select>
+                </div>
+            </div>
+
             <div>
-                <label class="block text-[12px] font-bold text-gray-600 mb-1">ประเภทกิจกรรม</label>
-                <select id="inspType" class="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm font-medium outline-none focus:border-brand">
-                    <option value="">-- ไม่ระบุ / ลบกิจกรรม --</option>
-                    <option value="Inspection">🟢 เข้าตรวจสอบคุณภาพงาน</option>
-                    <option value="Report">🔵 วันส่งรายงาน</option>
-                    <option value="OJT">🟣 วัน OJT</option>
-                    <option value="Payment">🌸 ทำเรื่องเบิกค่าจ้าง</option>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">ผู้ตรวจงาน (AE / Supervisor) <span class="text-red-500">*</span></label>
+                <select id="planAeEmail" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand transition shadow-sm">
+                    <!-- จะถูกเติมตัวเลือกจาก MOCK_USERS ที่มี Role เป็น AE หรือ Admin -->
                 </select>
             </div>
+
             <div>
-                <label class="block text-[12px] font-bold text-gray-600 mb-1">หมายเหตุ</label>
-                <textarea id="inspRemark" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand" placeholder="ระบุรายละเอียดเพิ่มเติม..."></textarea>
+                <label class="block text-[12px] font-bold text-gray-600 mb-1">หมายเหตุสั่งงาน (Optional)</label>
+                <textarea id="planNotes" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-medium outline-none focus:border-brand transition shadow-sm" placeholder="เน้นย้ำจุดที่ต้องตรวจเป็นพิเศษ..."></textarea>
             </div>
         </div>
-        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-            <button onclick="document.getElementById('inspectionModalOverlay').classList.add('hidden')" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 transition">ยกเลิก</button>
-            <button onclick="saveInspectionActivity()" class="px-6 py-2.5 bg-brand text-white rounded-md text-sm font-bold hover:bg-brandDark shadow-sm transition">บันทึกข้อมูล</button>
+        
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-between bg-gray-50 shrink-0">
+            <button id="btnDeletePlan" onclick="deleteAEPlan()" class="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-[13px] font-bold transition hidden"><i class="fa-solid fa-trash-can mr-1"></i> ลบแผน</button>
+            <div class="flex gap-2 ml-auto">
+                <button onclick="closeModal('aePlanModal')" class="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-md text-[13px] font-bold hover:bg-gray-50 transition">ยกเลิก</button>
+                <button onclick="saveAEPlan(event)" class="px-6 py-2 bg-green-500 text-white rounded-md text-[13px] font-bold hover:bg-green-600 shadow-sm transition transform hover:-translate-y-0.5">บันทึกคิวตรวจ</button>
+            </div>
         </div>
     </div>
 </div>
 
-<script>
-    // 💡 1. จัดการเรื่องวันที่และ Month Picker
-    var savedInspDateStr = localStorage.getItem('mari_inspection_date');
-    var currentInspectionDate = savedInspDateStr ? new Date(savedInspDateStr) : new Date();
+<!-- 2. Modal: รายงานการตรวจ (Inspection Report Print View) -->
+<div id="reportPrintModal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[200] hidden flex flex-col items-center backdrop-blur-[2px] transition-opacity p-4 md:p-10">
+    <div class="w-full max-w-4xl flex justify-between items-center mb-4 shrink-0 bg-white p-3 rounded-xl shadow-lg">
+        <h3 class="text-base font-black text-brand"><i class="fa-solid fa-file-pdf mr-2 text-red-500"></i> รายงานการตรวจคุณภาพ (Inspection Report)</h3>
+        <div class="flex gap-2">
+            <button onclick="printReportContent()" class="px-4 py-2 bg-brand text-white rounded-md text-[12px] font-bold hover:bg-brandDark transition shadow-sm flex items-center gap-2"><i class="fa-solid fa-print"></i> พิมพ์ / PDF</button>
+            <button onclick="closeModal('reportPrintModal')" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>
+    
+    <!-- Printable A4 Area -->
+    <div id="printableReportArea" class="w-full max-w-4xl bg-white shadow-2xl rounded-sm flex-grow overflow-y-auto custom-scrollbar relative">
+        <div class="p-8 md:p-12" id="reportContentInner">
+            <!-- ข้อมูลรายงานจะถูกสร้างจาก JS และใส่ตรงนี้ -->
+        </div>
+    </div>
+</div>
 
+
+<!-- ============================================== -->
+<!-- JAVASCRIPT สำหรับจัดการระบบ INSPECTION -->
+<!-- ============================================== -->
+<script>
+    // 💡 ตัวแปรเก็บเดือนและปีปัจจุบันของหน้าตาราง Matrix
+    var inspCurrentDate = new Date();
+    
+    // ตรวจสอบและประกาศตัวแปร Mock Data หากยังไม่มี
+    window.MOCK_AE_PLANS = window.MOCK_AE_PLANS || [];
+
+    // --- ส่วนควบคุม TABS ---
+    function switchInspectionTab(tabId) {
+        var tabMatrix = document.getElementById('tab-insp-matrix');
+        var tabHistory = document.getElementById('tab-insp-history');
+        var contentMatrix = document.getElementById('content-insp-matrix');
+        var contentHistory = document.getElementById('content-insp-history');
+
+        if (!tabMatrix || !tabHistory) return;
+
+        tabMatrix.className = "px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors whitespace-nowrap";
+        tabHistory.className = "px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-transparent text-gray-500 hover:text-gray-800 transition-colors whitespace-nowrap";
+        
+        contentMatrix.classList.add('hidden');
+        contentHistory.classList.add('hidden');
+
+        if (tabId === 'matrix') {
+            tabMatrix.className = "px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-brand text-brand transition-colors whitespace-nowrap";
+            contentMatrix.classList.remove('hidden');
+            contentMatrix.classList.add('flex');
+            renderInspectionMatrix();
+        } else if (tabId === 'history') {
+            tabHistory.className = "px-5 py-2.5 text-[13px] font-bold border-b-[3px] border-brand text-brand transition-colors whitespace-nowrap";
+            contentHistory.classList.remove('hidden');
+            contentHistory.classList.add('flex');
+            renderInspectionHistoryTable();
+        }
+    }
+
+    // --- ส่วนควบคุมปฏิทิน Matrix ---
     function initInspectionView() {
-        var monthPicker = document.getElementById('inspectionMonthPicker');
-        if(monthPicker) {
-            var yyyy = currentInspectionDate.getFullYear();
-            var mm = String(currentInspectionDate.getMonth() + 1).padStart(2, '0');
-            monthPicker.value = yyyy + '-' + mm;
+        var picker = document.getElementById('inspectionMonthPicker');
+        if (picker) {
+            picker.value = inspCurrentDate.getFullYear() + '-' + String(inspCurrentDate.getMonth() + 1).padStart(2, '0');
         }
         renderInspectionMatrix();
     }
 
     function changeInspectionMonth(offset) {
-        currentInspectionDate.setMonth(currentInspectionDate.getMonth() + offset);
-        localStorage.setItem('mari_inspection_date', currentInspectionDate.toISOString());
-        initInspectionView();
-    }
-
-    function setInspectionMonthFromPicker(val) {
-        if(!val) return;
-        var parts = val.split('-');
-        currentInspectionDate = new Date(parts[0], parseInt(parts[1]) - 1, 1);
-        localStorage.setItem('mari_inspection_date', currentInspectionDate.toISOString());
+        inspCurrentDate.setMonth(inspCurrentDate.getMonth() + offset);
+        var picker = document.getElementById('inspectionMonthPicker');
+        if (picker) {
+            picker.value = inspCurrentDate.getFullYear() + '-' + String(inspCurrentDate.getMonth() + 1).padStart(2, '0');
+        }
         renderInspectionMatrix();
     }
 
-    function formatThaiDateShort(dateStr) {
-        if(!dateStr) return '-';
-        var d = new Date(dateStr);
-        if(isNaN(d.getTime())) return '-';
-        var months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-        var year = (d.getFullYear() + 543).toString().slice(-2);
-        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + year;
+    function setInspectionMonthFromPicker(val) {
+        if (!val) return;
+        var parts = val.split('-');
+        if (parts.length === 2) {
+            inspCurrentDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+            renderInspectionMatrix();
+        }
     }
 
-    // 💡 2. วาดตาราง Matrix หลัก
+    // --- ส่วนแสดงผลตาราง Matrix ---
     function renderInspectionMatrix() {
         var container = document.getElementById('inspectionTableContainer');
-        if(!container) return;
+        if (!container) return;
 
-        var yyyy = currentInspectionDate.getFullYear();
-        var mm = currentInspectionDate.getMonth();
-        var daysInMonth = new Date(yyyy, mm + 1, 0).getDate();
+        var year = inspCurrentDate.getFullYear();
+        var month = inspCurrentDate.getMonth();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
         
-        var monthNamesFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-        var headerMonthText = monthNamesFull[mm] + ' ' + (yyyy + 543); 
+        var monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        var dayNames = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-        var html = '<table class="w-full border-collapse text-center text-[11px] min-w-[1800px] border border-gray-300 shadow-sm">';
-        html += '<thead><tr class="bg-brandDark text-white">';
-        html += '<th rowspan="2" class="border border-white/20 p-3 sticky left-0 z-20 bg-brandDark w-56 font-bold text-[13px]">ไซต์งาน</th>';
-        html += '<th rowspan="2" class="border border-white/20 p-2 w-32 font-medium bg-brand/90">วันเข้าบริการ</th>';
-        html += '<th rowspan="2" class="border border-white/20 p-2 w-32 font-medium bg-brand/90">ความถี่ / เดือน</th>';
-        html += '<th rowspan="2" class="border border-white/20 p-2 w-28 font-medium bg-brand/90">วันที่เริ่มสัญญา</th>';
-        html += '<th rowspan="2" class="border border-white/20 p-2 w-28 font-medium bg-brand/90">วันที่สิ้นสุด</th>';
-        html += '<th colspan="' + daysInMonth + '" class="border border-white/20 p-2 bg-brandDark text-[14px] font-black tracking-widest">' + headerMonthText + '</th>';
-        html += '</tr><tr class="bg-gray-100">';
+        var currentMonthStr = String(month + 1).padStart(2, '0');
+        var yearMonthPrefix = year + '-' + currentMonthStr + '-';
 
-        for(var d=1; d<=daysInMonth; d++) {
-            var dateObj = new Date(yyyy, mm, d);
-            var dayNames = ['อา','จ','อ','พ','พฤ','ศ','ส'];
-            var isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
-            var bgHead = isWeekend ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-700';
-            html += '<th class="border border-gray-300 p-1 w-10 ' + bgHead + '"><div class="font-normal text-[9px]">' + dayNames[dateObj.getDay()] + '</div><div class="font-bold">' + String(d).padStart(2,'0') + '</div></th>';
+        // 1. สร้างส่วนหัวตาราง (Header)
+        var html = '<table class="w-full text-left border-collapse min-w-max bg-white shadow-sm">';
+        html += '<thead class="sticky top-0 z-20">';
+        
+        // แถวชื่อเดือน
+        html += '<tr>';
+        html += '<th colspan="5" class="p-0 border-r border-gray-200 bg-brandDark"></th>';
+        html += '<th colspan="' + daysInMonth + '" class="py-2 px-3 text-center bg-brandDark text-white text-[13px] font-bold border-b border-white/20">' + monthNames[month] + ' ' + (year + 543) + '</th>';
+        html += '</tr>';
+
+        // แถวหัวข้อคอลัมน์และวันที่
+        html += '<tr>';
+        html += '<th class="py-3 px-4 bg-brandDark text-white text-[11px] font-bold text-center border-r border-white/20 sticky left-0 z-30 min-w-[180px]">ไซต์งาน</th>';
+        html += '<th class="py-3 px-3 bg-brand text-white/90 text-[10px] font-medium text-center border-r border-white/20 min-w-[100px]">วันเข้าบริการ</th>';
+        html += '<th class="py-3 px-3 bg-brand text-white/90 text-[10px] font-medium text-center border-r border-white/20 min-w-[100px]">ความถี่ / เดือน</th>';
+        html += '<th class="py-3 px-3 bg-brand text-white/90 text-[10px] font-medium text-center border-r border-white/20 min-w-[100px]">วันที่เริ่มสัญญา</th>';
+        html += '<th class="py-3 px-3 bg-brand text-white/90 text-[10px] font-medium text-center border-r border-white/20 min-w-[100px]">วันที่สิ้นสุด</th>';
+
+        for (var i = 1; i <= daysInMonth; i++) {
+            var d = new Date(year, month, i);
+            var dayStr = dayNames[d.getDay()];
+            var isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+            var thClass = isWeekend ? "bg-red-50 text-red-500" : "bg-white text-gray-600";
+            
+            html += '<th class="py-1 px-0 border border-gray-200 text-center ' + thClass + ' w-[32px] min-w-[32px] max-w-[32px]">';
+            html += '<div class="text-[9px] font-bold leading-tight">' + dayStr + '</div>';
+            html += '<div class="text-[12px] font-black leading-tight">' + String(i).padStart(2, '0') + '</div>';
+            html += '</th>';
         }
         html += '</tr></thead><tbody>';
 
-        MOCK_CLIENTS.forEach(function(client) {
-            if(client.type === 'system') return;
-            var cStart = client.startDate ? new Date(client.startDate) : null;
-            var cEnd = client.endDate ? new Date(client.endDate) : null;
-            var clientBgColor = (client.color) ? client.color + '20' : '#f3f4f6';
+        // 2. กรองเฉพาะลูกค้า B2B และ B2C ที่เปิดใช้งาน
+        var activeClients = MOCK_CLIENTS.filter(function(c) { return c.type !== 'system' && c.status === 'Active'; });
+        
+        if (activeClients.length === 0) {
+            html += '<tr><td colspan="' + (5 + daysInMonth) + '" class="text-center py-10 text-gray-400 italic">ไม่มีข้อมูลไซต์งานที่กำลังให้บริการ</td></tr>';
+        }
 
-            html += '<tr class="hover:bg-gray-50/50 transition-colors">';
-            html += '<td class="border border-gray-200 p-3 sticky left-0 z-10 text-left font-bold text-gray-800 truncate shadow-sm" style="background-color: white; border-left: 5px solid ' + (client.color || '#3d5a6c') + ';">' + client.name + '</td>';
-            html += '<td class="border border-gray-200 p-2 text-gray-600 bg-white font-medium">' + (client.serviceDays || '-') + '</td>';
-            html += '<td class="border border-gray-200 p-2 text-gray-600 bg-white font-medium">' + (client.frequency || '-') + '</td>';
-            html += '<td class="border border-gray-200 p-2 text-gray-500 bg-white">' + (client.startDate ? formatThaiDateShort(client.startDate) : '-') + '</td>';
-            html += '<td class="border border-gray-200 p-2 text-gray-500 bg-white">' + (client.endDate ? formatThaiDateShort(client.endDate) : '-') + '</td>';
+        // 3. วนลูปสร้างแถวของแต่ละลูกค้า
+        activeClients.forEach(function(client) {
+            var colorBar = '<div class="absolute left-0 top-0 bottom-0 w-1.5" style="background-color: ' + (client.color || '#cbd5e1') + '"></div>';
+            
+            html += '<tr class="hover:bg-gray-50 transition-colors border-b border-gray-200">';
+            html += '<td class="py-3 px-4 relative bg-white sticky left-0 z-10 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">' + colorBar + '<span class="font-bold text-[12px] text-gray-900 ml-1 truncate block max-w-[160px]" title="' + client.name + '">' + client.name + '</span></td>';
+            html += '<td class="py-3 px-2 text-center text-[11px] text-gray-600 border-r border-gray-200">' + (client.serviceDays || '-') + '</td>';
+            html += '<td class="py-3 px-2 text-center text-[11px] text-gray-600 border-r border-gray-200">' + (client.frequency || '-') + '</td>';
+            
+            // Format Contract Dates
+            var formatDt = function(dStr) {
+                if(!dStr) return '-';
+                try { var dt = new Date(dStr); return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getFullYear()).slice(-2); } 
+                catch(e) { return dStr; }
+            };
+            html += '<td class="py-3 px-2 text-center text-[11px] text-gray-600 border-r border-gray-200">' + formatDt(client.startDate) + '</td>';
+            html += '<td class="py-3 px-2 text-center text-[11px] text-gray-600 border-r border-gray-200">' + formatDt(client.endDate) + '</td>';
 
-            for(var d=1; d<=daysInMonth; d++) {
-                var cellDateStr = yyyy + '-' + String(mm+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-                var bgColorClass = 'bg-white';
-                var iconHtml = '';
-                var textHtml = '';
-
-                // เช็ควันเริ่ม/สิ้นสุดสัญญา
-                if(cStart && formatDateString(cStart) === cellDateStr) bgColorClass = 'bg-orange-400';
-                if(cEnd && formatDateString(cEnd) === cellDateStr) bgColorClass = 'bg-red-500';
-
-                // 💡 เช็ครายงานตรวจงานจริง (จาก MOCK_INSPECTIONS)
-                var realReport = MOCK_INSPECTIONS ? MOCK_INSPECTIONS.find(ins => ins.client_id === client.id && ins.date === cellDateStr) : null;
-                if (realReport) {
-                    var scoreColor = realReport.quality_score === 'ดีมาก' ? 'text-emerald-600' : 'text-brand';
-                    iconHtml = '<button onclick="openFullInspectionReport(\'' + realReport.inspection_id + '\')" class="' + scoreColor + ' hover:scale-125 transition-transform drop-shadow-sm" title="คลิกเพื่อดูรายงานฉบับเต็มจาก AE"><i class="fa-solid fa-file-circle-check text-lg"></i></button>';
+            // เตรียมข้อมูลประกอบการลงจุด (Shifts, AE Plans, Inspections)
+            var shiftsByDate = {};
+            MOCK_SHIFTS.forEach(function(s) {
+                if (s.clientId === client.id && s.date.startsWith(yearMonthPrefix) && s.status !== 'cancelled') {
+                    if(!shiftsByDate[s.date]) shiftsByDate[s.date] = 0;
+                    if(s.hks && s.hks.length > 0) shiftsByDate[s.date] += s.hks.length;
                 }
+            });
 
-                // เช็คกิจกรรม AE ที่แอดมินบันทึกมือ
-                var act = MOCK_SITE_ACTIVITIES.find(a => a.clientId === client.id && a.date === cellDateStr);
-                if(act) {
-                    if(act.type === 'Inspection') bgColorClass = 'bg-green-500';
-                    else if(act.type === 'Report') bgColorClass = 'bg-blue-500';
-                    else if(act.type === 'OJT') bgColorClass = 'bg-purple-400';
-                    else if(act.type === 'Payment') bgColorClass = 'bg-pink-300';
-                }
-
-                // เช็คจำนวนคนในกะ
-                var shifts = MOCK_SHIFTS.filter(s => s.clientId === client.id && s.date === cellDateStr && s.status !== 'cancelled');
-                var workers = 0; shifts.forEach(s => { if(s.hks) workers += s.hks.length; });
-                if(workers > 0) textHtml = '<span class="font-black text-[12px] ' + (bgColorClass !== 'bg-white' ? 'text-white' : 'text-gray-400') + '">' + workers + '</span>';
-
-                html += '<td class="border border-gray-200 relative p-0" onclick="openInspectionActivityModal(\'' + client.id + '\', \'' + cellDateStr + '\')">';
-                html += '<div class="w-full h-full min-h-[42px] flex flex-col items-center justify-center gap-0.5 ' + bgColorClass + '">';
-                html += iconHtml ? iconHtml : textHtml;
-                html += '</div></td>';
+            var plansByDate = {};
+            if(window.MOCK_AE_PLANS) {
+                window.MOCK_AE_PLANS.forEach(function(p) {
+                    if (p.clientId === client.id && p.date && p.date.startsWith(yearMonthPrefix)) {
+                        plansByDate[p.date] = p;
+                    }
+                });
             }
+
+            var inspectionsByDate = {};
+            if(window.MOCK_INSPECTIONS) {
+                window.MOCK_INSPECTIONS.forEach(function(i) {
+                    if (i.clientId === client.id && i.date && i.date.startsWith(yearMonthPrefix)) {
+                        inspectionsByDate[i.date] = i;
+                    }
+                });
+            }
+
+            // 4. วนลูปวาดช่องตารางในแต่ละวัน (1 - 31)
+            for (var i = 1; i <= daysInMonth; i++) {
+                var currentDateStr = yearMonthPrefix + String(i).padStart(2, '0');
+                
+                var cellClasses = ["border-r", "border-gray-200", "p-0", "relative", "h-[36px]", "hover:bg-gray-100", "cursor-pointer", "transition"];
+                var innerHtml = '';
+                var isStart = client.startDate === currentDateStr;
+                var isEnd = client.endDate === currentDateStr;
+
+                if (isStart) innerHtml += '<div class="absolute inset-0 bg-orange-400 opacity-20 pointer-events-none"></div>';
+                if (isEnd) innerHtml += '<div class="absolute inset-0 bg-red-500 opacity-20 pointer-events-none"></div>';
+
+                var hasPlan = plansByDate[currentDateStr];
+                var hasInsp = inspectionsByDate[currentDateStr];
+                var shiftCount = shiftsByDate[currentDateStr];
+
+                // จัดเรียง Icon/Badge ให้อยู่กึ่งกลางเซลล์
+                var iconsHtml = '<div class="w-full h-full flex items-center justify-center pointer-events-none z-10 relative">';
+                
+                if (hasInsp) {
+                    // มีรายงานแล้ว โชว์ไอคอนรายงาน
+                    iconsHtml += '<i class="fa-solid fa-file-circle-check text-brand text-[14px]"></i>';
+                } else if (hasPlan) {
+                    // มีแผนตรวจงาน โชว์กล่องเขียว
+                    var pColor = hasPlan.status === 'Completed' ? 'bg-brand' : 'bg-green-500';
+                    iconsHtml += '<div class="w-4 h-4 ' + pColor + ' rounded-sm shadow-sm flex items-center justify-center text-white text-[8px] font-bold" title="AE: ' + hasPlan.aeEmail + '"><i class="fa-solid fa-user-check"></i></div>';
+                } else if (shiftCount && shiftCount > 0) {
+                    // ไม่มีแผนตรวจ แต่มีแม่บ้านลงคิวไว้ โชว์ตัวเลข
+                    iconsHtml += '<div class="text-[10px] font-black text-gray-400">' + shiftCount + '</div>';
+                }
+                
+                iconsHtml += '</div>';
+                innerHtml += iconsHtml;
+
+                // 💡 เพิ่ม Onclick เพื่อเปิด Modal จัดคิว AE
+                var onclickAttr = 'onclick="openAEPlanModal(\'' + client.id + '\', \'' + currentDateStr + '\', \'' + (hasPlan ? hasPlan.id : '') + '\')"';
+
+                html += '<td class="' + cellClasses.join(' ') + '" ' + onclickAttr + ' title="กดเพื่อเพิ่ม/แก้ไขแผนเข้าตรวจงาน">' + innerHtml + '</td>';
+            }
+
             html += '</tr>';
         });
+
         html += '</tbody></table>';
         container.innerHTML = html;
     }
 
-    // 💡 3. ระบบแสดงรายงานตรวจงานฉบับเต็ม (AE Report Viewer)
-    function openFullInspectionReport(insId) {
-        if (event) event.stopPropagation();
+    // --- ส่วนจัดการ AE Plan Modal ---
+    function openAEPlanModal(clientId, dateStr, planId) {
+        var client = MOCK_CLIENTS.find(function(c) { return c.id === clientId; });
+        if(!client) return;
+
+        // ดึงรายชื่อ User ที่เป็น AE / Admin มาใส่ Dropdown
+        var aeSelect = document.getElementById('planAeEmail');
+        if(aeSelect) {
+            aeSelect.innerHTML = '<option value="">-- เลือกผู้ตรวจงาน --</option>';
+            MOCK_USERS.forEach(function(u) {
+                if (u.status === 'Active' && (u.role.includes('AE') || u.role.includes('Admin') || u.role.includes('Supervisor'))) {
+                    var opt = document.createElement('option');
+                    opt.value = u.email;
+                    opt.text = u.name + ' (' + u.role + ')';
+                    aeSelect.appendChild(opt);
+                }
+            });
+        }
+
+        setInputValue('planId', planId || '');
+        setInputValue('planClientId', clientId);
+        setInputValue('planDate', dateStr);
+        document.getElementById('planClientName').innerText = client.name;
         
-        // 💡 ค้นหาใน MOCK_INSPECTIONS ที่ถูกต้อง
-        var report = MOCK_INSPECTIONS.find(i => i.inspection_id === insId);
-        if(!report) return;
+        var btnDel = document.getElementById('btnDeletePlan');
 
-        var client = MOCK_CLIENTS.find(c => c.id === report.client_id) || { name: report.client_id };
-        var inspector = MOCK_HOUSEKEEPERS.find(h => h.id === report.ae_id) || { name: report.ae_id };
+        if (planId && window.MOCK_AE_PLANS) {
+            // โหมดแก้ไขแผนเดิม
+            var plan = window.MOCK_AE_PLANS.find(function(p) { return p.id === planId; });
+            if (plan) {
+                setInputValue('planAeEmail', plan.aeEmail);
+                setInputValue('planStatus', plan.status);
+                setInputValue('planNotes', plan.notes || '');
+                if(btnDel) btnDel.classList.remove('hidden');
+            }
+        } else {
+            // โหมดสร้างแผนใหม่
+            setInputValue('planAeEmail', '');
+            setInputValue('planStatus', 'Pending');
+            setInputValue('planNotes', '');
+            if(btnDel) btnDel.classList.add('hidden');
+        }
 
-        var reportContent = `
-            <div class="flex flex-col gap-6 text-gray-800">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-brandLight/50 p-4 rounded-xl border border-brand/10 text-center shadow-sm">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ผลประเมินคุณภาพ</p>
-                        <p class="text-lg font-black text-brand">${report.quality_score}</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-center shadow-sm">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ผู้ตรวจงาน (AE)</p>
-                        <p class="text-sm font-bold text-gray-700">${inspector.name}</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-center shadow-sm">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">วันที่เข้าตรวจ</p>
-                        <p class="text-sm font-bold text-gray-700">${report.date}</p>
-                    </div>
+        var modal = document.getElementById('aePlanModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function saveAEPlan(event) {
+        var id = document.getElementById('planId').value;
+        var clientId = document.getElementById('planClientId').value;
+        var dateStr = document.getElementById('planDate').value;
+        var aeEmail = document.getElementById('planAeEmail').value;
+        var status = document.getElementById('planStatus').value;
+        var notes = document.getElementById('planNotes').value;
+
+        if (!clientId || !dateStr || !aeEmail) {
+            if(typeof showCustomDialog === 'function') showCustomDialog({ title: 'ข้อมูลไม่ครบ', message: 'กรุณาเลือกผู้ตรวจงานและวันที่ให้ครบถ้วน', type: 'warning' });
+            return;
+        }
+
+        var planData = {
+            id: id || 'AEP-' + new Date().getTime(),
+            clientId: clientId,
+            date: dateStr,
+            aeEmail: aeEmail,
+            status: status,
+            notes: notes,
+            actionBy: CURRENT_USER ? CURRENT_USER.email : 'System'
+        };
+
+        var idx = window.MOCK_AE_PLANS.findIndex(function(p) { return p.id === planData.id; });
+        if(idx > -1) { window.MOCK_AE_PLANS[idx] = planData; } else { window.MOCK_AE_PLANS.push(planData); }
+
+        var btn = event && event.target ? event.target : null;
+        var originalText = btn ? btn.innerHTML : '';
+        if(btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> บันทึก...'; btn.disabled = true; }
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                    closeModal('aePlanModal');
+                    renderInspectionMatrix();
+                    showToast(res.message);
+                })
+                .withFailureHandler(function(err) {
+                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                    showCustomDialog({ title: 'ข้อผิดพลาด', message: String(err), type: 'warning' });
+                })
+                .saveAEPlanToBackend(planData);
+        } else {
+            setTimeout(function() {
+                if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                closeModal('aePlanModal');
+                renderInspectionMatrix();
+                showToast('บันทึกแผนตรวจงานสำเร็จ (Mock)');
+            }, 500);
+        }
+    }
+
+    function deleteAEPlan() {
+        var id = document.getElementById('planId').value;
+        if(!id) return;
+
+        showCustomDialog({
+            title: 'ยืนยันการยกเลิกคิว',
+            message: 'คุณต้องการยกเลิกคิวตรวจงานของ AE ในวันนี้ใช่หรือไม่?',
+            type: 'delete',
+            buttons: [
+                { text: 'ไม่', style: 'cancel' },
+                { text: 'ยืนยันยกเลิก', style: 'danger', action: function() {
+                    window.MOCK_AE_PLANS = window.MOCK_AE_PLANS.filter(function(p) { return p.id !== id; });
+                    
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        google.script.run
+                            .withSuccessHandler(function(res) {
+                                closeModal('aePlanModal');
+                                renderInspectionMatrix();
+                                showToast(res.message);
+                            })
+                            .deleteAEPlanToBackend(id);
+                    } else {
+                        closeModal('aePlanModal');
+                        renderInspectionMatrix();
+                        showToast('ลบแผนตรวจงานสำเร็จ (Mock)');
+                    }
+                }}
+            ]
+        });
+    }
+
+    // --- ส่วนแสดงผลตารางประวัติรายงาน (History) ---
+    function renderInspectionHistoryTable() {
+        var tbody = document.getElementById('inspectionHistoryTableBody');
+        if (!tbody) return;
+
+        var keyword = '';
+        var searchInput = document.getElementById('inspHistorySearch');
+        if (searchInput) keyword = searchInput.value.toLowerCase();
+
+        if (!window.MOCK_INSPECTIONS || window.MOCK_INSPECTIONS.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-gray-400 font-medium">ยังไม่มีประวัติรายงานการตรวจ</td></tr>';
+            return;
+        }
+
+        var filtered = window.MOCK_INSPECTIONS.filter(function(ins) {
+            var client = MOCK_CLIENTS.find(function(c){ return c.id === ins.clientId; }) || { name: ins.clientId };
+            var ae = MOCK_USERS.find(function(u){ return u.id === ins.aeId || u.email === ins.aeId; }) || { name: ins.aeId };
+            
+            if (keyword) {
+                if (!client.name.toLowerCase().includes(keyword) && !ae.name.toLowerCase().includes(keyword)) return false;
+            }
+            return true;
+        });
+
+        filtered.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-gray-400 font-medium">ไม่พบข้อมูลที่ค้นหา</td></tr>';
+            return;
+        }
+
+        var html = '';
+        filtered.forEach(function(ins) {
+            var client = MOCK_CLIENTS.find(function(c){ return c.id === ins.clientId; }) || { name: 'ไม่พบชื่อไซต์งาน' };
+            var ae = MOCK_USERS.find(function(u){ return u.id === ins.aeId || u.email === ins.aeId; }) || { name: ins.aeId };
+            
+            var dateObj = new Date(ins.date);
+            var dateStr = String(dateObj.getDate()).padStart(2,'0') + '/' + String(dateObj.getMonth()+1).padStart(2,'0') + '/' + String(dateObj.getFullYear()+543).slice(-2);
+
+            var qColor = 'bg-gray-100 text-gray-600 border-gray-200';
+            if(ins.quality === 'ดีมาก') qColor = 'bg-green-100 text-green-700 border-green-200';
+            else if(ins.quality === 'ดี') qColor = 'bg-blue-100 text-blue-700 border-blue-200';
+            else if(ins.quality === 'ควรปรับปรุง') qColor = 'bg-red-100 text-red-600 border-red-200';
+
+            var issuesCount = 0;
+            try {
+                var issues = JSON.parse(ins.issues || '[]');
+                issuesCount = issues.length;
+            } catch(e) {}
+            var issuesBadge = issuesCount > 0 ? '<span class="text-red-500 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> พบ ' + issuesCount + ' จุด</span>' : '<span class="text-green-500 font-medium">- ปกติ -</span>';
+
+            html += '<tr class="hover:bg-gray-50/50 transition-colors border-b border-gray-100">';
+            html += '<td class="text-center font-bold text-gray-600">' + dateStr + '</td>';
+            html += '<td><div class="font-bold text-gray-900 truncate max-w-[250px]">' + client.name + '</div></td>';
+            html += '<td><div class="font-medium text-brand flex items-center gap-2"><div class="w-6 h-6 rounded-full bg-brandLight flex items-center justify-center text-[10px] text-brand"><i class="fa-solid fa-user-tie"></i></div> ' + ae.name + '</div></td>';
+            html += '<td class="text-center"><span class="px-2.5 py-1 text-[11px] font-bold rounded-md border ' + qColor + '">' + ins.quality + '</span></td>';
+            html += '<td class="text-center">' + issuesBadge + '</td>';
+            html += '<td class="text-center"><button onclick="printInspectionReport(\'' + ins.id + '\')" class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 hover:text-brand hover:border-brand rounded-md text-[11px] font-bold transition shadow-sm flex items-center justify-center gap-1.5 mx-auto"><i class="fa-solid fa-print"></i> รายงาน</button></td>';
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    // --- ส่วนจำลองการสร้างรายงาน PDF ---
+    function printInspectionReport(insId) {
+        var ins = window.MOCK_INSPECTIONS.find(function(i){ return i.id === insId; });
+        if(!ins) return;
+
+        var client = MOCK_CLIENTS.find(function(c){ return c.id === ins.clientId; }) || { name: 'ไม่พบชื่อไซต์งาน', address: '-' };
+        var ae = MOCK_USERS.find(function(u){ return u.id === ins.aeId || u.email === ins.aeId; }) || { name: ins.aeId };
+
+        var dateObj = new Date(ins.date);
+        var dateStr = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Parse JSON Data
+        var items = []; var issues = [];
+        try { items = JSON.parse(ins.checklist || '[]'); } catch(e){}
+        try { issues = JSON.parse(ins.issues || '[]'); } catch(e){}
+
+        // สร้าง HTML สำหรับหน้ากระดาษ A4
+        var html = `
+            <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
+                <img src="https://i.postimg.cc/c4J26FXN/mari-logo-d-text.png" class="h-10 mx-auto mb-2 grayscale">
+                <h1 class="text-xl font-black text-gray-900">รายงานการตรวจสอบคุณภาพการให้บริการ (Inspection Report)</h1>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6 text-[13px] border border-gray-300 p-4 rounded-lg bg-gray-50/50">
+                <div><span class="font-bold text-gray-600">สถานที่ปฏิบัติงาน:</span> <span class="text-gray-900 font-medium">${client.name}</span></div>
+                <div><span class="font-bold text-gray-600">วันที่ตรวจประเมิน:</span> <span class="text-gray-900 font-medium">${dateStr}</span></div>
+                <div><span class="font-bold text-gray-600">ผู้ตรวจประเมิน (AE):</span> <span class="text-gray-900 font-medium">${ae.name}</span></div>
+                <div><span class="font-bold text-gray-600">คะแนนภาพรวม:</span> <span class="text-gray-900 font-black">${ins.quality}</span></div>
+            </div>
+
+            <h3 class="font-bold text-gray-800 text-[14px] border-b border-gray-300 pb-1 mb-3">1. รายการจุดตรวจ (Checklist)</h3>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+        `;
+
+        if (items.length === 0) html += '<p class="text-gray-400 text-sm italic col-span-2">ไม่มีข้อมูลรูปถ่าย Checklist</p>';
+        items.forEach(function(item) {
+            var sText = item.status === 'passed' ? '<span class="text-green-600 font-bold">ผ่าน</span>' : '<span class="text-red-600 font-bold">ไม่ผ่าน</span>';
+            var imgHtml = item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-32 object-cover border border-gray-300 rounded">` : `<div class="w-full h-32 bg-gray-100 flex items-center justify-center border border-gray-300 rounded text-gray-400 text-xs">ไม่มีรูปภาพ</div>`;
+            html += `
+                <div class="border border-gray-200 p-2 rounded break-inside-avoid">
+                    <p class="text-[12px] font-bold text-gray-800 mb-1 truncate">${item.name} (${sText})</p>
+                    ${imgHtml}
                 </div>
+            `;
+        });
 
-                <div>
-                    <h4 class="text-sm font-black text-brand mb-3 border-l-4 border-brand pl-2 uppercase tracking-wide">1. จุดตรวจความสะอาด (Checklist)</h4>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        ${renderChecklistGrid(report.checklist_data)}
-                    </div>
-                </div>
+        html += `</div>
+            <h3 class="font-bold text-red-600 text-[14px] border-b border-gray-300 pb-1 mb-3">2. ปัญหาที่พบและการแก้ไข (Incident & Action)</h3>
+        `;
 
-                <div>
-                    <h4 class="text-sm font-black text-orange-500 mb-3 border-l-4 border-orange-500 pl-2 uppercase tracking-wide">2. ปัญหาที่พบและการแก้ไข (Issues)</h4>
-                    <div class="flex flex-col gap-3">
-                        ${renderIssuesGrid(report.issues_data)}
-                    </div>
-                </div>
-
-                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">3. สัมภาษณ์พนักงาน / หมายเหตุเพิ่มเติม</h4>
-                    <p class="text-[13px] font-medium italic text-gray-600">"${report.interview_note || '-'}"</p>
-                </div>
-
-                <div class="flex flex-col items-end mt-4 pr-4">
-                    <div class="text-center">
-                        <div class="w-40 h-16 border-b border-gray-300 mb-2 flex items-center justify-center overflow-hidden">
-                            ${report.signature_url ? `<img src="${report.signature_url}" class="max-h-full max-w-full">` : '<span class="text-gray-300 text-xs italic">ไม่มีลายเซ็น</span>'}
+        if (issues.length === 0) html += '<p class="text-green-600 font-bold text-sm mb-8"><i class="fa-solid fa-check-circle"></i> ไม่พบปัญหาใดๆ ในการตรวจครั้งนี้</p>';
+        else {
+            html += '<div class="flex flex-col gap-4 mb-8">';
+            issues.forEach(function(issue, idx) {
+                var bImg = issue.beforeUrl ? `<img src="${issue.beforeUrl}" class="w-full h-32 object-cover border border-gray-300 rounded mt-1">` : '';
+                var aImg = issue.afterUrl ? `<img src="${issue.afterUrl}" class="w-full h-32 object-cover border border-gray-300 rounded mt-1">` : '';
+                html += `
+                    <div class="border border-gray-300 p-3 rounded bg-white break-inside-avoid">
+                        <p class="text-[12px] font-bold text-red-600 mb-2">ปัญหาที่ ${idx+1}: <span class="text-gray-800 font-medium">${issue.description || '-'}</span></p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><span class="text-[10px] text-gray-500 font-bold uppercase block">ก่อนแก้ไข (Before)</span>${bImg}</div>
+                            <div>
+                                <span class="text-[10px] text-green-600 font-bold uppercase block">หลังแก้ไข (After)</span>
+                                ${aImg}
+                                ${issue.actionTaken ? `<p class="text-[11px] mt-1 text-gray-600">การแก้ไข: ${issue.actionTaken}</p>` : ''}
+                            </div>
                         </div>
-                        <p class="text-[11px] font-bold text-gray-800">ลงชื่อผู้ตรวจงาน</p>
                     </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        html += `
+            <div class="grid grid-cols-2 gap-8 border-t-2 border-gray-800 pt-6 mt-6 break-inside-avoid">
+                <div class="text-[12px]">
+                    <p class="font-bold text-gray-800 mb-1">ความคิดเห็นเพิ่มเติม:</p>
+                    <p class="text-gray-600 min-h-[60px] p-2 border border-gray-200 bg-gray-50 rounded">${ins.interviewNote || '-'}</p>
+                </div>
+                <div class="flex flex-col items-center justify-end text-center">
+                    ${ins.signatureUrl ? `<img src="${ins.signatureUrl}" class="h-20 object-contain border-b border-gray-400 mb-2 px-8">` : `<div class="h-20 w-48 border-b border-gray-400 mb-2"></div>`}
+                    <p class="text-[13px] font-bold text-gray-800">(${ae.name})</p>
+                    <p class="text-[11px] text-gray-500">ผู้ตรวจประเมินคุณภาพ</p>
                 </div>
             </div>
         `;
 
-        showCustomDialog({
-            title: 'รายงานการตรวจงาน: ' + client.name,
-            message: reportContent,
-            type: 'info',
-            buttons: [{ text: 'ปิดหน้ารายงาน', style: 'cancel' }]
-        });
+        document.getElementById('reportContentInner').innerHTML = html;
+        var modal = document.getElementById('reportPrintModal');
+        if(modal) modal.classList.remove('hidden');
+    }
+
+    function printReportContent() {
+        var printContents = document.getElementById('printableReportArea').innerHTML;
+        var originalContents = document.body.innerHTML;
+
+        // สลับให้แสดงเฉพาะตัวรายงาน
+        document.body.innerHTML = `
+            <div style="padding: 20px; font-family: 'Prompt', sans-serif; background: white;">
+                ${printContents}
+            </div>
+        `;
         
-        var box = document.getElementById('customDialogBox');
-        if(box) box.style.maxWidth = '850px';
-    }
-
-    function renderChecklistGrid(data) {
-        if(!data) return '<p class="text-xs text-gray-400 italic">ไม่มีข้อมูล</p>';
-        try {
-            var items = JSON.parse(data);
-            return items.map(item => `
-                <div class="flex flex-col gap-1 text-center">
-                    <div class="aspect-square rounded-lg border border-gray-100 bg-gray-50 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onclick="previewImage('${item.imgUrl}', '${item.name}')">
-                        <img src="${item.imgUrl}" class="w-full h-full object-cover">
-                    </div>
-                    <span class="text-[10px] font-bold text-gray-600 truncate px-1">${item.name}</span>
-                    <span class="text-[9px] font-black ${item.status === 'passed' ? 'text-green-500' : 'text-red-500'} uppercase">${item.status}</span>
-                </div>
-            `).join('');
-        } catch(e) { return '-'; }
-    }
-
-    function renderIssuesGrid(data) {
-        if(!data || data === '[]') return '<div class="p-4 text-center text-gray-400 text-xs bg-gray-50 rounded-xl border border-gray-100 italic shadow-sm">ไม่พบปัญหาในรอบการตรวจนี้</div>';
-        try {
-            var issues = JSON.parse(data);
-            return issues.map((issue, idx) => `
-                <div class="bg-orange-50/40 border border-orange-100 rounded-xl p-4 flex flex-col gap-3 text-left shadow-sm">
-                    <div class="flex items-center gap-2">
-                        <span class="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">ปัญหาที่ ${idx+1}</span>
-                        <p class="text-[13px] font-bold text-gray-800">${issue.desc}</p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex-1">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">สภาพก่อนแก้ไข (Before)</p>
-                            <img src="${issue.beforeUrl}" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer shadow-sm" onclick="previewImage('${issue.beforeUrl}', 'ก่อนแก้ไข')">
-                        </div>
-                        <div class="text-orange-300"><i class="fa-solid fa-chevron-right text-lg"></i></div>
-                        <div class="flex-1">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">หลังแก้ไข (After)</p>
-                            ${issue.afterUrl ? `<img src="${issue.afterUrl}" class="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer shadow-sm" onclick="previewImage('${issue.afterUrl}', 'แก้ไขแล้ว')">` : '<div class="w-full h-32 flex items-center justify-center bg-white/50 rounded-lg border border-dashed border-gray-300 text-gray-400 text-[10px] italic">รอดำเนินการแก้ไข</div>'}
-                        </div>
-                    </div>
-                    ${issue.actionDesc ? `<div class="bg-white p-2.5 rounded-lg border border-orange-100 text-[11px] text-gray-600 font-medium mt-1"><b>วิธีแก้ไข:</b> ${issue.actionDesc}</div>` : ''}
-                </div>
-            `).join('');
-        } catch(e) { return '-'; }
-    }
-
-    // ฟังก์ชันสำหรับบันทึกกิจกรรมด้วยมือ (Manual) คงเดิม
-    function openInspectionActivityModal(clientId, dateStr) {
-        var isAdmin = (CURRENT_USER && (CURRENT_USER.role === 'Admin / Supervisor' || CURRENT_USER.role === 'Admin' || CURRENT_USER.role === 'DEV'));
-        if (!isAdmin && CURRENT_USER && CURRENT_USER.role === 'Viewer') return;
-
-        var existingAct = MOCK_SITE_ACTIVITIES.find(a => a.clientId === clientId && a.date === dateStr);
-        var client = MOCK_CLIENTS.find(x => x.id === clientId);
-
-        document.getElementById('inspActId').value = existingAct ? existingAct.id : '';
-        document.getElementById('inspClientId').value = clientId;
-        document.getElementById('inspDate').value = dateStr;
-        document.getElementById('inspClientNameDisplay').innerText = client ? client.name : clientId;
-        document.getElementById('inspDateDisplay').innerText = dateStr;
-        document.getElementById('inspType').value = existingAct ? existingAct.type : '';
-        document.getElementById('inspRemark').value = existingAct ? (existingAct.remark || '') : '';
-
-        document.getElementById('inspectionModalOverlay').classList.remove('hidden');
-    }
-
-    function saveInspectionActivity() {
-        var data = {
-            id: document.getElementById('inspActId').value || 'ACT-' + new Date().getTime(),
-            clientId: document.getElementById('inspClientId').value,
-            date: document.getElementById('inspDate').value,
-            type: document.getElementById('inspType').value,
-            remark: document.getElementById('inspRemark').value,
-            actionBy: CURRENT_USER ? CURRENT_USER.email : 'Unknown'
-        };
-
-        if(data.type === '') {
-            MOCK_SITE_ACTIVITIES = MOCK_SITE_ACTIVITIES.filter(a => !(a.clientId === data.clientId && a.date === data.date));
-        } else {
-            var idx = MOCK_SITE_ACTIVITIES.findIndex(a => a.id === data.id);
-            if(idx > -1) MOCK_SITE_ACTIVITIES[idx] = data; else MOCK_SITE_ACTIVITIES.push(data);
-        }
-
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
-            google.script.run.saveSiteActivityToBackend(data, data.type === '');
-        }
+        window.print();
         
-        document.getElementById('inspectionModalOverlay').classList.add('hidden');
-        renderInspectionMatrix(); 
-        if(typeof showToast === 'function') showToast('บันทึกกิจกรรมเรียบร้อยแล้ว');
+        // คืนค่าหน้าเว็บกลับมา (รีโหลดเพื่อให้ตัวแปร JS คืนค่าสมบูรณ์)
+        window.location.reload();
     }
 </script>
