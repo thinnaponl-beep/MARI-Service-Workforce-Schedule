@@ -50,6 +50,17 @@
     </div>
 </div>
 
+<!-- 💡 Full-screen Image Preview Overlay (ส่วนขยายรูปภาพแบบเต็มจอ) -->
+<div id="attendanceImagePreviewOverlay" class="fixed inset-0 bg-black/95 z-[999999] hidden flex items-center justify-center transition-opacity opacity-0" onclick="if(event.target === this) closeAttendanceImagePreview()">
+    <button onclick="closeAttendanceImagePreview()" class="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer z-10">
+        <i class="fa-solid fa-xmark text-2xl"></i>
+    </button>
+    <div class="flex flex-col items-center pointer-events-none">
+        <img id="attendanceImagePreviewTarget" src="" class="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300 pointer-events-auto">
+        <p id="attendanceImagePreviewLabel" class="mt-4 text-white/90 text-[13px] font-medium tracking-wide bg-black/50 px-4 py-2 rounded-full hidden"></p>
+    </div>
+</div>
+
 <script>
     function initAttendanceView() {
         var today = new Date();
@@ -93,13 +104,36 @@
             return true;
         });
 
-        // เรียงลำดับจากวันที่ล่าสุด -> เก่าสุด และเวลาเช็คอินล่าสุด
+        // เรียงลำดับจากวันที่ล่าสุด -> เก่าสุด 
         displayData.sort(function(a, b) {
             if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
-            return new Date(b.checkInTime) - new Date(a.checkInTime);
+            var tA = a.checkInTime ? a.checkInTime : '00:00';
+            var tB = b.checkInTime ? b.checkInTime : '00:00';
+            return tB.localeCompare(tA);
         });
 
         var html = '';
+        var now = new Date();
+        var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        var currentTimeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+        // ฟังก์ชันช่วยจัดรูปแบบเวลาให้มั่นใจว่าเป็น HH:mm เสมอ
+        var formatTime = function(t) {
+            if (!t) return null;
+            if (typeof t === 'string') {
+                if (t.includes('T')) {
+                    var dt = new Date(t);
+                    if (!isNaN(dt.getTime())) return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+                }
+                if (t.includes(':')) {
+                    var parts = t.split(':');
+                    return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0');
+                }
+            }
+            if (t instanceof Date) return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+            return null;
+        };
+
         displayData.forEach(function(record) {
             var hk = MOCK_HOUSEKEEPERS.find(h => h.id === record.hkId) || { name: 'ไม่พบข้อมูล', nickname: '-' };
             var client = MOCK_CLIENTS.find(c => c.id === record.clientId) || { name: 'ไม่พบข้อมูล' };
@@ -108,36 +142,85 @@
             var dateObj = new Date(record.date);
             var dateStr = String(dateObj.getDate()).padStart(2, '0') + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + dateObj.getFullYear();
 
-            var checkInTime = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '-';
-            var checkOutTime = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '-';
-
-            var imgClass = "w-12 h-12 object-cover rounded-md border border-gray-200 shadow-sm cursor-pointer hover:scale-[1.15] transition-transform duration-200";
-            var noImg = '<div class="w-12 h-12 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center text-gray-400" title="ไม่มีรูปภาพ"><i class="fa-solid fa-camera text-[12px]"></i></div>';
-
-            var inImg = record.checkInImg ? '<img src="' + record.checkInImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkInImg + '\', \'รูปสถานที่ตอนเช็คอิน\')">' : noImg;
-            var outSiteImg = record.checkOutSiteImg ? '<img src="' + record.checkOutSiteImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkOutSiteImg + '\', \'รูปสถานที่ก่อนเลิกงาน\')" title="รูปสถานที่">' : noImg;
-            var outDocImg = record.checkOutDocImg ? '<img src="' + record.checkOutDocImg + '" class="' + imgClass + '" onclick="previewImage(\'' + record.checkOutDocImg + '\', \'รูปเอกสารใบงาน\')" title="รูปใบงาน">' : noImg;
-
-            var inHtml = '<div class="flex items-center justify-center gap-3">' + inImg + '<span class="font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100">' + checkInTime + ' น.</span></div>';
-            var outHtml = record.status === 'working' ? '<span class="text-[11px] text-gray-400 italic">- ยังไม่เลิกงาน -</span>' : '<div class="flex items-center justify-center gap-3"><div class="flex gap-1.5">' + outSiteImg + outDocImg + '</div><span class="font-bold text-[#3d5a6c] bg-blue-50 px-2 py-1 rounded border border-blue-100">' + checkOutTime + ' น.</span></div>';
-
-            var statusBadge = record.status === 'completed' 
-                ? '<span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-check-double mr-1"></i> สมบูรณ์</span>'
-                : '<span class="px-2.5 py-1 bg-orange-100 text-orange-600 rounded-md text-[11px] font-bold block"><i class="fa-solid fa-person-digging mr-1"></i> กำลังทำงาน</span>';
-
-            var hkAvatar = hk.avatar || 'https://ui-avatars.com/api/?name=U';
-            var hkColorBorder = 'border: 2px solid ' + (hk.color || '#e5e7eb') + '; padding: 1px; background: white;';
+            var checkInTime = formatTime(record.checkInTime);
+            var checkOutTime = formatTime(record.checkOutTime);
             
+            var displayCheckIn = checkInTime ? checkInTime + ' น.' : '-';
+            var displayCheckOut = checkOutTime ? checkOutTime + ' น.' : '-';
+
+            // 💡 1. คำนวณ "เข้างานสาย"
+            var isLateCheckIn = false;
+            if (checkInTime && shift.start && shift.start !== '-') {
+                var sStartFormat = formatTime(shift.start) || shift.start;
+                if (checkInTime > sStartFormat) isLateCheckIn = true;
+            }
+
+            // 💡 2. คำนวณ "ลืมเช็คเอาท์"
+            var isForgotCheckOut = false;
+            if (checkInTime && !checkOutTime) { // ถ้าเช็คอินแล้วแต่ยังไม่เช็คเอาท์
+                if (record.date < todayStr) {
+                    isForgotCheckOut = true; // ถ้าเป็นของวันก่อนหน้า
+                } else if (record.date === todayStr && shift.end && shift.end !== '-') {
+                    var sEndFormat = formatTime(shift.end) || shift.end;
+                    if (currentTimeStr > sEndFormat) isForgotCheckOut = true; // ถ้าเวลาปัจจุบันเลยเวลาเลิกงานแล้ว
+                }
+            }
+
+            var buildImageElement = function(imgUrl, label) {
+                if (!imgUrl || imgUrl === '-' || imgUrl === '') {
+                    return '<div class="w-12 h-12 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 shrink-0" title="ไม่มีรูปภาพ"><i class="fa-solid fa-camera text-[12px]"></i></div>';
+                }
+                return '<div class="relative inline-block cursor-pointer transform hover:scale-110 transition-all duration-200 shrink-0" onclick="openAttendanceImagePreview(\'' + imgUrl + '\', \'' + label + '\')" title="คลิกเพื่อขยายรูปภาพ">' +
+                       '<img src="' + imgUrl + '" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-200 bg-white">' +
+                       '<div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg">' +
+                       '<i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>' +
+                       '</div></div>';
+            };
+
+            var inImg = buildImageElement(record.checkInImg, 'รูปสถานที่ตอนเช็คอิน (' + hk.name + ')');
+            var outSiteImg = buildImageElement(record.checkOutSiteImg, 'รูปสถานที่ก่อนเลิกงาน (' + hk.name + ')');
+            var outDocImg = buildImageElement(record.checkOutDocImg, 'รูปเอกสารใบงาน (' + hk.name + ')');
+
             var gpsPin = '';
             if (record.checkInLat && record.checkInLng) {
                 gpsPin = '<a href="https://www.google.com/maps/search/?api=1&query=' + record.checkInLat + ',' + record.checkInLng + '" target="_blank" class="text-[10px] text-blue-500 hover:text-blue-700 hover:underline mt-1 inline-block"><i class="fa-solid fa-location-dot"></i> ดูพิกัด (Map)</a>';
             }
 
+            // แสดงส่วนเช็คอิน พร้อมป้ายเข้างานสาย
+            var lateTag = isLateCheckIn ? '<div class="mt-1"><span class="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-100 whitespace-nowrap">เข้างานสาย</span></div>' : '';
+            var inHtml = '<div class="flex flex-col items-center justify-center">' + 
+                            '<div class="flex items-center justify-center gap-2">' + inImg + '<span class="font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100 whitespace-nowrap">' + displayCheckIn + '</span></div>' + 
+                            lateTag + gpsPin + 
+                         '</div>';
+
+            // แสดงส่วนเช็คเอาท์ พร้อมการลืมเช็คเอาท์
+            var outHtml = '';
+            if (checkOutTime) {
+                outHtml = '<div class="flex items-center justify-center gap-3"><div class="flex gap-1.5">' + outSiteImg + outDocImg + '</div><span class="font-bold text-[#3d5a6c] bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">' + displayCheckOut + '</span></div>';
+            } else if (isForgotCheckOut) {
+                outHtml = '<span class="px-2 py-1 bg-red-50 text-red-500 rounded border border-red-100 text-[11px] font-bold whitespace-nowrap">ลืมเช็คเอาท์</span>';
+            } else {
+                outHtml = '<span class="text-[11px] text-gray-400 italic">- ยังไม่เลิกงาน -</span>';
+            }
+
+            // 💡 3. แก้บั๊กสถานะหลังสุด: ควบคุมสถานะรวมจากเวลาที่พบ
+            var statusBadge = '';
+            if (checkOutTime) {
+                statusBadge = '<span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md text-[11px] font-bold block whitespace-nowrap"><i class="fa-solid fa-check-double mr-1"></i> สมบูรณ์</span>';
+            } else if (isForgotCheckOut) {
+                statusBadge = '<span class="px-2.5 py-1 bg-red-100 text-red-600 rounded-md text-[11px] font-bold block whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ลืมเช็คเอาท์</span>';
+            } else {
+                statusBadge = '<span class="px-2.5 py-1 bg-orange-100 text-orange-600 rounded-md text-[11px] font-bold block whitespace-nowrap"><i class="fa-solid fa-person-digging mr-1"></i> กำลังทำงาน</span>';
+            }
+
+            var hkAvatar = hk.avatar || 'https://ui-avatars.com/api/?name=U';
+            var hkColorBorder = 'border: 2px solid ' + (hk.color || '#e5e7eb') + '; padding: 1px; background: white;';
+            
             html += '<tr class="hover:bg-gray-50/50 transition-colors border-b border-gray-100">';
             html += '<td class="text-center font-bold text-gray-700">' + dateStr + '</td>';
             html += '<td><div class="flex items-center gap-3"><img src="' + hkAvatar + '" class="w-10 h-10 rounded-full object-cover shadow-sm" style="' + hkColorBorder + '"><div class="flex flex-col"><span class="font-bold text-gray-900">' + hk.name + '</span><span class="text-[10px] font-medium text-gray-500">' + record.hkId + '</span></div></div></td>';
             html += '<td><div class="font-bold text-brand truncate max-w-[200px]" title="' + client.name + '">' + client.name + '</div><div class="text-[11px] font-medium text-gray-500 mt-0.5"><i class="fa-regular fa-clock mr-1"></i> ' + shift.start + ' - ' + shift.end + '</div></td>';
-            html += '<td class="text-center py-3">' + inHtml + gpsPin + '</td>';
+            html += '<td class="text-center py-3">' + inHtml + '</td>';
             html += '<td class="text-center py-3">' + outHtml + '</td>';
             html += '<td class="text-center">' + statusBadge + '</td>';
             html += '</tr>';
@@ -147,5 +230,41 @@
             html = '<tr><td colspan="6" class="text-center py-16 text-gray-400 italic text-[13px]">- ไม่พบข้อมูลการลงเวลาในช่วงนี้ -</td></tr>';
         }
         tbody.innerHTML = html;
+    }
+
+    // 💡 ฟังก์ชันเปิดรูปภาพแบบเต็มหน้าจอ
+    function openAttendanceImagePreview(url, label) {
+        var overlay = document.getElementById('attendanceImagePreviewOverlay');
+        var imgTarget = document.getElementById('attendanceImagePreviewTarget');
+        var lblTarget = document.getElementById('attendanceImagePreviewLabel');
+        
+        imgTarget.src = url;
+        if (label) {
+            lblTarget.innerText = label;
+            lblTarget.classList.remove('hidden');
+        } else {
+            lblTarget.classList.add('hidden');
+        }
+        
+        overlay.classList.remove('hidden');
+        void overlay.offsetWidth; // Trigger reflow
+        overlay.classList.remove('opacity-0');
+        imgTarget.classList.remove('scale-95');
+        imgTarget.classList.add('scale-100');
+    }
+
+    // 💡 ฟังก์ชันปิดรูปภาพ
+    function closeAttendanceImagePreview() {
+        var overlay = document.getElementById('attendanceImagePreviewOverlay');
+        var imgTarget = document.getElementById('attendanceImagePreviewTarget');
+        
+        overlay.classList.add('opacity-0');
+        imgTarget.classList.remove('scale-100');
+        imgTarget.classList.add('scale-95');
+        
+        setTimeout(function() {
+            overlay.classList.add('hidden');
+            imgTarget.src = '';
+        }, 300);
     }
 </script>
